@@ -276,6 +276,33 @@ Cloudflare Workers へ Wrangler でデプロイします。GitHub Actions では
 - Drizzle migration check
 - Wrangler deploy
 
+## CI とブランチ保護
+
+CI は GitHub Actions で実行します。現在は `check` ジョブで Vite+ の `ready` スクリプトを実行します。
+
+```bash
+vp run ready
+```
+
+`main` に直接壊れたコードを入れないため、GitHub の branch protection を設定します。Required status check は `check` です。
+
+初回は workflow を GitHub に push して、Actions で `check` が一度作成された後に保護設定を適用します。
+
+```bash
+# CI workflow を push した後に実行
+./scripts/setup-branch-protection.sh
+```
+
+必要に応じて環境変数で変更できます。
+
+```bash
+# 1 approval も必須にする
+REQUIRED_APPROVALS=1 ./scripts/setup-branch-protection.sh
+
+# 対象ブランチやリポジトリを明示する
+BRANCH=main REPO=binbianlong/card-game-app ./scripts/setup-branch-protection.sh
+```
+
 ## ライセンス
 
 未定
