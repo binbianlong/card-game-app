@@ -1,5 +1,7 @@
 export { analyzePlay, canPlayOn, compareRanks } from "./rules.ts";
+export { createDeck, createNewGame, dealCards, shuffleCards } from "./setup.ts";
 export { applyGameAction, createGameState } from "./state.ts";
+export { type CreateDeckOptions, type CreateNewGameOptions, type JokerCount } from "./setup.ts";
 export {
   GameRuleError,
   type Card,

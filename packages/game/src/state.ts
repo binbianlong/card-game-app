@@ -16,8 +16,22 @@ export function createGameState(
   }[],
   firstPlayerId: PlayerId = players[0]?.id ?? "",
 ): GameState {
-  if (players.length < 2) {
-    throw new GameRuleError("At least two players are required.");
+  if (players.length < 3 || players.length > 6) {
+    throw new GameRuleError("Game requires between 3 and 6 players.");
+  }
+
+  if (new Set(players.map((player) => player.id)).size !== players.length) {
+    throw new GameRuleError("Player ids must be unique.");
+  }
+
+  if (players.some((player) => player.hand.length === 0)) {
+    throw new GameRuleError("Each player must have at least one card.");
+  }
+
+  const cardIds = players.flatMap((player) => player.hand.map((card) => card.id));
+
+  if (new Set(cardIds).size !== cardIds.length) {
+    throw new GameRuleError("Card ids must be unique across players.");
   }
 
   if (!players.some((player) => player.id === firstPlayerId)) {

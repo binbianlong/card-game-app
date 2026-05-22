@@ -7,6 +7,7 @@ describe("game state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },
       { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
     ]);
 
     expect(state).toMatchObject({
@@ -44,6 +45,7 @@ describe("game state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },
       { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
     ]);
 
     expect(() =>
@@ -59,6 +61,7 @@ describe("game state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },
       { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
     ]);
 
     expect(() =>
@@ -100,6 +103,7 @@ describe("game state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("8"), card("9")] },
       { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
     ]);
 
     const next = applyGameAction(state, {
@@ -134,17 +138,23 @@ describe("game state", () => {
   test("finishes the game when only one player remains active", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },
-      { id: "p2", hand: [card("4"), card("5")] },
+      { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5"), card("6")] },
     ]);
 
-    const next = applyGameAction(state, {
+    const p1Finished = applyGameAction(state, {
       type: "playCards",
       playerId: "p1",
       cardIds: ["spades-3"],
     });
+    const next = applyGameAction(p1Finished, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-4"],
+    });
 
     expect(next.phase).toBe("finished");
-    expect(next.rankings).toEqual(["p1", "p2"]);
+    expect(next.rankings).toEqual(["p1", "p2", "p3"]);
     expect(next.table.play).toBeNull();
   });
 
@@ -152,6 +162,7 @@ describe("game state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },
       { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
     ]);
 
     const disconnected = applyGameAction(state, {
@@ -165,5 +176,40 @@ describe("game state", () => {
 
     expect(disconnected.players.find((player) => player.id === "p2")?.connected).toBe(false);
     expect(reconnected.players.find((player) => player.id === "p2")?.connected).toBe(true);
+  });
+
+  test("rejects games outside the supported player count", () => {
+    expect(() =>
+      createGameState([
+        { id: "p1", hand: [card("3")] },
+        { id: "p2", hand: [card("4")] },
+      ]),
+    ).toThrow(GameRuleError);
+  });
+
+  test("rejects duplicate player ids, empty hands, and duplicate card ids", () => {
+    expect(() =>
+      createGameState([
+        { id: "p1", hand: [card("3")] },
+        { id: "p1", hand: [card("4")] },
+        { id: "p3", hand: [card("5")] },
+      ]),
+    ).toThrow(GameRuleError);
+
+    expect(() =>
+      createGameState([
+        { id: "p1", hand: [card("3")] },
+        { id: "p2", hand: [] },
+        { id: "p3", hand: [card("5")] },
+      ]),
+    ).toThrow(GameRuleError);
+
+    expect(() =>
+      createGameState([
+        { id: "p1", hand: [card("3")] },
+        { id: "p2", hand: [card("3")] },
+        { id: "p3", hand: [card("5")] },
+      ]),
+    ).toThrow(GameRuleError);
   });
 });
