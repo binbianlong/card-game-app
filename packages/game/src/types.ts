@@ -47,6 +47,10 @@ export type RuleOptions = {
   revolution?: boolean;
 };
 
+export type GameRuleSettings = {
+  suitLock: boolean;
+};
+
 export type PlayerId = string;
 
 export type PlayerState = {
@@ -59,6 +63,7 @@ export type GamePhase = "playing" | "finished";
 
 export type GameState = {
   phase: GamePhase;
+  rules: GameRuleSettings;
   players: readonly PlayerState[];
   turnPlayerId: PlayerId;
   table: {
@@ -67,6 +72,7 @@ export type GameState = {
   };
   passedPlayerIds: readonly PlayerId[];
   revolution: boolean;
+  suitLock: readonly Suit[] | null;
   rankings: readonly PlayerId[];
 };
 

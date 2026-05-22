@@ -86,6 +86,16 @@ describe("createNewGame", () => {
     expect(state.turnPlayerId).toBe("p1");
   });
 
+  test("applies local rule settings to the created game", () => {
+    const state = createNewGame(["p1", "p2", "p3"], {
+      deck: [card("4", "clubs"), card("5", "diamonds"), card("6", "hearts")],
+      rng: () => 0.99,
+      rules: { suitLock: true },
+    });
+
+    expect(state.rules.suitLock).toBe(true);
+  });
+
   test("rejects unsupported player counts and duplicate player ids", () => {
     expect(() => createNewGame(["p1", "p2"])).toThrow(GameRuleError);
     expect(() => createNewGame(["p1", "p2", "p3", "p4", "p5", "p6", "p7"])).toThrow(GameRuleError);

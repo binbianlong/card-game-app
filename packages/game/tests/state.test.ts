@@ -135,6 +135,103 @@ describe("game state", () => {
     expect(next.revolution).toBe(true);
   });
 
+  test("keeps suit lock disabled by default", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("5", "spades"), card("9", "clubs")] },
+      { id: "p2", hand: [card("6", "spades"), card("10", "clubs")] },
+      { id: "p3", hand: [card("7", "hearts")] },
+    ]);
+    const p1Played = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-5"],
+    });
+    const p2Played = applyGameAction(p1Played, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-6"],
+    });
+    const p3Played = applyGameAction(p2Played, {
+      type: "playCards",
+      playerId: "p3",
+      cardIds: ["hearts-7"],
+    });
+
+    expect(p3Played.suitLock).toBeNull();
+  });
+
+  test("locks suits as an enabled local rule", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("5", "spades"), card("9", "clubs")] },
+        { id: "p2", hand: [card("6", "spades"), card("10", "clubs")] },
+        { id: "p3", hand: [card("7", "hearts"), card("7", "spades")] },
+      ],
+      "p1",
+      { rules: { suitLock: true } },
+    );
+    const p1Played = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-5"],
+    });
+    const p2Played = applyGameAction(p1Played, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-6"],
+    });
+
+    expect(p2Played.suitLock).toEqual(["spades"]);
+    expect(() =>
+      applyGameAction(p2Played, {
+        type: "playCards",
+        playerId: "p3",
+        cardIds: ["hearts-7"],
+      }),
+    ).toThrow(GameRuleError);
+
+    const p3Played = applyGameAction(p2Played, {
+      type: "playCards",
+      playerId: "p3",
+      cardIds: ["spades-7"],
+    });
+
+    expect(p3Played.table.play).toMatchObject({ kind: "single", rank: "7" });
+  });
+
+  test("clears suit lock when the table is cleared", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("5", "spades"), card("9", "hearts")] },
+        { id: "p2", hand: [card("6", "spades")] },
+        { id: "p3", hand: [card("7", "hearts")] },
+      ],
+      "p1",
+      { rules: { suitLock: true } },
+    );
+    const p1Played = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-5"],
+    });
+    const p2Played = applyGameAction(p1Played, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-6"],
+    });
+    const p3Passed = applyGameAction(p2Played, {
+      type: "pass",
+      playerId: "p3",
+    });
+    const p1Passed = applyGameAction(p3Passed, {
+      type: "pass",
+      playerId: "p1",
+    });
+
+    expect(p1Passed.table.play).toBeNull();
+    expect(p1Passed.suitLock).toBeNull();
+  });
+
   test("finishes the game when only one player remains active", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },

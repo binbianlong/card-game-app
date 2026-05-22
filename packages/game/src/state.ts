@@ -3,10 +3,21 @@ import {
   GameRuleError,
   type Card,
   type GameAction,
+  type GameRuleSettings,
   type GameState,
   type PlayerId,
   type PlayerState,
+  type Play,
+  type Suit,
 } from "./types.ts";
+
+export type CreateGameStateOptions = {
+  rules?: Partial<GameRuleSettings>;
+};
+
+const DEFAULT_GAME_RULES = {
+  suitLock: false,
+} as const satisfies GameRuleSettings;
 
 export function createGameState(
   players: readonly {
@@ -15,6 +26,7 @@ export function createGameState(
     connected?: boolean;
   }[],
   firstPlayerId: PlayerId = players[0]?.id ?? "",
+  options: CreateGameStateOptions = {},
 ): GameState {
   if (players.length < 3 || players.length > 6) {
     throw new GameRuleError("Game requires between 3 and 6 players.");
@@ -40,6 +52,10 @@ export function createGameState(
 
   return {
     phase: "playing",
+    rules: {
+      ...DEFAULT_GAME_RULES,
+      ...options.rules,
+    },
     players: players.map((player) => ({
       id: player.id,
       hand: [...player.hand],
@@ -52,6 +68,7 @@ export function createGameState(
     },
     passedPlayerIds: [],
     revolution: false,
+    suitLock: null,
     rankings: [],
   };
 }
@@ -88,6 +105,10 @@ function applyPlayCards(
     throw new GameRuleError("Cards cannot be played on the current table.");
   }
 
+  if (!matchesSuitLock(play, state.suitLock)) {
+    throw new GameRuleError("Cards do not match the current suit lock.");
+  }
+
   const updatedHand = player.hand.filter((card) => !cardIds.includes(card.id));
   const nextPlayers = state.players.map((candidate) =>
     candidate.id === playerId
@@ -113,6 +134,10 @@ function applyPlayCards(
         },
     passedPlayerIds: [],
     revolution,
+    suitLock:
+      play.isEightCut || !state.rules.suitLock
+        ? null
+        : getNextSuitLock(state.table.play, play, state.suitLock),
     rankings,
   };
 
@@ -149,6 +174,7 @@ function applyPass(state: GameState, playerId: PlayerId): GameState {
         playedBy: null,
       },
       passedPlayerIds: [],
+      suitLock: null,
     };
 
     return {
@@ -279,9 +305,58 @@ function completeIfNeeded(state: GameState): GameState {
       play: null,
       playedBy: null,
     },
+    suitLock: null,
   };
 }
 
 function unique<T>(values: readonly T[]): readonly T[] {
   return [...new Set(values)];
+}
+
+function matchesSuitLock(play: Play, suitLock: readonly Suit[] | null): boolean {
+  if (suitLock === null) {
+    return true;
+  }
+
+  const suitPattern = getSuitPattern(play);
+
+  return sameSuitPattern(suitPattern, suitLock);
+}
+
+function getNextSuitLock(
+  previousPlay: Play | null,
+  nextPlay: Play,
+  currentSuitLock: readonly Suit[] | null,
+): readonly Suit[] | null {
+  if (currentSuitLock !== null) {
+    return currentSuitLock;
+  }
+
+  if (previousPlay === null) {
+    return null;
+  }
+
+  const previousPattern = getSuitPattern(previousPlay);
+  const nextPattern = getSuitPattern(nextPlay);
+
+  return sameSuitPattern(previousPattern, nextPattern) ? nextPattern : null;
+}
+
+function getSuitPattern(play: Play): readonly Suit[] {
+  if (play.kind === "sequence") {
+    return Array.from({ length: play.cards.length }, () => play.suit);
+  }
+
+  return play.cards
+    .filter((card): card is Card & { suit: Suit } => card.suit !== "joker")
+    .map((card) => card.suit)
+    .sort();
+}
+
+function sameSuitPattern(left: readonly Suit[], right: readonly Suit[]): boolean {
+  return (
+    left.length > 0 &&
+    left.length === right.length &&
+    left.every((suit, index) => suit === right[index])
+  );
 }

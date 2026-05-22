@@ -1,4 +1,4 @@
-import { createGameState } from "./state.ts";
+import { createGameState, type CreateGameStateOptions } from "./state.ts";
 import {
   GameRuleError,
   type Card,
@@ -34,6 +34,7 @@ export type CreateDeckOptions = {
 export type CreateNewGameOptions = CreateDeckOptions & {
   deck?: readonly Card[];
   rng?: () => number;
+  rules?: CreateGameStateOptions["rules"];
 };
 
 export function createDeck(options: CreateDeckOptions = {}): readonly Card[] {
@@ -112,7 +113,7 @@ export function createNewGame(
   const players = dealCards(playerIds, shuffled);
   const firstPlayerId = findCardOwner(players, "diamonds-3") ?? playerIds[0];
 
-  return createGameState(players, firstPlayerId);
+  return createGameState(players, firstPlayerId, { rules: options.rules });
 }
 
 function findCardOwner(
