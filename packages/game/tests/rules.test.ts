@@ -1,24 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  analyzePlay,
-  canPlayOn,
-  compareRanks,
-  type Card,
-  type Rank,
-  type Suit,
-} from "../src/index.ts";
-
-const card = (rank: Rank, suit: Suit = "spades"): Card => ({
-  id: `${suit}-${rank}`,
-  rank,
-  suit,
-});
-
-const joker = (): Card => ({
-  id: "joker-1",
-  rank: "JOKER",
-  suit: "joker",
-});
+import { analyzePlay, canPlayOn, compareRanks } from "../src/index.ts";
+import { card, joker } from "./helpers.ts";
 
 describe("compareRanks", () => {
   test("orders ranks by daifugo strength", () => {
