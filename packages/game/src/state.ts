@@ -1,5 +1,8 @@
 import { analyzePlay, canPlayOn } from "./rules.ts";
+import { isEightCutEnabled } from "./rules/eight-cut.ts";
 import { DEFAULT_GAME_RULES } from "./rules/local.ts";
+import { getNextRevolution } from "./rules/revolution.ts";
+import { assertSequenceAllowed } from "./rules/sequence.ts";
 import { getNextSuitLock, matchesSuitLock } from "./rules/suit-lock.ts";
 import {
   GameRuleError,
@@ -97,6 +100,8 @@ function applyPlayCards(
     throw new GameRuleError("Cards do not form a valid play.");
   }
 
+  assertSequenceAllowed(play, state.rules);
+
   if (!canPlayOn(cards, state.table.play, { revolution: state.revolution })) {
     throw new GameRuleError("Cards cannot be played on the current table.");
   }
@@ -115,11 +120,12 @@ function applyPlayCards(
       : candidate,
   );
   const rankings = updatedHand.length === 0 ? [...state.rankings, playerId] : [...state.rankings];
-  const revolution = play.causesRevolution ? !state.revolution : state.revolution;
+  const eightCut = isEightCutEnabled(play, state.rules);
+  const revolution = getNextRevolution(state.revolution, play, state.rules);
   const nextBase: GameState = {
     ...state,
     players: nextPlayers,
-    table: play.isEightCut
+    table: eightCut
       ? {
           play: null,
           playedBy: null,
@@ -131,7 +137,7 @@ function applyPlayCards(
     passedPlayerIds: [],
     revolution,
     suitLock:
-      play.isEightCut || !state.rules.suitLock
+      eightCut || !state.rules.suitLock
         ? null
         : getNextSuitLock(state.table.play, play, state.suitLock),
     rankings,
@@ -140,9 +146,7 @@ function applyPlayCards(
   return completeIfNeeded({
     ...nextBase,
     turnPlayerId:
-      play.isEightCut && updatedHand.length > 0
-        ? playerId
-        : getNextActivePlayerId(nextBase, playerId),
+      eightCut && updatedHand.length > 0 ? playerId : getNextActivePlayerId(nextBase, playerId),
   });
 }
 

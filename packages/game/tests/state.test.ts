@@ -12,6 +12,12 @@ describe("game state", () => {
 
     expect(state).toMatchObject({
       phase: "playing",
+      rules: {
+        eightCut: true,
+        revolution: true,
+        sequence: true,
+        suitLock: false,
+      },
       turnPlayerId: "p1",
       table: {
         play: null,
@@ -116,6 +122,27 @@ describe("game state", () => {
     expect(next.turnPlayerId).toBe("p1");
   });
 
+  test("keeps eight as a normal play when eight cut is disabled", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("8"), card("9")] },
+        { id: "p2", hand: [card("4")] },
+        { id: "p3", hand: [card("5")] },
+      ],
+      "p1",
+      { rules: { eightCut: false } },
+    );
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-8"],
+    });
+
+    expect(next.table.play).toMatchObject({ kind: "single", rank: "8" });
+    expect(next.turnPlayerId).toBe("p2");
+  });
+
   test("toggles revolution after a revolution-causing play", () => {
     const state = createGameState([
       {
@@ -133,6 +160,57 @@ describe("game state", () => {
     });
 
     expect(next.revolution).toBe(true);
+  });
+
+  test("keeps revolution unchanged when revolution is disabled", () => {
+    const state = createGameState(
+      [
+        {
+          id: "p1",
+          hand: [
+            card("5", "clubs"),
+            card("5", "diamonds"),
+            card("5", "hearts"),
+            card("5", "spades"),
+          ],
+        },
+        { id: "p2", hand: [card("4")] },
+        { id: "p3", hand: [card("6")] },
+      ],
+      "p1",
+      { rules: { revolution: false } },
+    );
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["clubs-5", "diamonds-5", "hearts-5", "spades-5"],
+    });
+
+    expect(next.revolution).toBe(false);
+  });
+
+  test("rejects sequences when sequence is disabled", () => {
+    const state = createGameState(
+      [
+        {
+          id: "p1",
+          hand: [card("6", "hearts"), card("7", "hearts"), card("8", "hearts")],
+        },
+        { id: "p2", hand: [card("4")] },
+        { id: "p3", hand: [card("5")] },
+      ],
+      "p1",
+      { rules: { sequence: false } },
+    );
+
+    expect(() =>
+      applyGameAction(state, {
+        type: "playCards",
+        playerId: "p1",
+        cardIds: ["hearts-6", "hearts-7", "hearts-8"],
+      }),
+    ).toThrow(GameRuleError);
   });
 
   test("keeps suit lock disabled by default", () => {

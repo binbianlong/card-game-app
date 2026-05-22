@@ -48,6 +48,9 @@ export type RuleOptions = {
 };
 
 export type GameRuleSettings = {
+  eightCut: boolean;
+  revolution: boolean;
+  sequence: boolean;
   suitLock: boolean;
 };
 
