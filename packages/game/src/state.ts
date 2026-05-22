@@ -1,9 +1,9 @@
 import { analyzePlay, canPlayOn } from "./rules.ts";
-import { isEightCutEnabled } from "./rules/eight-cut.ts";
-import { DEFAULT_GAME_RULES } from "./rules/local.ts";
-import { getNextRevolution } from "./rules/revolution.ts";
-import { assertSequenceAllowed } from "./rules/sequence.ts";
-import { getNextSuitLock, matchesSuitLock } from "./rules/suit-lock.ts";
+import { DEFAULT_GAME_RULES } from "./local-rules/defaults.ts";
+import { isEightCutEnabled } from "./local-rules/eight-cut.ts";
+import { getNextRevolution } from "./local-rules/revolution.ts";
+import { assertSequenceAllowed } from "./local-rules/sequence.ts";
+import { getNextSuitLock, matchesSuitLock } from "./local-rules/suit-lock.ts";
 import {
   GameRuleError,
   type Card,
