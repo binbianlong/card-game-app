@@ -62,6 +62,15 @@ export type PlayerState = {
   connected: boolean;
 };
 
+export type PlayerViewState = {
+  id: PlayerId;
+  connected: boolean;
+  handCount: number;
+  hand: readonly Card[] | null;
+  finished: boolean;
+  rank: number | null;
+};
+
 export type GamePhase = "playing" | "finished";
 
 export type GameState = {
@@ -77,6 +86,28 @@ export type GameState = {
   revolution: boolean;
   suitLock: readonly Suit[] | null;
   rankings: readonly PlayerId[];
+};
+
+export type PlayerGameView = {
+  phase: GamePhase;
+  rules: GameRuleSettings;
+  viewerId: PlayerId;
+  players: readonly PlayerViewState[];
+  turnPlayerId: PlayerId;
+  table: {
+    play: Play | null;
+    playedBy: PlayerId | null;
+  };
+  passedPlayerIds: readonly PlayerId[];
+  revolution: boolean;
+  suitLock: readonly Suit[] | null;
+  rankings: readonly PlayerId[];
+};
+
+export type AvailableGameActions = {
+  isTurn: boolean;
+  canPlaySelectedCards: boolean;
+  canPass: boolean;
 };
 
 export type GameAction =
