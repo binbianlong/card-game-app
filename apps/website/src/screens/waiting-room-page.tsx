@@ -132,13 +132,22 @@ function WaitingRoom({
             参加者が入室
           </Button>
           <Button
-            type="button"
+            asChild={isReadyToStart}
             size="lg"
             className="h-12 w-full text-base font-bold"
             disabled={!isReadyToStart}
           >
-            <Play className="size-4 fill-current" aria-hidden="true" />
-            開始する
+            {isReadyToStart ? (
+              <Link to="/rooms/play" search={{ players: playerCount, cpu: cpuCount }}>
+                <Play className="size-4 fill-current" aria-hidden="true" />
+                開始する
+              </Link>
+            ) : (
+              <>
+                <Play className="size-4 fill-current" aria-hidden="true" />
+                開始する
+              </>
+            )}
           </Button>
           {!isReadyToStart ? (
             <p className="text-center text-[13px] leading-5 text-muted-foreground">

@@ -1,6 +1,7 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import App from "./App";
 import { CreateRoomPage } from "./screens/create-room-page";
+import { PlayRoomPage } from "./screens/play-room-page";
 import { RulesPage } from "./screens/rules-page";
 import { WaitingRoomPage } from "./screens/waiting-room-page";
 
@@ -38,11 +39,24 @@ const waitingRoomRoute = createRoute({
   component: WaitingRoomPage,
 });
 
+const playRoomRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rooms/play",
+  validateSearch: (search: Record<string, unknown>) => {
+    const players = clampSearchNumber(search.players, 2, 6, 4);
+    const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
+
+    return { players, cpu };
+  },
+  component: PlayRoomPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   rulesRoute,
   createRoomRoute,
   waitingRoomRoute,
+  playRoomRoute,
 ]);
 
 function clampSearchNumber(value: unknown, min: number, max: number, fallback: number) {
