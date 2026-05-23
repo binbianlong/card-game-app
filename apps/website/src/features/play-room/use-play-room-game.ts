@@ -97,7 +97,7 @@ function usePlayRoomGame({ cpuCount, playerCount }: { cpuCount: number; playerCo
     }, 500);
 
     return () => window.clearTimeout(timeoutId);
-  }, [playerView.phase, playerView.turnPlayerId]);
+  }, [playerView]);
 
   function toggleCard(cardId: string) {
     setSelectedCardIds((currentIds) =>
