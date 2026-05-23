@@ -1,5 +1,6 @@
 import {
   GitCommitHorizontal,
+  History,
   LockKeyhole,
   RotateCcw,
   Scissors,
@@ -18,6 +19,7 @@ type LocalRuleOption = {
 
 const defaultLocalRuleSettings = {
   eightCut: false,
+  elevenBack: false,
   revolution: false,
   sequence: false,
   suitLock: false,
@@ -29,6 +31,12 @@ const localRuleOptions = [
     label: "8切り",
     description: "8を含む手を出すと場が流れ、出したプレイヤーから続行します。",
     Icon: Scissors,
+  },
+  {
+    key: "elevenBack",
+    label: "11バック",
+    description: "Jを含む手を出すと、その場が流れるまでカードの強さが一時的に逆転します。",
+    Icon: History,
   },
   {
     key: "revolution",

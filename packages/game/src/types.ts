@@ -49,6 +49,7 @@ export type RuleOptions = {
 
 export type GameRuleSettings = {
   eightCut: boolean;
+  elevenBack: boolean;
   revolution: boolean;
   sequence: boolean;
   suitLock: boolean;
@@ -83,6 +84,7 @@ export type GameState = {
     playedBy: PlayerId | null;
   };
   passedPlayerIds: readonly PlayerId[];
+  elevenBack: boolean;
   revolution: boolean;
   suitLock: readonly Suit[] | null;
   rankings: readonly PlayerId[];
@@ -99,6 +101,7 @@ export type PlayerGameView = {
     playedBy: PlayerId | null;
   };
   passedPlayerIds: readonly PlayerId[];
+  elevenBack: boolean;
   revolution: boolean;
   suitLock: readonly Suit[] | null;
   rankings: readonly PlayerId[];

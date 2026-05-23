@@ -88,6 +88,103 @@ describe("local rules", () => {
     expect(next.revolution).toBe(false);
   });
 
+  test("keeps jack as a normal play by default", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("J"), card("3")] },
+      { id: "p2", hand: [card("10")] },
+      { id: "p3", hand: [card("Q")] },
+    ]);
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+
+    expect(next.elevenBack).toBe(false);
+    expect(() =>
+      applyGameAction(next, {
+        type: "playCards",
+        playerId: "p2",
+        cardIds: ["spades-10"],
+      }),
+    ).toThrow(GameRuleError);
+  });
+
+  test("temporarily reverses card strength after an eleven back play", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("J"), card("3")] },
+        { id: "p2", hand: [card("10"), card("Q"), card("4")] },
+        { id: "p3", hand: [card("9"), card("5")] },
+      ],
+      "p1",
+      { rules: { elevenBack: true } },
+    );
+
+    const backed = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+
+    expect(backed.elevenBack).toBe(true);
+    expect(() =>
+      applyGameAction(backed, {
+        type: "playCards",
+        playerId: "p2",
+        cardIds: ["spades-Q"],
+      }),
+    ).toThrow(GameRuleError);
+
+    const p2Played = applyGameAction(backed, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-10"],
+    });
+
+    expect(p2Played.table.play).toMatchObject({ kind: "single", rank: "10" });
+    expect(p2Played.elevenBack).toBe(true);
+  });
+
+  test("clears eleven back when the table is cleared", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("J"), card("3")] },
+        { id: "p2", hand: [card("10"), card("4")] },
+        { id: "p3", hand: [card("9"), card("5")] },
+      ],
+      "p1",
+      { rules: { elevenBack: true } },
+    );
+    const backed = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+    const p2Played = applyGameAction(backed, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-10"],
+    });
+    const p3Played = applyGameAction(p2Played, {
+      type: "playCards",
+      playerId: "p3",
+      cardIds: ["spades-9"],
+    });
+    const p1Passed = applyGameAction(p3Played, {
+      type: "pass",
+      playerId: "p1",
+    });
+    const p2Passed = applyGameAction(p1Passed, {
+      type: "pass",
+      playerId: "p2",
+    });
+
+    expect(p2Passed.table.play).toBeNull();
+    expect(p2Passed.elevenBack).toBe(false);
+  });
+
   test("rejects sequences by default", () => {
     const state = createGameState([
       {

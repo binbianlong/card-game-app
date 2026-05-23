@@ -14,6 +14,7 @@ describe("game state", () => {
       phase: "playing",
       rules: {
         eightCut: false,
+        elevenBack: false,
         revolution: false,
         sequence: false,
         suitLock: false,
@@ -23,6 +24,7 @@ describe("game state", () => {
         play: null,
         playedBy: null,
       },
+      elevenBack: false,
       revolution: false,
       rankings: [],
     });

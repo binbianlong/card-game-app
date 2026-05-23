@@ -50,6 +50,7 @@ const playRoomRoute = createRoute({
       players,
       cpu,
       eightCut: parseSearchBoolean(search.eightCut),
+      elevenBack: parseSearchBoolean(search.elevenBack),
       revolution: parseSearchBoolean(search.revolution),
       sequence: parseSearchBoolean(search.sequence),
       suitLock: parseSearchBoolean(search.suitLock),
