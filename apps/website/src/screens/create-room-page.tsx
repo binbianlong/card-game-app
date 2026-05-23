@@ -1,15 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  Bot,
-  GitCommitHorizontal,
-  LockKeyhole,
-  Minus,
-  Plus,
-  RotateCcw,
-  Scissors,
-  Users,
-} from "lucide-react";
+import { ArrowLeft, Bot, Minus, Plus, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,16 +11,9 @@ const maxPlayers = 6;
 function CreateRoomPage() {
   const [playerCount, setPlayerCount] = useState(4);
   const [cpuCount, setCpuCount] = useState(1);
-  const [localRules, setLocalRules] = useState({
-    eightCut: false,
-    revolution: false,
-    sequence: false,
-    suitLock: false,
-  });
 
   const humanCount = playerCount - cpuCount;
   const maxCpuCount = playerCount - 1;
-  const enabledRuleCount = Object.values(localRules).filter(Boolean).length;
 
   const roomSummary = useMemo(
     () => [
@@ -50,13 +33,6 @@ function CreateRoomPage() {
 
   function updateCpuCount(nextValue: number) {
     setCpuCount(clamp(nextValue, 0, maxCpuCount));
-  }
-
-  function toggleLocalRule(ruleKey: keyof typeof localRules) {
-    setLocalRules((currentRules) => ({
-      ...currentRules,
-      [ruleKey]: !currentRules[ruleKey],
-    }));
   }
 
   return (
@@ -111,45 +87,6 @@ function CreateRoomPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="px-4 pt-4">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Scissors className="size-4 text-primary" aria-hidden="true" />
-              ローカルルール
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2.5 px-4 pb-4">
-            <RuleToggle
-              checked={localRules.eightCut}
-              description="8を含む手を出すと場が流れます。"
-              icon={<Scissors className="size-5" aria-hidden="true" />}
-              label="8切り"
-              onClick={() => toggleLocalRule("eightCut")}
-            />
-            <RuleToggle
-              checked={localRules.revolution}
-              description="4枚組などでカードの強さが逆転します。"
-              icon={<RotateCcw className="size-5" aria-hidden="true" />}
-              label="革命"
-              onClick={() => toggleLocalRule("revolution")}
-            />
-            <RuleToggle
-              checked={localRules.sequence}
-              description="同じマークの3枚以上の連番を出せます。"
-              icon={<GitCommitHorizontal className="size-5" aria-hidden="true" />}
-              label="階段"
-              onClick={() => toggleLocalRule("sequence")}
-            />
-            <RuleToggle
-              checked={localRules.suitLock}
-              description="同じマークが続くと場のマークが固定されます。"
-              icon={<LockKeyhole className="size-5" aria-hidden="true" />}
-              label="縛り"
-              onClick={() => toggleLocalRule("suitLock")}
-            />
-          </CardContent>
-        </Card>
-
         <Card className="border-primary/25 bg-primary/5 shadow-none">
           <CardContent className="grid gap-3 px-4 py-4">
             <div className="grid grid-cols-3 gap-2">
@@ -162,19 +99,8 @@ function CreateRoomPage() {
                 </div>
               ))}
             </div>
-            <div className="rounded-lg bg-card p-3 text-center shadow-xs">
-              <div className="text-[11px] leading-none font-bold text-muted-foreground">
-                ローカルルール
-              </div>
-              <div className="mt-2 text-lg leading-none font-extrabold">
-                {enabledRuleCount === 0 ? "なし" : `${enabledRuleCount}個`}
-              </div>
-            </div>
             <Button asChild size="lg" className="h-12 w-full text-base font-bold">
-              <Link
-                to="/rooms/waiting"
-                search={{ players: playerCount, cpu: cpuCount, ...localRules }}
-              >
+              <Link to="/rooms/waiting" search={{ players: playerCount, cpu: cpuCount }}>
                 作成する
               </Link>
             </Button>
@@ -182,52 +108,6 @@ function CreateRoomPage() {
         </Card>
       </form>
     </main>
-  );
-}
-
-function RuleToggle({
-  checked,
-  description,
-  icon,
-  label,
-  onClick,
-}: {
-  checked: boolean;
-  description: string;
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={checked}
-      onClick={onClick}
-      className={
-        checked
-          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs"
-          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs"
-      }
-    >
-      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-base leading-snug font-bold">{label}</span>
-        <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">
-          {description}
-        </span>
-      </span>
-      <span
-        className={
-          checked
-            ? "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-xs font-bold text-primary-foreground"
-            : "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-muted px-2 text-xs font-bold text-muted-foreground"
-        }
-      >
-        {checked ? "ON" : "OFF"}
-      </span>
-    </button>
   );
 }
 

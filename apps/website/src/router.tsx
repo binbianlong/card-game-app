@@ -34,14 +34,7 @@ const waitingRoomRoute = createRoute({
     const players = clampSearchNumber(search.players, 3, 6, 4);
     const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
 
-    return {
-      players,
-      cpu,
-      eightCut: parseSearchBoolean(search.eightCut),
-      revolution: parseSearchBoolean(search.revolution),
-      sequence: parseSearchBoolean(search.sequence),
-      suitLock: parseSearchBoolean(search.suitLock),
-    };
+    return { players, cpu };
   },
   component: WaitingRoomPage,
 });

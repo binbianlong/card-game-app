@@ -6,9 +6,14 @@ import {
   Clock,
   Copy,
   Crown,
+  GitCommitHorizontal,
+  LockKeyhole,
   Play,
+  RotateCcw,
+  Scissors,
   Settings2,
   Users,
+  type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,15 +23,22 @@ function WaitingRoomPage() {
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
-  const localRules = {
-    eightCut: search.eightCut,
-    revolution: search.revolution,
-    sequence: search.sequence,
-    suitLock: search.suitLock,
-  };
+  const [localRules, setLocalRules] = useState<LocalRuleSettings>({
+    eightCut: false,
+    revolution: false,
+    sequence: false,
+    suitLock: false,
+  });
   const humanCount = playerCount - cpuCount;
   const [joinedHumanCount, setJoinedHumanCount] = useState(1);
   const isReadyToStart = joinedHumanCount >= humanCount;
+
+  function toggleLocalRule(ruleKey: keyof LocalRuleSettings) {
+    setLocalRules((currentRules) => ({
+      ...currentRules,
+      [ruleKey]: !currentRules[ruleKey],
+    }));
+  }
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
@@ -56,6 +68,7 @@ function WaitingRoomPage() {
         isReadyToStart={isReadyToStart}
         joinedHumanCount={joinedHumanCount}
         localRules={localRules}
+        onToggleLocalRule={toggleLocalRule}
         onAddParticipant={() =>
           setJoinedHumanCount((currentCount) => clamp(currentCount + 1, 1, humanCount))
         }
@@ -71,6 +84,7 @@ function WaitingRoom({
   isReadyToStart,
   joinedHumanCount,
   localRules,
+  onToggleLocalRule,
   onAddParticipant,
   playerCount,
 }: {
@@ -79,6 +93,7 @@ function WaitingRoom({
   isReadyToStart: boolean;
   joinedHumanCount: number;
   localRules: LocalRuleSettings;
+  onToggleLocalRule: (ruleKey: keyof LocalRuleSettings) => void;
   onAddParticipant: () => void;
   playerCount: number;
 }) {
@@ -145,9 +160,16 @@ function WaitingRoom({
             採用ルール
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-2 px-4 pb-4">
+        <CardContent className="grid gap-2.5 px-4 pb-4">
           {localRuleItems.map((rule) => (
-            <RuleBadge key={rule.key} enabled={localRules[rule.key]} label={rule.label} />
+            <RuleToggle
+              key={rule.key}
+              description={rule.description}
+              enabled={localRules[rule.key]}
+              Icon={rule.Icon}
+              label={rule.label}
+              onClick={() => onToggleLocalRule(rule.key)}
+            />
           ))}
         </CardContent>
       </Card>
@@ -204,32 +226,80 @@ type LocalRuleSettings = {
 };
 
 const localRuleItems = [
-  { key: "eightCut", label: "8切り" },
-  { key: "revolution", label: "革命" },
-  { key: "sequence", label: "階段" },
-  { key: "suitLock", label: "縛り" },
-] as const satisfies readonly { key: keyof LocalRuleSettings; label: string }[];
+  {
+    key: "eightCut",
+    label: "8切り",
+    description: "8を含む手を出すと場が流れ、出したプレイヤーから続行します。",
+    Icon: Scissors,
+  },
+  {
+    key: "revolution",
+    label: "革命",
+    description: "4枚組などでカードの強さが逆転します。もう一度革命が起きると戻ります。",
+    Icon: RotateCcw,
+  },
+  {
+    key: "sequence",
+    label: "階段",
+    description: "同じマークの3枚以上の連番をまとめて出せます。",
+    Icon: GitCommitHorizontal,
+  },
+  {
+    key: "suitLock",
+    label: "縛り",
+    description: "同じマークの手が続くと、その場では同じマークだけ出せます。",
+    Icon: LockKeyhole,
+  },
+] as const satisfies readonly {
+  description: string;
+  Icon: LucideIcon;
+  key: keyof LocalRuleSettings;
+  label: string;
+}[];
 
-function RuleBadge({ enabled, label }: { enabled: boolean; label: string }) {
+function RuleToggle({
+  description,
+  enabled,
+  Icon,
+  label,
+  onClick,
+}: {
+  description: string;
+  enabled: boolean;
+  Icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <div
+    <button
+      type="button"
+      aria-pressed={enabled}
+      onClick={onClick}
       className={
         enabled
-          ? "rounded-lg border border-primary/30 bg-primary/5 p-3 text-center"
-          : "rounded-lg border bg-muted/30 p-3 text-center"
+          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs"
+          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs"
       }
     >
-      <div className="text-sm leading-none font-extrabold">{label}</div>
-      <div
+      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-base leading-snug font-bold">{label}</span>
+        <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">
+          {description}
+        </span>
+      </span>
+      <span
         className={
           enabled
-            ? "mt-2 text-[11px] leading-none font-bold text-primary"
-            : "mt-2 text-[11px] leading-none font-bold text-muted-foreground"
+            ? "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-xs font-bold text-primary-foreground"
+            : "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-muted px-2 text-xs font-bold text-muted-foreground"
         }
       >
         {enabled ? "ON" : "OFF"}
-      </div>
-    </div>
+      </span>
+    </button>
   );
 }
 
