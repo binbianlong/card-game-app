@@ -1,5 +1,6 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import App from "./App";
+import { CreateRoomPage } from "./screens/create-room-page";
 import { RulesPage } from "./screens/rules-page";
 
 const rootRoute = createRootRoute({
@@ -18,7 +19,13 @@ const rulesRoute = createRoute({
   component: RulesPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, rulesRoute]);
+const createRoomRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rooms/new",
+  component: CreateRoomPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, rulesRoute, createRoomRoute]);
 
 export const router = createRouter({
   routeTree,

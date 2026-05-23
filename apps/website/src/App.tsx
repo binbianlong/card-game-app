@@ -66,13 +66,13 @@ function App() {
             >
               <CardContent className="p-0">
                 <Button
-                  asChild={action.title === "ルールを確認"}
+                  asChild={action.title === "ルームを作成" || action.title === "ルールを確認"}
                   type="button"
                   variant="ghost"
                   className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
                 >
-                  {action.title === "ルールを確認" ? (
-                    <Link to="/rules">
+                  {action.title === "ルームを作成" || action.title === "ルールを確認" ? (
+                    <Link to={action.title === "ルームを作成" ? "/rooms/new" : "/rules"}>
                       <ActionContent
                         description={action.description}
                         icon={<Icon className="size-5" aria-hidden="true" />}
