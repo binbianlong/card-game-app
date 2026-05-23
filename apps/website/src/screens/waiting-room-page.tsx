@@ -6,11 +6,7 @@ import {
   Clock,
   Copy,
   Crown,
-  GitCommitHorizontal,
-  LockKeyhole,
   Play,
-  RotateCcw,
-  Scissors,
   Settings2,
   Users,
   type LucideIcon,
@@ -18,22 +14,23 @@ import {
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  defaultLocalRuleSettings,
+  localRuleOptions,
+  type LocalRuleKey,
+} from "@/features/local-rules/local-rule-options";
+import type { GameRuleSettings } from "game";
 
 function WaitingRoomPage() {
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
-  const [localRules, setLocalRules] = useState<LocalRuleSettings>({
-    eightCut: false,
-    revolution: false,
-    sequence: false,
-    suitLock: false,
-  });
+  const [localRules, setLocalRules] = useState<GameRuleSettings>(defaultLocalRuleSettings);
   const humanCount = playerCount - cpuCount;
   const [joinedHumanCount, setJoinedHumanCount] = useState(1);
   const isReadyToStart = joinedHumanCount >= humanCount;
 
-  function toggleLocalRule(ruleKey: keyof LocalRuleSettings) {
+  function toggleLocalRule(ruleKey: LocalRuleKey) {
     setLocalRules((currentRules) => ({
       ...currentRules,
       [ruleKey]: !currentRules[ruleKey],
@@ -92,8 +89,8 @@ function WaitingRoom({
   humanCount: number;
   isReadyToStart: boolean;
   joinedHumanCount: number;
-  localRules: LocalRuleSettings;
-  onToggleLocalRule: (ruleKey: keyof LocalRuleSettings) => void;
+  localRules: GameRuleSettings;
+  onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   onAddParticipant: () => void;
   playerCount: number;
 }) {
@@ -161,7 +158,7 @@ function WaitingRoom({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2.5 px-4 pb-4">
-          {localRuleItems.map((rule) => (
+          {localRuleOptions.map((rule) => (
             <RuleToggle
               key={rule.key}
               description={rule.description}
@@ -217,45 +214,6 @@ function WaitingRoom({
     </section>
   );
 }
-
-type LocalRuleSettings = {
-  eightCut: boolean;
-  revolution: boolean;
-  sequence: boolean;
-  suitLock: boolean;
-};
-
-const localRuleItems = [
-  {
-    key: "eightCut",
-    label: "8切り",
-    description: "8を含む手を出すと場が流れ、出したプレイヤーから続行します。",
-    Icon: Scissors,
-  },
-  {
-    key: "revolution",
-    label: "革命",
-    description: "4枚組などでカードの強さが逆転します。もう一度革命が起きると戻ります。",
-    Icon: RotateCcw,
-  },
-  {
-    key: "sequence",
-    label: "階段",
-    description: "同じマークの3枚以上の連番をまとめて出せます。",
-    Icon: GitCommitHorizontal,
-  },
-  {
-    key: "suitLock",
-    label: "縛り",
-    description: "同じマークの手が続くと、その場では同じマークだけ出せます。",
-    Icon: LockKeyhole,
-  },
-] as const satisfies readonly {
-  description: string;
-  Icon: LucideIcon;
-  key: keyof LocalRuleSettings;
-  label: string;
-}[];
 
 function RuleToggle({
   description,
