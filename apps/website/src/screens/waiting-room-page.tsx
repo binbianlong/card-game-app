@@ -1,5 +1,15 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Bot, CheckCircle2, Clock, Copy, Crown, Play, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Crown,
+  Play,
+  Settings2,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +18,12 @@ function WaitingRoomPage() {
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
+  const localRules = {
+    eightCut: search.eightCut,
+    revolution: search.revolution,
+    sequence: search.sequence,
+    suitLock: search.suitLock,
+  };
   const humanCount = playerCount - cpuCount;
   const [joinedHumanCount, setJoinedHumanCount] = useState(1);
   const isReadyToStart = joinedHumanCount >= humanCount;
@@ -39,6 +55,7 @@ function WaitingRoomPage() {
         humanCount={humanCount}
         isReadyToStart={isReadyToStart}
         joinedHumanCount={joinedHumanCount}
+        localRules={localRules}
         onAddParticipant={() =>
           setJoinedHumanCount((currentCount) => clamp(currentCount + 1, 1, humanCount))
         }
@@ -53,6 +70,7 @@ function WaitingRoom({
   humanCount,
   isReadyToStart,
   joinedHumanCount,
+  localRules,
   onAddParticipant,
   playerCount,
 }: {
@@ -60,6 +78,7 @@ function WaitingRoom({
   humanCount: number;
   isReadyToStart: boolean;
   joinedHumanCount: number;
+  localRules: LocalRuleSettings;
   onAddParticipant: () => void;
   playerCount: number;
 }) {
@@ -119,6 +138,20 @@ function WaitingRoom({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="px-4 pt-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Settings2 className="size-4 text-primary" aria-hidden="true" />
+            採用ルール
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-2 px-4 pb-4">
+          {localRuleItems.map((rule) => (
+            <RuleBadge key={rule.key} enabled={localRules[rule.key]} label={rule.label} />
+          ))}
+        </CardContent>
+      </Card>
+
       <Card className="py-0">
         <CardContent className="grid gap-3 p-4">
           <Button
@@ -138,7 +171,10 @@ function WaitingRoom({
             disabled={!isReadyToStart}
           >
             {isReadyToStart ? (
-              <Link to="/rooms/play" search={{ players: playerCount, cpu: cpuCount }}>
+              <Link
+                to="/rooms/play"
+                search={{ players: playerCount, cpu: cpuCount, ...localRules }}
+              >
                 <Play className="size-4 fill-current" aria-hidden="true" />
                 開始する
               </Link>
@@ -157,6 +193,43 @@ function WaitingRoom({
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+type LocalRuleSettings = {
+  eightCut: boolean;
+  revolution: boolean;
+  sequence: boolean;
+  suitLock: boolean;
+};
+
+const localRuleItems = [
+  { key: "eightCut", label: "8切り" },
+  { key: "revolution", label: "革命" },
+  { key: "sequence", label: "階段" },
+  { key: "suitLock", label: "縛り" },
+] as const satisfies readonly { key: keyof LocalRuleSettings; label: string }[];
+
+function RuleBadge({ enabled, label }: { enabled: boolean; label: string }) {
+  return (
+    <div
+      className={
+        enabled
+          ? "rounded-lg border border-primary/30 bg-primary/5 p-3 text-center"
+          : "rounded-lg border bg-muted/30 p-3 text-center"
+      }
+    >
+      <div className="text-sm leading-none font-extrabold">{label}</div>
+      <div
+        className={
+          enabled
+            ? "mt-2 text-[11px] leading-none font-bold text-primary"
+            : "mt-2 text-[11px] leading-none font-bold text-muted-foreground"
+        }
+      >
+        {enabled ? "ON" : "OFF"}
+      </div>
+    </div>
   );
 }
 

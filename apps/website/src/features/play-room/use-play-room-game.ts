@@ -4,6 +4,7 @@ import {
   getAvailableActions,
   getPlayerView,
   type GameAction,
+  type GameRuleSettings,
   type GameState,
   type Play,
   type PlayerId,
@@ -27,12 +28,20 @@ type Opponent = {
   status: "finished" | "passed" | "thinking" | "waiting";
 };
 
-function usePlayRoomGame({ cpuCount, playerCount }: { cpuCount: number; playerCount: number }) {
+function usePlayRoomGame({
+  cpuCount,
+  playerCount,
+  rules,
+}: {
+  cpuCount: number;
+  playerCount: number;
+  rules: GameRuleSettings;
+}) {
   const playerMetas = useMemo(
     () => createPlayerMetas(playerCount, cpuCount),
     [cpuCount, playerCount],
   );
-  const [gameState, setGameState] = useState(() => createInitialGameState(playerMetas));
+  const [gameState, setGameState] = useState(() => createInitialGameState(playerMetas, rules));
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const playerView = useMemo(() => getPlayerView(gameState, viewerId), [gameState]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
@@ -69,9 +78,9 @@ function usePlayRoomGame({ cpuCount, playerCount }: { cpuCount: number; playerCo
   );
 
   useEffect(() => {
-    setGameState(createInitialGameState(playerMetas));
+    setGameState(createInitialGameState(playerMetas, rules));
     setSelectedCardIds([]);
-  }, [playerMetas]);
+  }, [playerMetas, rules]);
 
   useEffect(() => {
     setSelectedCardIds((currentIds) =>
@@ -172,10 +181,13 @@ function createPlayerMetas(playerCount: number, cpuCount: number): readonly Play
   ];
 }
 
-function createInitialGameState(playerMetas: readonly PlayerMeta[]): GameState {
+function createInitialGameState(
+  playerMetas: readonly PlayerMeta[],
+  rules: GameRuleSettings,
+): GameState {
   return createNewGame(
     playerMetas.map((player) => player.id),
-    { rng: createSeededRandom(playerMetas.map((player) => player.id).join("|")) },
+    { rng: createSeededRandom(playerMetas.map((player) => player.id).join("|")), rules },
   );
 }
 
