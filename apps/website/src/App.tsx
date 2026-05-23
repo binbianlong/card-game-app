@@ -1,4 +1,6 @@
+import { Link } from "@tanstack/react-router";
 import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -64,25 +66,26 @@ function App() {
             >
               <CardContent className="p-0">
                 <Button
+                  asChild={action.title === "ルールを確認"}
                   type="button"
                   variant="ghost"
                   className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
                 >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <span className="grid min-w-0 flex-1 gap-0.5">
-                    <span className="text-base leading-snug font-bold text-card-foreground">
-                      {action.title}
-                    </span>
-                    <span className="text-[13px] leading-5 font-normal text-muted-foreground">
-                      {action.description}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    className="size-5 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
+                  {action.title === "ルールを確認" ? (
+                    <Link to="/rules">
+                      <ActionContent
+                        description={action.description}
+                        icon={<Icon className="size-5" aria-hidden="true" />}
+                        title={action.title}
+                      />
+                    </Link>
+                  ) : (
+                    <ActionContent
+                      description={action.description}
+                      icon={<Icon className="size-5" aria-hidden="true" />}
+                      title={action.title}
+                    />
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -90,6 +93,31 @@ function App() {
         })}
       </section>
     </main>
+  );
+}
+
+function ActionContent({
+  description,
+  icon,
+  title,
+}: {
+  description: string;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <>
+      <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="text-base leading-snug font-bold text-card-foreground">{title}</span>
+        <span className="text-[13px] leading-5 font-normal text-muted-foreground">
+          {description}
+        </span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </>
   );
 }
 

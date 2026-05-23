@@ -24,6 +24,7 @@ catalog:
   "@types/react": ^19.2.15
   "@types/react-dom": ^19.2.3
   "@radix-ui/react-slot": ^1.2.4
+  "@tanstack/react-router": ^1.170.7
 overrides:
   vite: "catalog:"
   vitest: "catalog:"
