@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, Handshake, Layers3, RotateCcw, Scissors, Shield } from "lucide-react";
+import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -37,6 +38,25 @@ const localRules = [
   },
 ] as const;
 
+const cardStrength = [
+  { rank: "3", suit: "diamonds" },
+  { rank: "4", suit: "clubs" },
+  { rank: "5", suit: "hearts" },
+  { rank: "6", suit: "spades" },
+  { rank: "7", suit: "diamonds" },
+  { rank: "8", suit: "clubs" },
+  { rank: "9", suit: "hearts" },
+  { rank: "10", suit: "spades" },
+  { rank: "J", suit: "diamonds" },
+  { rank: "Q", suit: "clubs" },
+  { rank: "K", suit: "hearts" },
+  { rank: "A", suit: "spades" },
+  { rank: "2", suit: "hearts" },
+  { rank: "JOKER", suit: "joker" },
+] as const;
+
+const cardStrengthRows = [cardStrength.slice(0, 7), cardStrength.slice(7)] as const;
+
 function RulesPage() {
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
@@ -69,10 +89,7 @@ function RulesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 px-4 pb-4">
-            <RulePoint
-              title="カードの強さ"
-              text="通常時は 3 が最弱、2 が最強です。JOKER はさらに強いカードとして扱います。"
-            />
+            <CardStrengthGuide />
             <RulePoint title="勝利条件" text="手札をすべて出した順に順位が決まります。" />
             <RulePoint
               title="順位の呼び方"
@@ -142,3 +159,52 @@ function RulePoint({ text, title }: { text: string; title: string }) {
 }
 
 export { RulesPage };
+
+function CardStrengthGuide() {
+  return (
+    <div className="rounded-lg bg-muted/60 p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-sm font-bold">カードの強さ</div>
+      </div>
+      <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
+        通常時は 3 が最弱、2 が最強です。JOKER はさらに強いカードとして扱います。
+      </p>
+      <div className="mt-3 grid gap-3" aria-label="カードの強さを弱い順に表示">
+        {cardStrengthRows.map((row, rowIndex) => (
+          <div key={rowIndex} className="min-w-0">
+            <div className="mb-1.5 flex items-center justify-between text-[10px] leading-none font-bold text-muted-foreground">
+              <span>{rowIndex === 0 ? "弱い" : "→"}</span>
+              <span aria-hidden="true">→</span>
+              <span>{rowIndex === 0 ? "→" : "強い"}</span>
+            </div>
+            <div className="flex items-end pl-1">
+              {row.map((card, index) => {
+                const strengthIndex = rowIndex * 7 + index + 1;
+
+                return (
+                  <div
+                    key={`${card.suit}-${card.rank}`}
+                    className="grid justify-items-center gap-1"
+                    style={{ marginLeft: index === 0 ? 0 : -12, zIndex: strengthIndex }}
+                  >
+                    <PlayingCard
+                      aria-label={`${strengthIndex}番目に強いカード ${card.rank}`}
+                      className="shadow-sm"
+                      rank={card.rank}
+                      size="xs"
+                      suit={card.suit}
+                      tabIndex={-1}
+                    />
+                    <span className="text-[10px] leading-none font-bold text-muted-foreground">
+                      {strengthIndex}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

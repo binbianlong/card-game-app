@@ -20,7 +20,7 @@ const meta = {
     },
     size: {
       control: "inline-radio",
-      options: ["sm", "md", "lg"],
+      options: ["xs", "sm", "md", "lg"],
     },
     suit: {
       control: "select",
@@ -59,11 +59,11 @@ export const AllCards: Story = {
       {suits.map((suit) => (
         <div key={suit} className="flex flex-wrap gap-2">
           {ranks.map((rank) => (
-            <PlayingCard key={`${suit}-${rank}`} rank={rank} size="sm" suit={suit} />
+            <PlayingCard key={`${suit}-${rank}`} rank={rank} size="xs" suit={suit} />
           ))}
         </div>
       ))}
-      <PlayingCard rank="JOKER" size="sm" suit="joker" />
+      <PlayingCard rank="JOKER" size="xs" suit="joker" />
     </div>
   ),
 };
