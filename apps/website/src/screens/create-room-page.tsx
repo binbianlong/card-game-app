@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const minPlayers = 2;
+const minPlayers = 3;
 const maxPlayers = 6;
 
 function CreateRoomPage() {

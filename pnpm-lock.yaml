@@ -90,6 +90,9 @@ importers:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
+      game:
+        specifier: workspace:*
+        version: link:../../packages/game
       lucide-react:
         specifier: 'catalog:'
         version: 1.16.0(react@19.2.6)
