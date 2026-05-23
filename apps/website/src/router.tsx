@@ -31,7 +31,7 @@ const waitingRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/waiting",
   validateSearch: (search: Record<string, unknown>) => {
-    const players = clampSearchNumber(search.players, 2, 6, 4);
+    const players = clampSearchNumber(search.players, 3, 6, 4);
     const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
 
     return { players, cpu };
@@ -43,7 +43,7 @@ const playRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/play",
   validateSearch: (search: Record<string, unknown>) => {
-    const players = clampSearchNumber(search.players, 2, 6, 4);
+    const players = clampSearchNumber(search.players, 3, 6, 4);
     const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
 
     return { players, cpu };
