@@ -128,6 +128,62 @@ describe("game state", () => {
     expect(next.table.play).toBeNull();
   });
 
+  test("ranks players as their hands empty and skips finished players", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("3")] },
+      { id: "p2", hand: [card("4"), card("7")] },
+      { id: "p3", hand: [card("5"), card("8")] },
+    ]);
+
+    const p1Finished = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-3"],
+    });
+
+    expect(p1Finished.rankings).toEqual(["p1"]);
+    expect(p1Finished.turnPlayerId).toBe("p2");
+
+    const p2Played = applyGameAction(p1Finished, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-4"],
+    });
+
+    expect(p2Played.turnPlayerId).toBe("p3");
+    expect(() =>
+      applyGameAction(p2Played, {
+        type: "pass",
+        playerId: "p1",
+      }),
+    ).toThrow(GameRuleError);
+  });
+
+  test("clears a table led by a finished player without returning turn to that player", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("3")] },
+      { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
+    ]);
+    const p1Finished = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-3"],
+    });
+    const p2Passed = applyGameAction(p1Finished, {
+      type: "pass",
+      playerId: "p2",
+    });
+    const p3Passed = applyGameAction(p2Passed, {
+      type: "pass",
+      playerId: "p3",
+    });
+
+    expect(p3Passed.table.play).toBeNull();
+    expect(p3Passed.turnPlayerId).toBe("p2");
+    expect(p3Passed.rankings).toEqual(["p1"]);
+  });
+
   test("updates player connection state", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3")] },

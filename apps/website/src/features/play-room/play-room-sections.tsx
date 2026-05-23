@@ -72,6 +72,7 @@ function OpponentSeat({ opponent }: { opponent: Opponent }) {
   const isThinking = opponent.status === "thinking";
   const isPassed = opponent.status === "passed";
   const isFinished = opponent.status === "finished";
+  const visibleBackCount = Math.min(opponent.cards, 3);
 
   return (
     <div
@@ -98,15 +99,21 @@ function OpponentSeat({ opponent }: { opponent: Opponent }) {
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex -space-x-4">
-          {Array.from({ length: 3 }, (_, index) => (
-            <PlayingCard
-              key={index}
-              faceDown
-              size="xs"
-              tabIndex={-1}
-              className="h-12 w-8 rounded-sm px-1 py-1 shadow-none"
-            />
-          ))}
+          {visibleBackCount > 0 ? (
+            Array.from({ length: visibleBackCount }, (_, index) => (
+              <PlayingCard
+                key={index}
+                faceDown
+                size="xs"
+                tabIndex={-1}
+                className="h-12 w-8 rounded-sm px-1 py-1 shadow-none"
+              />
+            ))
+          ) : (
+            <div className="grid h-12 w-8 place-items-center rounded-sm border border-dashed bg-muted/40 text-[10px] font-bold text-muted-foreground">
+              0
+            </div>
+          )}
         </div>
         <span className="inline-flex h-6 items-center rounded-md bg-muted px-2 text-[11px] font-bold text-muted-foreground">
           {isFinished ? "上がり" : isThinking ? "思考中" : isPassed ? "パス" : "待機"}
@@ -187,6 +194,7 @@ function PlayerArea({
   onPlaySelectedCards,
   onToggleCard,
   playerHand,
+  playerRank,
   selectedCards,
   selectedCardIdSet,
 }: {
@@ -196,10 +204,12 @@ function PlayerArea({
   onPlaySelectedCards: () => void;
   onToggleCard: (cardId: string) => void;
   playerHand: readonly GameCard[];
+  playerRank: number | null;
   selectedCards: readonly GameCard[];
   selectedCardIdSet: ReadonlySet<string>;
 }) {
   const hasSelection = selectedCards.length > 0;
+  const hasFinished = playerHand.length === 0 && playerRank !== null;
 
   return (
     <section className="grid gap-3" aria-label="あなたの手札">
@@ -211,7 +221,9 @@ function PlayerArea({
           <div className="min-w-0">
             <h2 className="text-base leading-tight font-extrabold">あなたの手札</h2>
             <p className="text-[13px] leading-5 text-muted-foreground">
-              {playerHand.length}枚中 {selectedCards.length}枚選択
+              {hasFinished
+                ? `${playerRank}位で上がり`
+                : `${playerHand.length}枚中 ${selectedCards.length}枚選択`}
             </p>
           </div>
         </div>
@@ -228,19 +240,25 @@ function PlayerArea({
 
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max items-end pl-1 pr-4">
-          {playerHand.map((card, index) => (
-            <PlayingCard
-              key={card.id}
-              rank={card.rank}
-              suit={card.suit}
-              selected={selectedCardIdSet.has(card.id)}
-              size="sm"
-              disabled={!availableActions.isTurn}
-              onClick={() => onToggleCard(card.id)}
-              className="shadow-md"
-              style={{ marginLeft: index === 0 ? 0 : -12, zIndex: index + 1 }}
-            />
-          ))}
+          {playerHand.length > 0 ? (
+            playerHand.map((card, index) => (
+              <PlayingCard
+                key={card.id}
+                rank={card.rank}
+                suit={card.suit}
+                selected={selectedCardIdSet.has(card.id)}
+                size="sm"
+                disabled={!availableActions.isTurn}
+                onClick={() => onToggleCard(card.id)}
+                className="shadow-md"
+                style={{ marginLeft: index === 0 ? 0 : -12, zIndex: index + 1 }}
+              />
+            ))
+          ) : (
+            <div className="grid h-28 w-20 place-items-center rounded-md border border-dashed bg-muted/40 text-center text-xs leading-5 font-bold text-muted-foreground">
+              手札なし
+            </div>
+          )}
         </div>
       </div>
 

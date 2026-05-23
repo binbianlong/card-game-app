@@ -35,7 +35,9 @@ function usePlayRoomGame({ cpuCount, playerCount }: { cpuCount: number; playerCo
   const [gameState, setGameState] = useState(() => createInitialGameState(playerMetas));
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const playerView = useMemo(() => getPlayerView(gameState, viewerId), [gameState]);
-  const playerHand = playerView.players.find((player) => player.id === viewerId)?.hand ?? [];
+  const viewer = playerView.players.find((player) => player.id === viewerId);
+  const playerHand = viewer?.hand ?? [];
+  const playerRank = viewer?.rank ?? null;
   const selectedCards = playerHand.filter((card) => selectedCardIds.includes(card.id));
   const selectedCardIdSet = useMemo(() => new Set(selectedCardIds), [selectedCardIds]);
   const availableActions = getAvailableActions(gameState, viewerId, { selectedCardIds });
@@ -137,6 +139,7 @@ function usePlayRoomGame({ cpuCount, playerCount }: { cpuCount: number; playerCo
     passTurn,
     playerHand,
     playerMetas,
+    playerRank,
     playerView,
     playSelectedCards,
     selectedCardIdSet,
