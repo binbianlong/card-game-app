@@ -9,7 +9,6 @@ const actions = [
     title: "ルームを作成",
     description: "新しい対戦ルームを開く",
     icon: Plus,
-    featured: true,
   },
   {
     title: "ルームに参加",
@@ -58,12 +57,7 @@ function App() {
           const Icon = action.icon;
 
           return (
-            <Card
-              key={action.title}
-              className={
-                action.featured ? "border-primary/40 bg-gradient-to-b from-teal-50 to-card" : ""
-              }
-            >
+            <Card key={action.title}>
               <CardContent className="p-0">
                 <Button
                   asChild={action.title === "ルームを作成" || action.title === "ルールを確認"}
