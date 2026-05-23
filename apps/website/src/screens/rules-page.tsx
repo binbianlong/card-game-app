@@ -1,40 +1,17 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, Handshake, Layers3, RotateCcw, Scissors, Shield } from "lucide-react";
+import { ArrowLeft, BookOpen, Handshake } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 
-const localRules = [
-  {
-    key: "eightCut",
-    title: "8切り",
-    summary: "8を含む手を出すと場が流れ、出したプレイヤーから続行します。",
-    icon: Scissors,
-  },
-  {
-    key: "revolution",
-    title: "革命",
-    summary: "4枚以上の同じ数字のカードを出すと、カードの強さが反転します。",
-    icon: RotateCcw,
-  },
-  {
-    key: "sequence",
-    title: "階段",
-    summary: "同じマークのカード3枚以上の連番をまとめて出せます。2は階段に使えません。",
-    icon: Layers3,
-  },
-  {
-    key: "suitLock",
-    title: "縛り",
-    summary: "同じマークのカード構成が続くと、その場が流れるまで同じ構成しか出せません。",
-    icon: Shield,
-  },
+const extraLocalRules = [
   {
     key: "cardExchange",
-    title: "カード交換",
-    summary:
+    label: "カード交換",
+    description:
       "次の対戦の前に、大貧民は手札で一番強いカードを大富豪に渡します。大富豪は手札からいらないカードを1枚選んで返します。",
-    icon: Handshake,
+    Icon: Handshake,
   },
 ] as const;
 
@@ -123,8 +100,8 @@ function RulesPage() {
           </CardHeader>
 
           <CardContent className="grid gap-2.5 px-4 pb-4">
-            {localRules.map((rule) => {
-              const Icon = rule.icon;
+            {[...localRuleOptions, ...extraLocalRules].map((rule) => {
+              const Icon = rule.Icon;
 
               return (
                 <Card key={rule.key} className="border-primary/15 bg-card/90 shadow-none">
@@ -133,9 +110,9 @@ function RulesPage() {
                       <Icon className="size-5" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
-                      <h3 className="text-base leading-snug font-bold">{rule.title}</h3>
+                      <h3 className="text-base leading-snug font-bold">{rule.label}</h3>
                       <p className="mt-1.5 text-[13px] leading-5 text-muted-foreground">
-                        {rule.summary}
+                        {rule.description}
                       </p>
                     </div>
                   </CardContent>

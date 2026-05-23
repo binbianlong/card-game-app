@@ -13,9 +13,10 @@ describe("game state", () => {
     expect(state).toMatchObject({
       phase: "playing",
       rules: {
-        eightCut: true,
-        revolution: true,
-        sequence: true,
+        eightCut: false,
+        elevenBack: false,
+        revolution: false,
+        sequence: false,
         suitLock: false,
       },
       turnPlayerId: "p1",
@@ -23,6 +24,7 @@ describe("game state", () => {
         play: null,
         playedBy: null,
       },
+      elevenBack: false,
       revolution: false,
       rankings: [],
     });

@@ -1,16 +1,41 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import { ArrowLeft, Bot, CheckCircle2, Clock, Copy, Crown, Play, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Crown,
+  Play,
+  Settings2,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  defaultLocalRuleSettings,
+  localRuleOptions,
+  type LocalRuleKey,
+} from "@/features/local-rules/local-rule-options";
+import type { GameRuleSettings } from "game";
 
 function WaitingRoomPage() {
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
+  const [localRules, setLocalRules] = useState<GameRuleSettings>(defaultLocalRuleSettings);
   const humanCount = playerCount - cpuCount;
   const [joinedHumanCount, setJoinedHumanCount] = useState(1);
   const isReadyToStart = joinedHumanCount >= humanCount;
+
+  function toggleLocalRule(ruleKey: LocalRuleKey) {
+    setLocalRules((currentRules) => ({
+      ...currentRules,
+      [ruleKey]: !currentRules[ruleKey],
+    }));
+  }
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
@@ -39,6 +64,8 @@ function WaitingRoomPage() {
         humanCount={humanCount}
         isReadyToStart={isReadyToStart}
         joinedHumanCount={joinedHumanCount}
+        localRules={localRules}
+        onToggleLocalRule={toggleLocalRule}
         onAddParticipant={() =>
           setJoinedHumanCount((currentCount) => clamp(currentCount + 1, 1, humanCount))
         }
@@ -53,6 +80,8 @@ function WaitingRoom({
   humanCount,
   isReadyToStart,
   joinedHumanCount,
+  localRules,
+  onToggleLocalRule,
   onAddParticipant,
   playerCount,
 }: {
@@ -60,6 +89,8 @@ function WaitingRoom({
   humanCount: number;
   isReadyToStart: boolean;
   joinedHumanCount: number;
+  localRules: GameRuleSettings;
+  onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   onAddParticipant: () => void;
   playerCount: number;
 }) {
@@ -119,6 +150,27 @@ function WaitingRoom({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="px-4 pt-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Settings2 className="size-4 text-primary" aria-hidden="true" />
+            採用ルール
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2.5 px-4 pb-4">
+          {localRuleOptions.map((rule) => (
+            <RuleToggle
+              key={rule.key}
+              description={rule.description}
+              enabled={localRules[rule.key]}
+              Icon={rule.Icon}
+              label={rule.label}
+              onClick={() => onToggleLocalRule(rule.key)}
+            />
+          ))}
+        </CardContent>
+      </Card>
+
       <Card className="py-0">
         <CardContent className="grid gap-3 p-4">
           <Button
@@ -138,7 +190,10 @@ function WaitingRoom({
             disabled={!isReadyToStart}
           >
             {isReadyToStart ? (
-              <Link to="/rooms/play" search={{ players: playerCount, cpu: cpuCount }}>
+              <Link
+                to="/rooms/play"
+                search={{ players: playerCount, cpu: cpuCount, ...localRules }}
+              >
                 <Play className="size-4 fill-current" aria-hidden="true" />
                 開始する
               </Link>
@@ -157,6 +212,52 @@ function WaitingRoom({
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function RuleToggle({
+  description,
+  enabled,
+  Icon,
+  label,
+  onClick,
+}: {
+  description: string;
+  enabled: boolean;
+  Icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={enabled}
+      onClick={onClick}
+      className={
+        enabled
+          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs"
+          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs"
+      }
+    >
+      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-base leading-snug font-bold">{label}</span>
+        <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">
+          {description}
+        </span>
+      </span>
+      <span
+        className={
+          enabled
+            ? "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-xs font-bold text-primary-foreground"
+            : "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-muted px-2 text-xs font-bold text-muted-foreground"
+        }
+      >
+        {enabled ? "ON" : "OFF"}
+      </span>
+    </button>
   );
 }
 

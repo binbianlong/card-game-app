@@ -28,6 +28,7 @@ export function getPlayerView(state: GameState, viewerId: PlayerId): PlayerGameV
     turnPlayerId: state.turnPlayerId,
     table: state.table,
     passedPlayerIds: state.passedPlayerIds,
+    elevenBack: state.elevenBack,
     revolution: state.revolution,
     suitLock: state.suitLock,
     rankings: state.rankings,

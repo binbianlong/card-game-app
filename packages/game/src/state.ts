@@ -1,6 +1,7 @@
 import { analyzePlay, canPlayOn } from "./rules.ts";
 import { DEFAULT_GAME_RULES } from "./local-rules/defaults.ts";
 import { isEightCutEnabled } from "./local-rules/eight-cut.ts";
+import { getNextElevenBack } from "./local-rules/eleven-back.ts";
 import { getNextRevolution } from "./local-rules/revolution.ts";
 import { assertSequenceAllowed } from "./local-rules/sequence.ts";
 import { getNextSuitLock, matchesSuitLock } from "./local-rules/suit-lock.ts";
@@ -66,6 +67,7 @@ export function createGameState(
       playedBy: null,
     },
     passedPlayerIds: [],
+    elevenBack: false,
     revolution: false,
     suitLock: null,
     rankings: [],
@@ -102,7 +104,7 @@ function applyPlayCards(
 
   assertSequenceAllowed(play, state.rules);
 
-  if (!canPlayOn(cards, state.table.play, { revolution: state.revolution })) {
+  if (!canPlayOn(cards, state.table.play, { revolution: getEffectiveRevolution(state) })) {
     throw new GameRuleError("Cards cannot be played on the current table.");
   }
 
@@ -121,6 +123,7 @@ function applyPlayCards(
   );
   const rankings = updatedHand.length === 0 ? [...state.rankings, playerId] : [...state.rankings];
   const eightCut = isEightCutEnabled(play, state.rules);
+  const elevenBack = eightCut ? false : state.elevenBack || getNextElevenBack(play, state.rules);
   const revolution = getNextRevolution(state.revolution, play, state.rules);
   const nextBase: GameState = {
     ...state,
@@ -135,6 +138,7 @@ function applyPlayCards(
           playedBy: playerId,
         },
     passedPlayerIds: [],
+    elevenBack,
     revolution,
     suitLock:
       eightCut || !state.rules.suitLock
@@ -174,6 +178,7 @@ function applyPass(state: GameState, playerId: PlayerId): GameState {
         playedBy: null,
       },
       passedPlayerIds: [],
+      elevenBack: false,
       suitLock: null,
     };
 
@@ -305,8 +310,13 @@ function completeIfNeeded(state: GameState): GameState {
       play: null,
       playedBy: null,
     },
+    elevenBack: false,
     suitLock: null,
   };
+}
+
+function getEffectiveRevolution(state: GameState): boolean {
+  return state.revolution !== state.elevenBack;
 }
 
 function unique<T>(values: readonly T[]): readonly T[] {

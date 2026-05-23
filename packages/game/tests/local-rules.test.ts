@@ -4,6 +4,27 @@ import { card } from "./helpers.ts";
 
 describe("local rules", () => {
   test("keeps turn on the same player after eight cut if they still have cards", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("8"), card("9")] },
+        { id: "p2", hand: [card("4")] },
+        { id: "p3", hand: [card("5")] },
+      ],
+      "p1",
+      { rules: { eightCut: true } },
+    );
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-8"],
+    });
+
+    expect(next.table.play).toBeNull();
+    expect(next.turnPlayerId).toBe("p1");
+  });
+
+  test("keeps eight as a normal play by default", () => {
     const state = createGameState([
       { id: "p1", hand: [card("8"), card("9")] },
       { id: "p2", hand: [card("4")] },
@@ -16,51 +37,11 @@ describe("local rules", () => {
       cardIds: ["spades-8"],
     });
 
-    expect(next.table.play).toBeNull();
-    expect(next.turnPlayerId).toBe("p1");
-  });
-
-  test("keeps eight as a normal play when eight cut is disabled", () => {
-    const state = createGameState(
-      [
-        { id: "p1", hand: [card("8"), card("9")] },
-        { id: "p2", hand: [card("4")] },
-        { id: "p3", hand: [card("5")] },
-      ],
-      "p1",
-      { rules: { eightCut: false } },
-    );
-
-    const next = applyGameAction(state, {
-      type: "playCards",
-      playerId: "p1",
-      cardIds: ["spades-8"],
-    });
-
     expect(next.table.play).toMatchObject({ kind: "single", rank: "8" });
     expect(next.turnPlayerId).toBe("p2");
   });
 
   test("toggles revolution after a revolution-causing play", () => {
-    const state = createGameState([
-      {
-        id: "p1",
-        hand: [card("5", "clubs"), card("5", "diamonds"), card("5", "hearts"), card("5", "spades")],
-      },
-      { id: "p2", hand: [card("4")] },
-      { id: "p3", hand: [card("6")] },
-    ]);
-
-    const next = applyGameAction(state, {
-      type: "playCards",
-      playerId: "p1",
-      cardIds: ["clubs-5", "diamonds-5", "hearts-5", "spades-5"],
-    });
-
-    expect(next.revolution).toBe(true);
-  });
-
-  test("keeps revolution unchanged when revolution is disabled", () => {
     const state = createGameState(
       [
         {
@@ -76,8 +57,27 @@ describe("local rules", () => {
         { id: "p3", hand: [card("6")] },
       ],
       "p1",
-      { rules: { revolution: false } },
+      { rules: { revolution: true } },
     );
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["clubs-5", "diamonds-5", "hearts-5", "spades-5"],
+    });
+
+    expect(next.revolution).toBe(true);
+  });
+
+  test("keeps revolution unchanged by default", () => {
+    const state = createGameState([
+      {
+        id: "p1",
+        hand: [card("5", "clubs"), card("5", "diamonds"), card("5", "hearts"), card("5", "spades")],
+      },
+      { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("6")] },
+    ]);
 
     const next = applyGameAction(state, {
       type: "playCards",
@@ -88,19 +88,112 @@ describe("local rules", () => {
     expect(next.revolution).toBe(false);
   });
 
-  test("rejects sequences when sequence is disabled", () => {
+  test("keeps jack as a normal play by default", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("J"), card("3")] },
+      { id: "p2", hand: [card("10")] },
+      { id: "p3", hand: [card("Q")] },
+    ]);
+
+    const next = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+
+    expect(next.elevenBack).toBe(false);
+    expect(() =>
+      applyGameAction(next, {
+        type: "playCards",
+        playerId: "p2",
+        cardIds: ["spades-10"],
+      }),
+    ).toThrow(GameRuleError);
+  });
+
+  test("temporarily reverses card strength after an eleven back play", () => {
     const state = createGameState(
       [
-        {
-          id: "p1",
-          hand: [card("6", "hearts"), card("7", "hearts"), card("8", "hearts")],
-        },
-        { id: "p2", hand: [card("4")] },
-        { id: "p3", hand: [card("5")] },
+        { id: "p1", hand: [card("J"), card("3")] },
+        { id: "p2", hand: [card("10"), card("Q"), card("4")] },
+        { id: "p3", hand: [card("9"), card("5")] },
       ],
       "p1",
-      { rules: { sequence: false } },
+      { rules: { elevenBack: true } },
     );
+
+    const backed = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+
+    expect(backed.elevenBack).toBe(true);
+    expect(() =>
+      applyGameAction(backed, {
+        type: "playCards",
+        playerId: "p2",
+        cardIds: ["spades-Q"],
+      }),
+    ).toThrow(GameRuleError);
+
+    const p2Played = applyGameAction(backed, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-10"],
+    });
+
+    expect(p2Played.table.play).toMatchObject({ kind: "single", rank: "10" });
+    expect(p2Played.elevenBack).toBe(true);
+  });
+
+  test("clears eleven back when the table is cleared", () => {
+    const state = createGameState(
+      [
+        { id: "p1", hand: [card("J"), card("3")] },
+        { id: "p2", hand: [card("10"), card("4")] },
+        { id: "p3", hand: [card("9"), card("5")] },
+      ],
+      "p1",
+      { rules: { elevenBack: true } },
+    );
+    const backed = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["spades-J"],
+    });
+    const p2Played = applyGameAction(backed, {
+      type: "playCards",
+      playerId: "p2",
+      cardIds: ["spades-10"],
+    });
+    const p3Played = applyGameAction(p2Played, {
+      type: "playCards",
+      playerId: "p3",
+      cardIds: ["spades-9"],
+    });
+    const p1Passed = applyGameAction(p3Played, {
+      type: "pass",
+      playerId: "p1",
+    });
+    const p2Passed = applyGameAction(p1Passed, {
+      type: "pass",
+      playerId: "p2",
+    });
+
+    expect(p2Passed.table.play).toBeNull();
+    expect(p2Passed.elevenBack).toBe(false);
+  });
+
+  test("rejects sequences by default", () => {
+    const state = createGameState([
+      {
+        id: "p1",
+        hand: [card("6", "hearts"), card("7", "hearts"), card("8", "hearts")],
+      },
+      { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
+    ]);
 
     expect(() =>
       applyGameAction(state, {
