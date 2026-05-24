@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { createClientEvent } from "schema";
+import { createClientEvent, type RoomState } from "schema";
 import {
   RoomStateError,
   applyNextCpuTurn,
@@ -87,8 +87,7 @@ describe("room state", () => {
     const room = createCpuTurnRoom();
     const game = expectGame(room);
     const cpu = getParticipant(room, game.turnPlayerId);
-    const nextRoom = applyNextCpuTurn(room);
-    const nextGame = expectGame(nextRoom);
+    const nextGame = expectGame(applyNextCpuTurn(room));
 
     expect(nextGame).not.toEqual(game);
     expect(nextGame.table.playedBy === cpu.id || nextGame.passedPlayerIds.includes(cpu.id)).toBe(
@@ -174,29 +173,39 @@ function createCpuRoom() {
 }
 
 function createCpuTurnRoom() {
-  const startedRoom = applyRoomClientEvent(
+  let room = applyRoomClientEvent(
     createCpuRoom(),
     createClientEvent.startGame({
       roomId: "room-1",
       playerId: "player-1",
     }),
   );
-  const game = expectGame(startedRoom);
-  const player = game.players.find((candidate) => candidate.id === game.turnPlayerId);
-  const card = player?.hand[0];
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const game = expectGame(room);
+    const participant = getParticipant(room, game.turnPlayerId);
 
-  if (player === undefined || card === undefined) {
-    throw new Error("Expected current player with cards.");
+    if (participant.kind === "cpu") {
+      return room;
+    }
+
+    const player = game.players.find((candidate) => candidate.id === game.turnPlayerId);
+    const card = player?.hand[0];
+
+    if (player === undefined || card === undefined) {
+      throw new Error("Expected current player with cards.");
+    }
+
+    room = applyRoomClientEvent(
+      room,
+      createClientEvent.playCards({
+        roomId: room.id,
+        playerId: player.id,
+        cardIds: [card.id],
+      }),
+    );
   }
 
-  return applyRoomClientEvent(
-    startedRoom,
-    createClientEvent.playCards({
-      roomId: startedRoom.id,
-      playerId: player.id,
-      cardIds: [card.id],
-    }),
-  );
+  throw new Error("Expected CPU turn.");
 }
 
 function createPlayableRoom() {
@@ -213,7 +222,7 @@ function createPlayableRoom() {
   );
 }
 
-function expectGame(room: ReturnType<typeof createRoom>) {
+function expectGame(room: RoomState) {
   if (room.game === null) {
     throw new Error("Expected game state.");
   }
@@ -221,7 +230,7 @@ function expectGame(room: ReturnType<typeof createRoom>) {
   return room.game;
 }
 
-function getParticipant(room: ReturnType<typeof createRoom>, playerId: string) {
+function getParticipant(room: RoomState, playerId: string) {
   const participant = room.participants.find((candidate) => candidate.id === playerId);
 
   if (participant === undefined) {
