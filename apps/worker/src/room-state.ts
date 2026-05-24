@@ -1,4 +1,12 @@
-import { applyGameAction, createNewGame, GameRuleError, type PlayerId } from "game";
+import {
+  applyGameAction,
+  createNewGame,
+  getAvailableActions,
+  GameRuleError,
+  type GameAction,
+  type GameState,
+  type PlayerId,
+} from "game";
 import {
   GameStateSchema,
   clientEventTypes,
@@ -28,6 +36,10 @@ class RoomStateError extends Error {
 
 function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
   try {
+    if (event.type === clientEventTypes.createRoom) {
+      return room;
+    }
+
     switch (event.type) {
       case clientEventTypes.joinRoom:
         return joinRoom(room, event.playerName);
@@ -39,13 +51,11 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
         assertWaitingRoom(room);
         return { ...room, rules: event.rules };
       case clientEventTypes.startGame:
-        return startGame(room);
+        return applyCpuTurns(startGame(room));
       case clientEventTypes.playCards:
-        return applyGameRoomAction(room, event);
+        return applyCpuTurns(applyGameRoomAction(room, event));
       case clientEventTypes.pass:
-        return applyGameRoomAction(room, event);
-      case clientEventTypes.createRoom:
-        return room;
+        return applyCpuTurns(applyGameRoomAction(room, event));
     }
   } catch (error) {
     if (error instanceof RoomStateError) {
@@ -186,6 +196,112 @@ function applyGameRoomAction(
     status: game.phase,
     game,
   };
+}
+
+function applyCpuTurns(room: RoomState): RoomState {
+  let nextRoom = room;
+
+  for (let attempt = 0; attempt < nextRoom.participants.length * 2; attempt += 1) {
+    const game = nextRoom.game;
+
+    if (nextRoom.status !== "playing" || game === null || game.phase !== "playing") {
+      return nextRoom;
+    }
+
+    const participant = nextRoom.participants.find(
+      (candidate) => candidate.id === game.turnPlayerId,
+    );
+
+    if (participant?.kind !== "cpu") {
+      return nextRoom;
+    }
+
+    const action = createCpuAction(game, participant.id);
+
+    if (action === null) {
+      return nextRoom;
+    }
+
+    const nextGame = GameStateSchema.parse(applyGameAction(game, action));
+
+    nextRoom = {
+      ...nextRoom,
+      status: nextGame.phase,
+      game: nextGame,
+    };
+  }
+
+  return nextRoom;
+}
+
+function createCpuAction(state: GameState, playerId: PlayerId): GameAction | null {
+  const cardIds = findPlayableCardIds(state, playerId);
+
+  if (cardIds !== null) {
+    return {
+      type: clientEventTypes.playCards,
+      playerId,
+      cardIds,
+    };
+  }
+
+  if (getAvailableActions(state, playerId).canPass) {
+    return {
+      type: clientEventTypes.pass,
+      playerId,
+    };
+  }
+
+  return null;
+}
+
+function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly string[] | null {
+  const player = state.players.find((candidate) => candidate.id === playerId);
+
+  if (player === undefined) {
+    return null;
+  }
+
+  const cardCount = state.table.play?.cards.length ?? 1;
+
+  for (const cardIds of createCardIdCombinations(
+    player.hand.map((card) => card.id),
+    cardCount,
+  )) {
+    if (getAvailableActions(state, playerId, { selectedCardIds: cardIds }).canPlaySelectedCards) {
+      return cardIds;
+    }
+  }
+
+  return null;
+}
+
+function createCardIdCombinations(
+  cardIds: readonly string[],
+  count: number,
+): readonly (readonly string[])[] {
+  if (count <= 0 || count > cardIds.length) {
+    return [];
+  }
+
+  const combinations: string[][] = [];
+
+  function collect(startIndex: number, currentCardIds: string[]) {
+    if (currentCardIds.length === count) {
+      combinations.push([...currentCardIds]);
+      return;
+    }
+
+    for (let index = startIndex; index < cardIds.length; index += 1) {
+      currentCardIds.push(cardIds[index]);
+      collect(index + 1, currentCardIds);
+      currentCardIds.pop();
+    }
+  }
+
+  collect(0, []);
+
+  return combinations;
 }
 
 function assertWaitingRoom(room: RoomState) {

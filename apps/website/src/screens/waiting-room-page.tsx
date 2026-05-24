@@ -38,6 +38,8 @@ function WaitingRoomPage() {
       search: {
         players: room.participants.length,
         cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
+        roomId: room.id,
+        playerId,
         ...room.rules,
       },
     });

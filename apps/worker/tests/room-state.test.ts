@@ -73,6 +73,20 @@ describe("room state", () => {
     expect(playingRoom.game?.players.every((player) => player.hand.length > 0)).toBe(true);
   });
 
+  test("advances cpu turns on the server", () => {
+    const room = createCpuRoom();
+    const playingRoom = applyRoomClientEvent(
+      room,
+      createClientEvent.startGame({
+        roomId: room.id,
+        playerId: room.hostPlayerId,
+      }),
+    );
+    const game = expectGame(playingRoom);
+
+    expect(getParticipant(playingRoom, game.turnPlayerId).kind).not.toBe("cpu");
+  });
+
   test("stores game actions in room state", () => {
     const room = applyRoomClientEvent(
       createPlayableRoom(),
@@ -137,6 +151,19 @@ function createRoom() {
   );
 }
 
+function createCpuRoom() {
+  return createWaitingRoom(
+    createClientEvent.createRoom({
+      playerName: "Host",
+      playerCount: 3,
+      cpuCount: 2,
+      rules,
+    }),
+    "room-1",
+    createInviteCode("room-1"),
+  );
+}
+
 function createPlayableRoom() {
   return ["Guest 1", "Guest 2"].reduce(
     (room, playerName) =>
@@ -157,4 +184,14 @@ function expectGame(room: ReturnType<typeof createRoom>) {
   }
 
   return room.game;
+}
+
+function getParticipant(room: ReturnType<typeof createRoom>, playerId: string) {
+  const participant = room.participants.find((candidate) => candidate.id === playerId);
+
+  if (participant === undefined) {
+    throw new Error("Expected participant.");
+  }
+
+  return participant;
 }

@@ -54,6 +54,8 @@ const playRoomRoute = createRoute({
     return {
       players,
       cpu,
+      roomId: parseSearchOptionalString(search.roomId),
+      playerId: parseSearchOptionalString(search.playerId),
       eightCut: parseSearchBoolean(search.eightCut),
       elevenBack: parseSearchBoolean(search.elevenBack),
       revolution: parseSearchBoolean(search.revolution),

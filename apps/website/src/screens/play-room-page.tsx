@@ -12,6 +12,8 @@ function PlayRoomPage() {
   const search = useSearch({ from: "/rooms/play" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
+  const roomId = search.roomId ?? "";
+  const playerId = search.playerId ?? "";
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const localRules = useMemo(
     () => ({
@@ -36,7 +38,7 @@ function PlayRoomPage() {
     selectedCardIdSet,
     selectedCards,
     toggleCard,
-  } = usePlayRoomGame({ cpuCount, playerCount, rules: localRules });
+  } = usePlayRoomGame({ cpuCount, playerCount, playerId, roomId });
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
@@ -44,7 +46,7 @@ function PlayRoomPage() {
         <Button asChild variant="ghost" size="icon" aria-label="待機画面に戻る">
           <Link
             to="/rooms/waiting"
-            search={{ players: playerCount, cpu: cpuCount, roomId: undefined, playerId: undefined }}
+            search={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
           </Link>

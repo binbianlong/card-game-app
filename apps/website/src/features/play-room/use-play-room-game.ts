@@ -1,18 +1,14 @@
 import {
-  applyGameAction,
-  createNewGame,
   getAvailableActions,
   getPlayerView,
-  type GameAction,
-  type GameRuleSettings,
-  type GameState,
   type Play,
+  type PlayerGameView,
   type PlayerId,
 } from "game";
-import { useEffect, useMemo, useState } from "react";
-import { clientEventTypes } from "schema";
-
-const viewerId = "player-1";
+import { useEffect, useMemo, useRef, useState } from "react";
+import PartySocket from "partysocket";
+import { getWorkerHost } from "@/features/rooms/room-api";
+import { ServerEventSchema, createClientEvent, roomPartyName, type RoomState } from "schema";
 
 type PlayerMeta = {
   id: PlayerId;
@@ -29,28 +25,58 @@ type Opponent = {
   status: "finished" | "passed" | "thinking" | "waiting";
 };
 
+const emptyPlayerView: PlayerGameView = {
+  phase: "playing",
+  rules: {
+    eightCut: false,
+    elevenBack: false,
+    revolution: false,
+    sequence: false,
+    suitLock: false,
+  },
+  viewerId: "",
+  players: [],
+  turnPlayerId: "",
+  table: {
+    play: null,
+    playedBy: null,
+  },
+  passedPlayerIds: [],
+  elevenBack: false,
+  revolution: false,
+  suitLock: null,
+  rankings: [],
+};
+
 function usePlayRoomGame({
-  cpuCount,
-  playerCount,
-  rules,
+  playerId,
+  roomId,
 }: {
   cpuCount: number;
   playerCount: number;
-  rules: GameRuleSettings;
+  playerId: string;
+  roomId: string;
 }) {
-  const playerMetas = useMemo(
-    () => createPlayerMetas(playerCount, cpuCount),
-    [cpuCount, playerCount],
-  );
-  const [gameState, setGameState] = useState(() => createInitialGameState(playerMetas, rules));
+  const socketRef = useRef<PartySocket | null>(null);
+  const [room, setRoom] = useState<RoomState | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
-  const playerView = useMemo(() => getPlayerView(gameState, viewerId), [gameState]);
+  const gameState = room?.game ?? null;
+  const viewerId = playerId;
+  const playerView = useMemo(
+    () => (gameState === null ? emptyPlayerView : getPlayerView(gameState, viewerId)),
+    [gameState, viewerId],
+  );
+  const playerMetas = useMemo(() => createPlayerMetas(room, viewerId), [room, viewerId]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
   const playerHand = viewer?.hand ?? [];
   const playerRank = viewer?.rank ?? null;
   const selectedCards = playerHand.filter((card) => selectedCardIds.includes(card.id));
   const selectedCardIdSet = useMemo(() => new Set(selectedCardIds), [selectedCardIds]);
-  const availableActions = getAvailableActions(gameState, viewerId, { selectedCardIds });
+  const availableActions =
+    gameState === null
+      ? { isTurn: false, canPlaySelectedCards: false, canPass: false }
+      : getAvailableActions(gameState, viewerId, { selectedCardIds });
   const opponents = useMemo(
     () =>
       playerView.players
@@ -75,39 +101,52 @@ function usePlayRoomGame({
                   : "waiting",
           };
         }),
-    [playerMetas, playerView],
+    [playerMetas, playerView, viewerId],
   );
 
   useEffect(() => {
-    setGameState(createInitialGameState(playerMetas, rules));
-    setSelectedCardIds([]);
-  }, [playerMetas, rules]);
+    if (roomId.length === 0 || playerId.length === 0) {
+      setErrorMessage("ルーム情報がありません。");
+      return;
+    }
+
+    const socket = new PartySocket({
+      host: getWorkerHost(),
+      party: roomPartyName,
+      room: roomId,
+      id: playerId,
+    });
+    socketRef.current = socket;
+
+    socket.addEventListener("message", (event) => {
+      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+
+      if (!serverEvent.success) {
+        setErrorMessage("ゲーム状態を読み取れませんでした。");
+        return;
+      }
+
+      if (serverEvent.data.type === "error") {
+        setErrorMessage(serverEvent.data.message);
+        return;
+      }
+
+      setRoom(serverEvent.data.room);
+      setErrorMessage(null);
+    });
+    socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
+
+    return () => {
+      socket.close();
+      socketRef.current = null;
+    };
+  }, [playerId, roomId]);
 
   useEffect(() => {
     setSelectedCardIds((currentIds) =>
       currentIds.filter((cardId) => playerHand.some((card) => card.id === cardId)),
     );
   }, [playerHand]);
-
-  useEffect(() => {
-    if (playerView.phase !== "playing" || playerView.turnPlayerId === viewerId) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setGameState((currentState) => {
-        if (currentState.phase !== "playing" || currentState.turnPlayerId === viewerId) {
-          return currentState;
-        }
-
-        const action = createAutoAction(currentState, currentState.turnPlayerId);
-
-        return action === null ? currentState : applyGameAction(currentState, action);
-      });
-    }, 500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [playerView]);
 
   function toggleCard(cardId: string) {
     setSelectedCardIds((currentIds) =>
@@ -122,29 +161,27 @@ function usePlayRoomGame({
   }
 
   function playSelectedCards() {
-    setGameState((currentState) =>
-      applyGameAction(currentState, {
-        type: clientEventTypes.playCards,
-        playerId: viewerId,
-        cardIds: selectedCardIds,
-      }),
+    socketRef.current?.send(
+      JSON.stringify(
+        createClientEvent.playCards({
+          roomId,
+          playerId,
+          cardIds: selectedCardIds,
+        }),
+      ),
     );
     setSelectedCardIds([]);
   }
 
   function passTurn() {
-    setGameState((currentState) =>
-      applyGameAction(currentState, {
-        type: clientEventTypes.pass,
-        playerId: viewerId,
-      }),
-    );
+    socketRef.current?.send(JSON.stringify(createClientEvent.pass({ roomId, playerId })));
     setSelectedCardIds([]);
   }
 
   return {
     availableActions,
     clearSelection,
+    errorMessage,
     opponents,
     passTurn,
     playerHand,
@@ -158,125 +195,14 @@ function usePlayRoomGame({
   };
 }
 
-function createPlayerMetas(playerCount: number, cpuCount: number): readonly PlayerMeta[] {
-  const humanCount = playerCount - cpuCount;
-
-  return [
-    { id: viewerId, kind: "host", name: "あなた" },
-    ...Array.from(
-      { length: humanCount - 1 },
-      (_, index): PlayerMeta => ({
-        id: `guest-${index + 1}`,
-        kind: "guest",
-        name: `参加者 ${index + 2}`,
-      }),
-    ),
-    ...Array.from(
-      { length: cpuCount },
-      (_, index): PlayerMeta => ({
-        id: `cpu-${index + 1}`,
-        kind: "cpu",
-        name: `CPU ${index + 1}`,
-      }),
-    ),
-  ];
-}
-
-function createInitialGameState(
-  playerMetas: readonly PlayerMeta[],
-  rules: GameRuleSettings,
-): GameState {
-  return createNewGame(
-    playerMetas.map((player) => player.id),
-    { rng: createSeededRandom(playerMetas.map((player) => player.id).join("|")), rules },
+function createPlayerMetas(room: RoomState | null, viewerId: string): readonly PlayerMeta[] {
+  return (
+    room?.participants.map((participant) => ({
+      id: participant.id,
+      kind: participant.kind,
+      name: participant.id === viewerId ? "あなた" : participant.name,
+    })) ?? []
   );
-}
-
-function createSeededRandom(seedText: string): () => number {
-  let seed = 2166136261;
-
-  for (const character of seedText) {
-    seed ^= character.charCodeAt(0);
-    seed = Math.imul(seed, 16777619);
-  }
-
-  return () => {
-    seed += 0x6d2b79f5;
-    let value = seed;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function createAutoAction(state: GameState, playerId: PlayerId): GameAction | null {
-  const cardIds = findPlayableCardIds(state, playerId);
-
-  if (cardIds !== null) {
-    return {
-      type: clientEventTypes.playCards,
-      playerId,
-      cardIds,
-    };
-  }
-
-  if (getAvailableActions(state, playerId).canPass) {
-    return {
-      type: clientEventTypes.pass,
-      playerId,
-    };
-  }
-
-  return null;
-}
-
-function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly string[] | null {
-  const player = state.players.find((candidate) => candidate.id === playerId);
-
-  if (player === undefined) {
-    return null;
-  }
-
-  const cardCount = state.table.play?.cards.length ?? 1;
-
-  for (const cardIds of createCardIdCombinations(
-    player.hand.map((card) => card.id),
-    cardCount,
-  )) {
-    if (getAvailableActions(state, playerId, { selectedCardIds: cardIds }).canPlaySelectedCards) {
-      return cardIds;
-    }
-  }
-
-  return null;
-}
-
-function createCardIdCombinations(
-  cardIds: readonly string[],
-  count: number,
-): readonly (readonly string[])[] {
-  if (count <= 0 || count > cardIds.length) {
-    return [];
-  }
-
-  const combinations: string[][] = [];
-
-  function collect(startIndex: number, currentCardIds: string[]) {
-    if (currentCardIds.length === count) {
-      combinations.push([...currentCardIds]);
-      return;
-    }
-
-    for (let index = startIndex; index < cardIds.length; index += 1) {
-      currentCardIds.push(cardIds[index]);
-      collect(index + 1, currentCardIds);
-      currentCardIds.pop();
-    }
-  }
-
-  collect(0, []);
-
-  return combinations;
 }
 
 function getPlayerMeta(playerMetas: readonly PlayerMeta[], playerId: PlayerId): PlayerMeta {
@@ -289,20 +215,36 @@ function getPlayerMeta(playerMetas: readonly PlayerMeta[], playerId: PlayerId): 
   );
 }
 
-function describePlay(play: Play): string {
-  switch (play.kind) {
-    case "single":
-      return play.rank === "JOKER" ? "ジョーカー" : `${play.rank}のシングル`;
-    case "set":
-      return `${play.rank}の${play.count}枚組`;
-    case "sequence":
-      return `${play.suit}の${play.lowRank}-${play.highRank}階段`;
+function parseMessage(message: unknown) {
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(message) as unknown;
+  } catch {
+    return null;
   }
 }
 
-function formatRankings(rankings: readonly PlayerId[], playerMetas: readonly PlayerMeta[]): string {
+function describePlay(play: Play): string {
+  switch (play.kind) {
+    case "single":
+      return `${formatRank(play.rank)} 単体`;
+    case "set":
+      return `${formatRank(play.rank)} ${play.count}枚組`;
+    case "sequence":
+      return `${formatRank(play.lowRank)}-${formatRank(play.highRank)} 階段`;
+  }
+}
+
+function formatRank(rank: string) {
+  return rank;
+}
+
+function formatRankings(rankings: readonly PlayerId[], playerMetas: readonly PlayerMeta[]) {
   if (rankings.length === 0) {
-    return "順位を集計しています。";
+    return "順位はまだ確定していません。";
   }
 
   return rankings
@@ -310,5 +252,12 @@ function formatRankings(rankings: readonly PlayerId[], playerMetas: readonly Pla
     .join(" / ");
 }
 
-export { describePlay, formatRankings, getPlayerMeta, usePlayRoomGame };
-export type { Opponent, PlayerMeta };
+export {
+  describePlay,
+  formatRankings,
+  getPlayerMeta,
+  usePlayRoomGame,
+  type Opponent,
+  type PlayerMeta,
+};
+export type { Play };
