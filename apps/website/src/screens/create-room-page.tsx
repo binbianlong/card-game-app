@@ -1,16 +1,20 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Bot, Minus, Plus, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
+import { CreateRoomResponseSchema, createClientEvent } from "schema";
 
 const minPlayers = 3;
 const maxPlayers = 6;
 
 function CreateRoomPage() {
+  const navigate = useNavigate();
   const [playerCount, setPlayerCount] = useState(4);
   const [cpuCount, setCpuCount] = useState(1);
+  const [status, setStatus] = useState<"idle" | "creating" | "error">("idle");
 
   const humanCount = playerCount - cpuCount;
   const maxCpuCount = playerCount - 1;
@@ -33,6 +37,43 @@ function CreateRoomPage() {
 
   function updateCpuCount(nextValue: number) {
     setCpuCount(clamp(nextValue, 0, maxCpuCount));
+  }
+
+  async function createRoom() {
+    setStatus("creating");
+
+    try {
+      const response = await fetch(createApiUrl("/api/rooms"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          createClientEvent.createRoom({
+            playerName: "あなた",
+            playerCount,
+            cpuCount,
+            rules: defaultLocalRuleSettings,
+          }),
+        ),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create room.");
+      }
+
+      const data = CreateRoomResponseSchema.parse(await response.json());
+
+      await navigate({
+        to: "/rooms/waiting",
+        search: {
+          players: playerCount,
+          cpu: cpuCount,
+          roomId: data.room.id,
+          playerId: data.room.hostPlayerId,
+        },
+      });
+    } catch {
+      setStatus("error");
+    }
   }
 
   return (
@@ -99,11 +140,20 @@ function CreateRoomPage() {
                 </div>
               ))}
             </div>
-            <Button asChild size="lg" className="h-12 w-full text-base font-bold">
-              <Link to="/rooms/waiting" search={{ players: playerCount, cpu: cpuCount }}>
-                作成する
-              </Link>
+            <Button
+              type="button"
+              size="lg"
+              className="h-12 w-full text-base font-bold"
+              disabled={status === "creating"}
+              onClick={createRoom}
+            >
+              {status === "creating" ? "作成中" : "作成する"}
             </Button>
+            {status === "error" ? (
+              <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+                ルームを作成できませんでした。
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </form>
@@ -185,6 +235,12 @@ function clamp(value: number, min: number, max: number) {
   }
 
   return Math.min(Math.max(value, min), max);
+}
+
+function createApiUrl(path: string) {
+  const origin = import.meta.env.VITE_WORKER_ORIGIN as string | undefined;
+
+  return origin === undefined || origin.length === 0 ? path : new URL(path, origin).toString();
 }
 
 export { CreateRoomPage };

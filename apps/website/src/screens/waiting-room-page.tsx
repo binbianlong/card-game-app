@@ -1,4 +1,4 @@
-import { Link, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Bot,
@@ -11,7 +11,8 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import PartySocket from "partysocket";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -19,22 +20,91 @@ import {
   localRuleOptions,
   type LocalRuleKey,
 } from "@/features/local-rules/local-rule-options";
-import type { GameRuleSettings } from "schema";
+import {
+  ServerEventSchema,
+  createClientEvent,
+  roomPartyName,
+  type ClientEvent,
+  type GameRuleSettings,
+  type RoomParticipant,
+  type RoomState,
+} from "schema";
 
 function WaitingRoomPage() {
+  const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
-  const cpuCount = search.cpu;
-  const [localRules, setLocalRules] = useState<GameRuleSettings>(defaultLocalRuleSettings);
-  const humanCount = playerCount - cpuCount;
-  const [joinedHumanCount, setJoinedHumanCount] = useState(1);
-  const isReadyToStart = joinedHumanCount >= humanCount;
+  const roomId = search.roomId ?? "";
+  const playerId = search.playerId ?? "";
+  const { connectionStatus, errorMessage, room, sendEvent } = useWaitingRoomSocket({
+    playerId,
+    roomId,
+  });
+  const localRules = room?.rules ?? defaultLocalRuleSettings;
+  const isConnected = connectionStatus === "open";
+  const isReadyToStart =
+    room !== null &&
+    room.status === "waiting" &&
+    room.participants.length >= playerCount &&
+    room.participants.some((participant) => participant.id === playerId && participant.ready);
+
+  useEffect(() => {
+    if (room?.status !== "playing") {
+      return;
+    }
+
+    void navigate({
+      to: "/rooms/play",
+      search: {
+        players: room.participants.length,
+        cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
+        ...room.rules,
+      },
+    });
+  }, [navigate, room]);
 
   function toggleLocalRule(ruleKey: LocalRuleKey) {
-    setLocalRules((currentRules) => ({
-      ...currentRules,
-      [ruleKey]: !currentRules[ruleKey],
-    }));
+    sendEvent(
+      createClientEvent.updateRules({
+        roomId,
+        playerId,
+        rules: {
+          ...localRules,
+          [ruleKey]: !localRules[ruleKey],
+        },
+      }),
+    );
+  }
+
+  function addParticipant() {
+    const humanParticipantCount =
+      room?.participants.filter((participant) => participant.kind !== "cpu").length ?? 1;
+
+    sendEvent(
+      createClientEvent.joinRoom({
+        roomId,
+        playerName: `参加者 ${humanParticipantCount + 1}`,
+      }),
+    );
+  }
+
+  function setReady() {
+    sendEvent(
+      createClientEvent.setReady({
+        roomId,
+        playerId,
+        ready: true,
+      }),
+    );
+  }
+
+  function startGame() {
+    sendEvent(
+      createClientEvent.startGame({
+        roomId,
+        playerId,
+      }),
+    );
   }
 
   return (
@@ -60,55 +130,59 @@ function WaitingRoomPage() {
       </section>
 
       <WaitingRoom
-        cpuCount={cpuCount}
-        humanCount={humanCount}
+        connectionStatus={connectionStatus}
+        errorMessage={errorMessage}
+        isConnected={isConnected}
         isReadyToStart={isReadyToStart}
-        joinedHumanCount={joinedHumanCount}
         localRules={localRules}
+        onAddParticipant={addParticipant}
+        onReady={setReady}
+        onStartGame={startGame}
         onToggleLocalRule={toggleLocalRule}
-        onAddParticipant={() =>
-          setJoinedHumanCount((currentCount) => clamp(currentCount + 1, 1, humanCount))
-        }
         playerCount={playerCount}
+        playerId={playerId}
+        room={room}
       />
     </main>
   );
 }
 
 function WaitingRoom({
-  cpuCount,
-  humanCount,
+  connectionStatus,
+  errorMessage,
+  isConnected,
   isReadyToStart,
-  joinedHumanCount,
   localRules,
-  onToggleLocalRule,
   onAddParticipant,
+  onReady,
+  onStartGame,
+  onToggleLocalRule,
   playerCount,
+  playerId,
+  room,
 }: {
-  cpuCount: number;
-  humanCount: number;
+  connectionStatus: ConnectionStatus;
+  errorMessage: string | null;
+  isConnected: boolean;
   isReadyToStart: boolean;
-  joinedHumanCount: number;
   localRules: GameRuleSettings;
-  onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   onAddParticipant: () => void;
+  onReady: () => void;
+  onStartGame: () => void;
+  onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   playerCount: number;
+  playerId: string;
+  room: RoomState | null;
 }) {
-  const waitingCount = humanCount - joinedHumanCount;
-  const participants = [
-    ...Array.from({ length: humanCount }, (_, index) => ({
-      id: `human-${index}`,
-      name: index === 0 ? "あなた" : `参加者 ${index + 1}`,
-      status: index < joinedHumanCount ? "ready" : "waiting",
-      type: index === 0 ? "host" : "guest",
-    })),
-    ...Array.from({ length: cpuCount }, (_, index) => ({
-      id: `cpu-${index}`,
-      name: `CPU ${index + 1}`,
-      status: "ready",
-      type: "cpu",
-    })),
-  ] as const;
+  const participants = room?.participants ?? [];
+  const waitingCount = Math.max(playerCount - participants.length, 0);
+  const currentParticipant = participants.find((participant) => participant.id === playerId);
+  const canAddParticipant = isConnected && waitingCount > 0 && room?.status === "waiting";
+  const canReady =
+    isConnected &&
+    currentParticipant !== undefined &&
+    !currentParticipant.ready &&
+    room?.status === "waiting";
 
   return (
     <section className="grid flex-1 content-start gap-4" aria-label="ルーム待機画面">
@@ -120,19 +194,38 @@ function WaitingRoom({
                 招待コード
               </div>
               <div className="mt-1 text-2xl leading-none font-extrabold tracking-[0.16em]">
-                8QJ4
+                {room?.inviteCode ?? "----"}
               </div>
             </div>
-            <Button type="button" variant="outline" size="icon" aria-label="招待コードをコピー">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="招待コードをコピー"
+              disabled={room === null}
+              onClick={() => {
+                if (room !== null) {
+                  void navigator.clipboard.writeText(room.inviteCode);
+                }
+              }}
+            >
               <Copy className="size-4" aria-hidden="true" />
             </Button>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <RoomStat label="対戦人数" value={`${playerCount}人`} />
-            <RoomStat label="参加済み" value={`${joinedHumanCount + cpuCount}人`} />
+            <RoomStat label="参加済み" value={`${participants.length}人`} />
             <RoomStat label="待機中" value={`${waitingCount}人`} />
           </div>
+          <div className="rounded-lg bg-card px-3 py-2 text-center text-[13px] leading-5 font-bold text-muted-foreground shadow-xs">
+            {getConnectionStatusLabel(connectionStatus)}
+          </div>
+          {errorMessage !== null ? (
+            <div className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
+              {errorMessage}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -144,9 +237,15 @@ function WaitingRoom({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2.5 px-4 pb-4">
-          {participants.map((participant) => (
-            <ParticipantRow key={participant.id} participant={participant} />
-          ))}
+          {participants.length > 0 ? (
+            participants.map((participant) => (
+              <ParticipantRow key={participant.id} participant={participant} />
+            ))
+          ) : (
+            <div className="rounded-lg bg-muted/60 p-3 text-center text-sm font-bold text-muted-foreground">
+              ルーム状態を取得中です。
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -165,6 +264,7 @@ function WaitingRoom({
               enabled={localRules[rule.key]}
               Icon={rule.Icon}
               label={rule.label}
+              disabled={!isConnected || room?.status !== "waiting"}
               onClick={() => onToggleLocalRule(rule.key)}
             />
           ))}
@@ -177,32 +277,31 @@ function WaitingRoom({
             type="button"
             variant="outline"
             className="w-full"
-            disabled={isReadyToStart}
+            disabled={!canAddParticipant}
             onClick={onAddParticipant}
           >
             <Users className="size-4" aria-hidden="true" />
             参加者が入室
           </Button>
           <Button
-            asChild={isReadyToStart}
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={!canReady}
+            onClick={onReady}
+          >
+            <CheckCircle2 className="size-4" aria-hidden="true" />
+            準備OK
+          </Button>
+          <Button
+            type="button"
             size="lg"
             className="h-12 w-full text-base font-bold"
             disabled={!isReadyToStart}
+            onClick={onStartGame}
           >
-            {isReadyToStart ? (
-              <Link
-                to="/rooms/play"
-                search={{ players: playerCount, cpu: cpuCount, ...localRules }}
-              >
-                <Play className="size-4 fill-current" aria-hidden="true" />
-                開始する
-              </Link>
-            ) : (
-              <>
-                <Play className="size-4 fill-current" aria-hidden="true" />
-                開始する
-              </>
-            )}
+            <Play className="size-4 fill-current" aria-hidden="true" />
+            開始する
           </Button>
           {!isReadyToStart ? (
             <p className="text-center text-[13px] leading-5 text-muted-foreground">
@@ -216,12 +315,14 @@ function WaitingRoom({
 }
 
 function RuleToggle({
+  disabled,
   description,
   enabled,
   Icon,
   label,
   onClick,
 }: {
+  disabled: boolean;
   description: string;
   enabled: boolean;
   Icon: LucideIcon;
@@ -232,6 +333,7 @@ function RuleToggle({
     <button
       type="button"
       aria-pressed={enabled}
+      disabled={disabled}
       onClick={onClick}
       className={
         enabled
@@ -270,18 +372,10 @@ function RoomStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ParticipantRow({
-  participant,
-}: {
-  participant: {
-    name: string;
-    status: string;
-    type: string;
-  };
-}) {
-  const isReady = participant.status === "ready";
-  const isHost = participant.type === "host";
-  const isCpu = participant.type === "cpu";
+function ParticipantRow({ participant }: { participant: RoomParticipant }) {
+  const isReady = participant.ready;
+  const isHost = participant.kind === "host";
+  const isCpu = participant.kind === "cpu";
 
   return (
     <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5">
@@ -318,12 +412,98 @@ function ParticipantRow({
   );
 }
 
-function clamp(value: number, min: number, max: number) {
-  if (Number.isNaN(value)) {
-    return min;
+type ConnectionStatus = "closed" | "connecting" | "open";
+
+function useWaitingRoomSocket({ playerId, roomId }: { playerId: string; roomId: string }) {
+  const socketRef = useRef<PartySocket | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("closed");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [room, setRoom] = useState<RoomState | null>(null);
+
+  useEffect(() => {
+    if (roomId.length === 0 || playerId.length === 0) {
+      setErrorMessage("ルーム情報がありません。");
+      return;
+    }
+
+    setConnectionStatus("connecting");
+    setErrorMessage(null);
+
+    const socket = new PartySocket({
+      host: getWorkerHost(),
+      party: roomPartyName,
+      room: roomId,
+      id: playerId,
+    });
+    socketRef.current = socket;
+
+    socket.addEventListener("open", () => setConnectionStatus("open"));
+    socket.addEventListener("close", () => setConnectionStatus("closed"));
+    socket.addEventListener("error", () => {
+      setConnectionStatus("closed");
+      setErrorMessage("リアルタイム接続に失敗しました。");
+    });
+    socket.addEventListener("message", (event) => {
+      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+
+      if (!serverEvent.success) {
+        setErrorMessage("ルーム状態を読み取れませんでした。");
+        return;
+      }
+
+      if (serverEvent.data.type === "error") {
+        setErrorMessage(serverEvent.data.message);
+        return;
+      }
+
+      setRoom(serverEvent.data.room);
+      setErrorMessage(null);
+    });
+
+    return () => {
+      socket.close();
+      socketRef.current = null;
+    };
+  }, [playerId, roomId]);
+
+  function sendEvent(event: ClientEvent) {
+    socketRef.current?.send(JSON.stringify(event));
   }
 
-  return Math.min(Math.max(value, min), max);
+  return { connectionStatus, errorMessage, room, sendEvent };
+}
+
+function getWorkerHost() {
+  const origin = import.meta.env.VITE_WORKER_ORIGIN as string | undefined;
+
+  if (origin === undefined || origin.length === 0) {
+    return window.location.host;
+  }
+
+  return origin;
+}
+
+function parseMessage(message: unknown) {
+  if (typeof message !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(message) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function getConnectionStatusLabel(status: ConnectionStatus) {
+  switch (status) {
+    case "connecting":
+      return "接続中";
+    case "open":
+      return "接続済み";
+    case "closed":
+      return "未接続";
+  }
 }
 
 export { WaitingRoomPage };

@@ -129,6 +129,11 @@ export const RoomStateSchema = z.object({
   game: GameStateSchema.nullable(),
 });
 
+export const CreateRoomResponseSchema = z.object({
+  room: RoomStateSchema,
+  websocketPath: z.string().min(1),
+});
+
 const RoomPlayerEventBaseSchema = z.object({
   roomId: z.string().min(1),
   playerId: z.string().min(1),
@@ -330,6 +335,7 @@ export type PlayerState = z.infer<typeof PlayerStateSchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type RoomParticipant = z.infer<typeof RoomParticipantSchema>;
 export type RoomState = z.infer<typeof RoomStateSchema>;
+export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 export type ClientEvent = z.infer<typeof ClientEventSchema>;
 export type ServerErrorCode = z.infer<typeof ServerErrorCodeSchema>;
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

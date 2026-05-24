@@ -48,6 +48,9 @@ catalogs:
     partyserver:
       specifier: ^0.5.6
       version: 0.5.6
+    partysocket:
+      specifier: ^1.1.19
+      version: 1.1.19
     radix-ui:
       specifier: ^1.4.3
       version: 1.4.3
@@ -111,6 +114,9 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.16.0(react@19.2.6)
+      partysocket:
+        specifier: 'catalog:'
+        version: 1.1.19(react@19.2.6)
       radix-ui:
         specifier: 'catalog:'
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -3082,6 +3088,9 @@ packages:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
 
+  event-target-polyfill@0.0.4:
+    resolution: {integrity: sha512-Gs6RLjzlLRdT8X9ZipJdIZI/Y6/HhRLyq9RdDlCsnpxr/+Nn6bU2EFGuC94GjxqhM+Nmij2Vcq98yoHrU8uNFQ==}
+
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
@@ -3349,6 +3358,14 @@ packages:
     resolution: {integrity: sha512-/LKCqlq9nWzNXA8UXZFO/Xz15QDCjJnGAgRQVLnXJO9bA0HKt5J8VM8wLnGc814WatzuQgeG17tqzI//y5WFGA==}
     peerDependencies:
       '@cloudflare/workers-types': ^4.20260424.1
+
+  partysocket@1.1.19:
+    resolution: {integrity: sha512-hPwsXSdUc8PKNCinET6TD3JQOxzQ2JaP0bUZQXBVl6UM8UuLn1odgf1LcJXHy4UHSQwWL/RU3AnyhEsGM+W+sg==}
+    peerDependencies:
+      react: '>=17'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
@@ -6175,6 +6192,8 @@ snapshots:
 
   esutils@2.0.3: {}
 
+  event-target-polyfill@0.0.4: {}
+
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
@@ -6453,6 +6472,12 @@ snapshots:
     dependencies:
       '@cloudflare/workers-types': 4.20260524.1
       nanoid: 5.1.11
+
+  partysocket@1.1.19(react@19.2.6):
+    dependencies:
+      event-target-polyfill: 0.0.4
+    optionalDependencies:
+      react: 19.2.6
 
   path-parse@1.0.7: {}
 

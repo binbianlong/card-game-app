@@ -32,6 +32,7 @@ catalog:
   "@cloudflare/workers-types": ^4.20260524.1
   hono: ^4.12.22
   partyserver: ^0.5.6
+  partysocket: ^1.1.19
   wrangler: ^4.94.0
 overrides:
   vite: "catalog:"

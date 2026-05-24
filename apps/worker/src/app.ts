@@ -1,6 +1,8 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import {
   ClientEventSchema,
+  CreateRoomResponseSchema,
   RoomStateSchema,
   createServerEvent,
   getRoomWebSocketPath,
@@ -19,6 +21,8 @@ type CreateWorkerAppOptions<Env extends WorkerBindings> = {
 
 function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
+
+  app.use("/api/*", cors());
 
   app.get("/health", (context) =>
     context.json({
@@ -44,10 +48,12 @@ function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerA
       return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
     }
 
-    return context.json({
-      room,
-      websocketPath: getRoomWebSocketPath(roomId),
-    });
+    return context.json(
+      CreateRoomResponseSchema.parse({
+        room,
+        websocketPath: getRoomWebSocketPath(roomId),
+      }),
+    );
   });
 
   return app;
