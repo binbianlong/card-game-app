@@ -19,7 +19,7 @@ import {
   localRuleOptions,
   type LocalRuleKey,
 } from "@/features/local-rules/local-rule-options";
-import type { GameRuleSettings } from "game";
+import type { GameRuleSettings } from "schema";
 
 function WaitingRoomPage() {
   const search = useSearch({ from: "/rooms/waiting" });

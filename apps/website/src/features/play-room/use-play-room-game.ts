@@ -10,6 +10,7 @@ import {
   type PlayerId,
 } from "game";
 import { useEffect, useMemo, useState } from "react";
+import { clientEventTypes } from "schema";
 
 const viewerId = "player-1";
 
@@ -123,7 +124,7 @@ function usePlayRoomGame({
   function playSelectedCards() {
     setGameState((currentState) =>
       applyGameAction(currentState, {
-        type: "playCards",
+        type: clientEventTypes.playCards,
         playerId: viewerId,
         cardIds: selectedCardIds,
       }),
@@ -134,7 +135,7 @@ function usePlayRoomGame({
   function passTurn() {
     setGameState((currentState) =>
       applyGameAction(currentState, {
-        type: "pass",
+        type: clientEventTypes.pass,
         playerId: viewerId,
       }),
     );
@@ -213,7 +214,7 @@ function createAutoAction(state: GameState, playerId: PlayerId): GameAction | nu
 
   if (cardIds !== null) {
     return {
-      type: "playCards",
+      type: clientEventTypes.playCards,
       playerId,
       cardIds,
     };
@@ -221,7 +222,7 @@ function createAutoAction(state: GameState, playerId: PlayerId): GameAction | nu
 
   if (getAvailableActions(state, playerId).canPass) {
     return {
-      type: "pass",
+      type: clientEventTypes.pass,
       playerId,
     };
   }

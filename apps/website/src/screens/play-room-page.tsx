@@ -1,5 +1,5 @@
 import { Link, useSearch } from "@tanstack/react-router";
-import type { GameRuleSettings } from "game";
+import type { GameRuleSettings } from "schema";
 import { ArrowLeft, BookOpen, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";

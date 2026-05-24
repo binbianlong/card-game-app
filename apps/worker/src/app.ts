@@ -2,13 +2,13 @@ import { Hono } from "hono";
 import {
   ClientEventSchema,
   RoomStateSchema,
-  ServerEventSchema,
+  createServerEvent,
+  getRoomWebSocketPath,
   type ClientEvent,
   type GameRuleSettings,
   type RoomParticipant,
   type RoomState,
   type ServerErrorCode,
-  type ServerEvent,
 } from "schema";
 
 type WorkerBindings = {
@@ -56,7 +56,7 @@ function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerA
 
     return context.json({
       room,
-      websocketPath: `/parties/room-server/${roomId}`,
+      websocketPath: getRoomWebSocketPath(roomId),
     });
   });
 
@@ -117,19 +117,12 @@ function createFallbackRoom(roomId: string): RoomState {
   };
 }
 
-function createRoomStateEvent(room: RoomState): ServerEvent {
-  return ServerEventSchema.parse({
-    type: "roomState",
-    room,
-  });
+function createRoomStateEvent(room: RoomState) {
+  return createServerEvent.roomState(room);
 }
 
-function createErrorEvent(code: ServerErrorCode, message: string): ServerEvent {
-  return ServerEventSchema.parse({
-    type: "error",
-    code,
-    message,
-  });
+function createErrorEvent(code: ServerErrorCode, message: string) {
+  return createServerEvent.error(code, message);
 }
 
 function parseRoomState(value: unknown) {

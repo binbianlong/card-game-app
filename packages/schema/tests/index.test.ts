@@ -3,6 +3,10 @@ import {
   ClientEventSchema,
   RoomStateSchema,
   ServerEventSchema,
+  clientEventTypes,
+  createClientEvent,
+  createServerEvent,
+  getRoomWebSocketPath,
   type RoomState,
 } from "../src/index.ts";
 
@@ -36,7 +40,7 @@ describe("schema", () => {
   test("parses client events", () => {
     expect(
       ClientEventSchema.parse({
-        type: "playCards",
+        type: clientEventTypes.playCards,
         roomId: "room-1",
         playerId: "player-1",
         cardIds: ["spades-3"],
@@ -74,5 +78,33 @@ describe("schema", () => {
       type: "roomState",
       room,
     });
+  });
+
+  test("creates typed client events", () => {
+    expect(
+      createClientEvent.createRoom({
+        playerName: "Host",
+        playerCount: 4,
+        cpuCount: 1,
+        rules,
+      }),
+    ).toEqual({
+      type: "createRoom",
+      playerName: "Host",
+      playerCount: 4,
+      cpuCount: 1,
+      rules,
+    });
+  });
+
+  test("creates typed server events", () => {
+    expect(createServerEvent.roomState(room)).toEqual({
+      type: "roomState",
+      room,
+    });
+  });
+
+  test("creates room websocket paths", () => {
+    expect(getRoomWebSocketPath("room-1")).toBe("/parties/room-server/room-1");
   });
 });

@@ -3,6 +3,7 @@ import { createNewGame, type PlayerId } from "game";
 import {
   ClientEventSchema,
   GameStateSchema,
+  clientEventTypes,
   type ClientEvent,
   type RoomParticipant,
   type RoomState,
@@ -88,19 +89,19 @@ export class RoomServer extends Server<Env> {
     const room = await this.getRoom();
 
     switch (event.type) {
-      case "joinRoom":
+      case clientEventTypes.joinRoom:
         return this.joinRoom(room, event.playerName);
-      case "leaveRoom":
+      case clientEventTypes.leaveRoom:
         return this.updateParticipant(room, event.playerId, { connected: false, ready: false });
-      case "setReady":
+      case clientEventTypes.setReady:
         return this.updateParticipant(room, event.playerId, { ready: event.ready });
-      case "updateRules":
+      case clientEventTypes.updateRules:
         return this.setRoom({ ...room, rules: event.rules });
-      case "startGame":
+      case clientEventTypes.startGame:
         return this.startGame(room);
-      case "createRoom":
-      case "playCards":
-      case "pass":
+      case clientEventTypes.createRoom:
+      case clientEventTypes.playCards:
+      case clientEventTypes.pass:
         return room;
     }
   }

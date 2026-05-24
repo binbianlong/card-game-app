@@ -120,6 +120,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.6(react@19.2.6)
+      schema:
+        specifier: workspace:*
+        version: link:../../packages/schema
       tailwind-merge:
         specifier: 'catalog:'
         version: 3.6.0

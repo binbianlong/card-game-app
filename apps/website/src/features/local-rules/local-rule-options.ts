@@ -6,7 +6,7 @@ import {
   Scissors,
   type LucideIcon,
 } from "lucide-react";
-import type { GameRuleSettings } from "game";
+import type { GameRuleSettings } from "schema";
 
 type LocalRuleKey = keyof GameRuleSettings;
 

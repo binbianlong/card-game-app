@@ -19,6 +19,7 @@
     "radix-ui": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "schema": "workspace:*",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "catalog:"
   },
