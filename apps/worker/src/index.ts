@@ -1,11 +1,19 @@
 import { getServerByName, routePartykitRequest, Server, type Connection } from "partyserver";
 import { ClientEventSchema, type ClientEvent, type RoomState } from "schema";
 import { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState } from "./app.ts";
-import { RoomStateError, applyRoomClientEvent, createFallbackRoom } from "./room-state.ts";
+import {
+  RoomStateError,
+  applyNextCpuTurn,
+  applyRoomClientEvent,
+  createFallbackRoom,
+  isCpuTurn,
+} from "./room-state.ts";
 
 type Env = {
   RoomServer: DurableObjectNamespace<RoomServer>;
 };
+
+const cpuTurnDelayMs = 900;
 
 const app = createWorkerApp<Env>({
   async saveRoom(env, roomId, room) {
@@ -30,6 +38,7 @@ export class RoomServer extends Server<Env> {
   async onConnect(connection: Connection) {
     const room = await this.getRoom();
     connection.send(JSON.stringify(createRoomStateEvent(room)));
+    await this.scheduleCpuTurn(room);
   }
 
   async onMessage(connection: Connection, message: string | ArrayBuffer | ArrayBufferView) {
@@ -60,6 +69,7 @@ export class RoomServer extends Server<Env> {
     }
 
     this.broadcast(JSON.stringify(createRoomStateEvent(room)));
+    await this.scheduleCpuTurn(room);
   }
 
   async onRequest(request: Request) {
@@ -74,6 +84,7 @@ export class RoomServer extends Server<Env> {
       const room = parseRoomState(body);
 
       await this.setRoom(room);
+      await this.scheduleCpuTurn(room);
 
       return Response.json(room);
     }
@@ -84,6 +95,17 @@ export class RoomServer extends Server<Env> {
   private async applyClientEvent(event: ClientEvent) {
     const room = await this.getRoom();
     return this.setRoom(applyRoomClientEvent(room, event));
+  }
+
+  async onAlarm() {
+    const room = await this.getRoom();
+    const nextRoom = await this.setRoom(applyNextCpuTurn(room));
+
+    if (nextRoom !== room) {
+      this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
+    }
+
+    await this.scheduleCpuTurn(nextRoom);
   }
 
   private async getRoom() {
@@ -102,6 +124,15 @@ export class RoomServer extends Server<Env> {
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
+  }
+
+  private async scheduleCpuTurn(room: RoomState) {
+    if (isCpuTurn(room)) {
+      await this.ctx.storage.setAlarm(Date.now() + cpuTurnDelayMs);
+      return;
+    }
+
+    await this.ctx.storage.deleteAlarm();
   }
 }
 

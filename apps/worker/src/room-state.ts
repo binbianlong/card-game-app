@@ -51,11 +51,11 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
         assertWaitingRoom(room);
         return { ...room, rules: event.rules };
       case clientEventTypes.startGame:
-        return applyCpuTurns(startGame(room));
+        return startGame(room);
       case clientEventTypes.playCards:
-        return applyCpuTurns(applyGameRoomAction(room, event));
+        return applyGameRoomAction(room, event);
       case clientEventTypes.pass:
-        return applyCpuTurns(applyGameRoomAction(room, event));
+        return applyGameRoomAction(room, event);
     }
   } catch (error) {
     if (error instanceof RoomStateError) {
@@ -198,40 +198,36 @@ function applyGameRoomAction(
   };
 }
 
-function applyCpuTurns(room: RoomState): RoomState {
-  let nextRoom = room;
-
-  for (let attempt = 0; attempt < nextRoom.participants.length * 2; attempt += 1) {
-    const game = nextRoom.game;
-
-    if (nextRoom.status !== "playing" || game === null || game.phase !== "playing") {
-      return nextRoom;
-    }
-
-    const participant = nextRoom.participants.find(
-      (candidate) => candidate.id === game.turnPlayerId,
-    );
-
-    if (participant?.kind !== "cpu") {
-      return nextRoom;
-    }
-
-    const action = createCpuAction(game, participant.id);
-
-    if (action === null) {
-      return nextRoom;
-    }
-
-    const nextGame = GameStateSchema.parse(applyGameAction(game, action));
-
-    nextRoom = {
-      ...nextRoom,
-      status: nextGame.phase,
-      game: nextGame,
-    };
+function applyNextCpuTurn(room: RoomState): RoomState {
+  if (!isCpuTurn(room) || room.game === null) {
+    return room;
   }
 
-  return nextRoom;
+  const action = createCpuAction(room.game, room.game.turnPlayerId);
+
+  if (action === null) {
+    return room;
+  }
+
+  const game = GameStateSchema.parse(applyGameAction(room.game, action));
+
+  return {
+    ...room,
+    status: game.phase,
+    game,
+  };
+}
+
+function isCpuTurn(room: RoomState) {
+  if (room.status !== "playing" || room.game === null || room.game.phase !== "playing") {
+    return false;
+  }
+
+  const participant = room.participants.find(
+    (candidate) => candidate.id === room.game?.turnPlayerId,
+  );
+
+  return participant?.kind === "cpu";
 }
 
 function createCpuAction(state: GameState, playerId: PlayerId): GameAction | null {
@@ -318,9 +314,11 @@ function assertParticipantExists(room: RoomState, playerId: string) {
 
 export {
   RoomStateError,
+  applyNextCpuTurn,
   applyRoomClientEvent,
   createFallbackRoom,
   createInviteCode,
   createPlayerId,
   createWaitingRoom,
+  isCpuTurn,
 };

@@ -2,9 +2,11 @@ import { describe, expect, test } from "vite-plus/test";
 import { createClientEvent } from "schema";
 import {
   RoomStateError,
+  applyNextCpuTurn,
   applyRoomClientEvent,
   createInviteCode,
   createWaitingRoom,
+  isCpuTurn,
 } from "../src/room-state.ts";
 
 const rules = {
@@ -73,18 +75,25 @@ describe("room state", () => {
     expect(playingRoom.game?.players.every((player) => player.hand.length > 0)).toBe(true);
   });
 
-  test("advances cpu turns on the server", () => {
-    const room = createCpuRoom();
-    const playingRoom = applyRoomClientEvent(
-      room,
-      createClientEvent.startGame({
-        roomId: room.id,
-        playerId: room.hostPlayerId,
-      }),
-    );
+  test("keeps cpu turns visible before the delayed server action", () => {
+    const playingRoom = createCpuTurnRoom();
     const game = expectGame(playingRoom);
 
-    expect(getParticipant(playingRoom, game.turnPlayerId).kind).not.toBe("cpu");
+    expect(getParticipant(playingRoom, game.turnPlayerId).kind).toBe("cpu");
+    expect(isCpuTurn(playingRoom)).toBe(true);
+  });
+
+  test("applies one delayed cpu turn", () => {
+    const room = createCpuTurnRoom();
+    const game = expectGame(room);
+    const cpu = getParticipant(room, game.turnPlayerId);
+    const nextRoom = applyNextCpuTurn(room);
+    const nextGame = expectGame(nextRoom);
+
+    expect(nextGame).not.toEqual(game);
+    expect(nextGame.table.playedBy === cpu.id || nextGame.passedPlayerIds.includes(cpu.id)).toBe(
+      true,
+    );
   });
 
   test("stores game actions in room state", () => {
@@ -161,6 +170,32 @@ function createCpuRoom() {
     }),
     "room-1",
     createInviteCode("room-1"),
+  );
+}
+
+function createCpuTurnRoom() {
+  const startedRoom = applyRoomClientEvent(
+    createCpuRoom(),
+    createClientEvent.startGame({
+      roomId: "room-1",
+      playerId: "player-1",
+    }),
+  );
+  const game = expectGame(startedRoom);
+  const player = game.players.find((candidate) => candidate.id === game.turnPlayerId);
+  const card = player?.hand[0];
+
+  if (player === undefined || card === undefined) {
+    throw new Error("Expected current player with cards.");
+  }
+
+  return applyRoomClientEvent(
+    startedRoom,
+    createClientEvent.playCards({
+      roomId: startedRoom.id,
+      playerId: player.id,
+      cardIds: [card.id],
+    }),
   );
 }
 
