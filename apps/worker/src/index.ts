@@ -1,21 +1,7 @@
 import { getServerByName, routePartykitRequest, Server, type Connection } from "partyserver";
-import { createNewGame, type PlayerId } from "game";
-import {
-  ClientEventSchema,
-  GameStateSchema,
-  clientEventTypes,
-  type ClientEvent,
-  type RoomParticipant,
-  type RoomState,
-} from "schema";
-import {
-  createErrorEvent,
-  createFallbackRoom,
-  createPlayerId,
-  createRoomStateEvent,
-  createWorkerApp,
-  parseRoomState,
-} from "./app.ts";
+import { ClientEventSchema, type ClientEvent, type RoomState } from "schema";
+import { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState } from "./app.ts";
+import { RoomStateError, applyRoomClientEvent, createFallbackRoom } from "./room-state.ts";
 
 type Env = {
   RoomServer: DurableObjectNamespace<RoomServer>;
@@ -60,10 +46,20 @@ export class RoomServer extends Server<Env> {
       return;
     }
 
-    const room = await this.applyClientEvent(event.data);
-    const serverEvent = createRoomStateEvent(room);
+    const room = await this.applyClientEvent(event.data).catch((error: unknown) => {
+      if (error instanceof RoomStateError) {
+        connection.send(JSON.stringify(createErrorEvent(error.code, error.message)));
+        return null;
+      }
 
-    this.broadcast(JSON.stringify(serverEvent));
+      throw error;
+    });
+
+    if (room === null) {
+      return;
+    }
+
+    this.broadcast(JSON.stringify(createRoomStateEvent(room)));
   }
 
   async onRequest(request: Request) {
@@ -87,23 +83,7 @@ export class RoomServer extends Server<Env> {
 
   private async applyClientEvent(event: ClientEvent) {
     const room = await this.getRoom();
-
-    switch (event.type) {
-      case clientEventTypes.joinRoom:
-        return this.joinRoom(room, event.playerName);
-      case clientEventTypes.leaveRoom:
-        return this.updateParticipant(room, event.playerId, { connected: false, ready: false });
-      case clientEventTypes.setReady:
-        return this.updateParticipant(room, event.playerId, { ready: event.ready });
-      case clientEventTypes.updateRules:
-        return this.setRoom({ ...room, rules: event.rules });
-      case clientEventTypes.startGame:
-        return this.startGame(room);
-      case clientEventTypes.createRoom:
-      case clientEventTypes.playCards:
-      case clientEventTypes.pass:
-        return room;
-    }
+    return this.setRoom(applyRoomClientEvent(room, event));
   }
 
   private async getRoom() {
@@ -122,49 +102,6 @@ export class RoomServer extends Server<Env> {
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
-  }
-
-  private async joinRoom(room: RoomState, playerName: string) {
-    const participant: RoomParticipant = {
-      id: createPlayerId(room.participants),
-      name: playerName,
-      kind: "guest",
-      connected: true,
-      ready: false,
-    };
-
-    return this.setRoom({
-      ...room,
-      participants: [...room.participants, participant],
-    });
-  }
-
-  private async updateParticipant(
-    room: RoomState,
-    playerId: string,
-    patch: Partial<Pick<RoomParticipant, "connected" | "ready">>,
-  ) {
-    return this.setRoom({
-      ...room,
-      participants: room.participants.map((participant) =>
-        participant.id === playerId ? { ...participant, ...patch } : participant,
-      ),
-    });
-  }
-
-  private async startGame(room: RoomState) {
-    const game = GameStateSchema.parse(
-      createNewGame(
-        room.participants.map((participant) => participant.id as PlayerId),
-        { rules: room.rules },
-      ),
-    );
-
-    return this.setRoom({
-      ...room,
-      status: "playing",
-      game,
-    });
   }
 }
 
