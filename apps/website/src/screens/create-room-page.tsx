@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
-import { CreateRoomResponseSchema, createClientEvent } from "schema";
+import { createRoom as createRoomRequest } from "@/features/rooms/room-api";
 
 const minPlayers = 3;
 const maxPlayers = 6;
@@ -43,24 +43,12 @@ function CreateRoomPage() {
     setStatus("creating");
 
     try {
-      const response = await fetch(createApiUrl("/api/rooms"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          createClientEvent.createRoom({
-            playerName: "あなた",
-            playerCount,
-            cpuCount,
-            rules: defaultLocalRuleSettings,
-          }),
-        ),
+      const data = await createRoomRequest({
+        playerName: "あなた",
+        playerCount,
+        cpuCount,
+        rules: defaultLocalRuleSettings,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to create room.");
-      }
-
-      const data = CreateRoomResponseSchema.parse(await response.json());
 
       await navigate({
         to: "/rooms/waiting",
@@ -235,12 +223,6 @@ function clamp(value: number, min: number, max: number) {
   }
 
   return Math.min(Math.max(value, min), max);
-}
-
-function createApiUrl(path: string) {
-  const origin = import.meta.env.VITE_WORKER_ORIGIN as string | undefined;
-
-  return origin === undefined || origin.length === 0 ? path : new URL(path, origin).toString();
 }
 
 export { CreateRoomPage };
