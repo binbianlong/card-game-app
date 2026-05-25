@@ -60,6 +60,20 @@ describe("room state", () => {
     });
   });
 
+  test("rejects joins when rooms are full", () => {
+    const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.joinRoom({
+          roomId: room.id,
+          playerName: "Extra Guest",
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
   test("starts games and stores game state in room state", () => {
     const room = createPlayableRoom();
     const playingRoom = applyRoomClientEvent(

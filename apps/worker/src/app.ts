@@ -3,9 +3,11 @@ import { cors } from "hono/cors";
 import {
   ClientEventSchema,
   CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
   RoomStateSchema,
   createServerEvent,
   getRoomWebSocketPath,
+  type ClientEvent,
   type RoomState,
   type ServerErrorCode,
 } from "schema";
@@ -16,10 +18,18 @@ type WorkerBindings = {
 };
 
 type CreateWorkerAppOptions<Env extends WorkerBindings> = {
+  joinRoom: (
+    env: Env,
+    inviteCode: string,
+    event: Extract<ClientEvent, { type: "joinRoom" }>,
+  ) => Promise<Response>;
   saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
 };
 
-function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerAppOptions<Env>) {
+function createWorkerApp<Env extends WorkerBindings>({
+  joinRoom,
+  saveRoom,
+}: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
 
   app.use("/api/*", cors());
@@ -56,6 +66,27 @@ function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerA
     );
   });
 
+  app.post("/api/rooms/join", async (context) => {
+    const body = await context.req.json().catch(() => null);
+    const event = ClientEventSchema.safeParse(body);
+
+    if (!event.success || event.data.type !== "joinRoom") {
+      return context.json(createErrorEvent("invalidEvent", "joinRoom event is required."), 400);
+    }
+
+    const inviteCode = normalizeInviteCode(event.data.roomId);
+    const response = await joinRoom(context.env, inviteCode, {
+      ...event.data,
+      roomId: inviteCode,
+    });
+
+    if (!response.ok) {
+      return response;
+    }
+
+    return context.json(JoinRoomResponseSchema.parse(await response.json()));
+  });
+
   return app;
 }
 
@@ -72,7 +103,11 @@ function parseRoomState(value: unknown) {
 }
 
 function createRoomId() {
-  return crypto.randomUUID();
+  return createInviteCode(crypto.randomUUID());
+}
+
+function normalizeInviteCode(inviteCode: string) {
+  return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
 
 export { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState };

@@ -21,7 +21,6 @@ type WaitingRoomViewProps = {
   isConnected: boolean;
   isReadyToStart: boolean;
   localRules: GameRuleSettings;
-  onAddParticipant: () => void;
   onReady: () => void;
   onStartGame: () => void;
   onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
@@ -36,7 +35,6 @@ function WaitingRoomView({
   isConnected,
   isReadyToStart,
   localRules,
-  onAddParticipant,
   onReady,
   onStartGame,
   onToggleLocalRule,
@@ -47,7 +45,6 @@ function WaitingRoomView({
   const participants = room?.participants ?? [];
   const waitingCount = Math.max(playerCount - participants.length, 0);
   const currentParticipant = participants.find((participant) => participant.id === playerId);
-  const canAddParticipant = isConnected && waitingCount > 0 && room?.status === "waiting";
   const canReady =
     isConnected &&
     currentParticipant !== undefined &&
@@ -119,16 +116,6 @@ function WaitingRoomView({
 
       <Card className="py-0">
         <CardContent className="grid gap-3 p-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={!canAddParticipant}
-            onClick={onAddParticipant}
-          >
-            <Users className="size-4" aria-hidden="true" />
-            参加者が入室
-          </Button>
           <Button
             type="button"
             variant="outline"

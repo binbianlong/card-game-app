@@ -43,6 +43,10 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
 function joinRoom(room: RoomState, playerName: string): RoomState {
   assertWaitingRoom(room);
 
+  if (room.participants.length >= room.playerCount) {
+    throw new RoomStateError("roomFull", "Room is full.");
+  }
+
   const participant: RoomParticipant = {
     id: createPlayerId(room.participants),
     name: playerName,

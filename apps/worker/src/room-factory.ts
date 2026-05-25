@@ -34,6 +34,7 @@ function createWaitingRoom(
   return {
     id: roomId,
     inviteCode,
+    playerCount: event.playerCount,
     status: "waiting",
     hostPlayerId: host.id,
     participants: [host, ...cpuParticipants],
@@ -46,6 +47,7 @@ function createFallbackRoom(roomId: string): RoomState {
   return {
     id: roomId,
     inviteCode: createInviteCode(roomId),
+    playerCount: 4,
     status: "waiting",
     hostPlayerId: "player-1",
     participants: [

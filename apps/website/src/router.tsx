@@ -1,6 +1,7 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import App from "./App";
 import { CreateRoomPage } from "./screens/create-room-page";
+import { JoinRoomPage } from "./screens/join-room-page";
 import { PlayRoomPage } from "./screens/play-room-page";
 import { RulesPage } from "./screens/rules-page";
 import { WaitingRoomPage } from "./screens/waiting-room-page";
@@ -25,6 +26,12 @@ const createRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/new",
   component: CreateRoomPage,
+});
+
+const joinRoomRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rooms/join",
+  component: JoinRoomPage,
 });
 
 const waitingRoomRoute = createRoute({
@@ -70,6 +77,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   rulesRoute,
   createRoomRoute,
+  joinRoomRoute,
   waitingRoomRoute,
   playRoomRoute,
 ]);

@@ -1,4 +1,9 @@
-import { CreateRoomResponseSchema, createClientEvent, type GameRuleSettings } from "schema";
+import {
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
+  createClientEvent,
+  type GameRuleSettings,
+} from "schema";
 
 type CreateRoomInput = {
   cpuCount: number;
@@ -21,6 +26,25 @@ async function createRoom(input: CreateRoomInput) {
   return CreateRoomResponseSchema.parse(await response.json());
 }
 
+async function joinRoom({ inviteCode, playerName }: { inviteCode: string; playerName: string }) {
+  const roomId = normalizeInviteCode(inviteCode);
+  const response = await fetch(createApiUrl("/api/rooms/join"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(createClientEvent.joinRoom({ roomId, playerName })),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to join room.");
+  }
+
+  return JoinRoomResponseSchema.parse(await response.json());
+}
+
+function normalizeInviteCode(inviteCode: string) {
+  return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
+}
+
 function createApiUrl(path: string) {
   const origin = getWorkerOrigin();
 
@@ -39,4 +63,4 @@ function getWorkerOrigin() {
   return origin === undefined || origin.length === 0 ? null : origin;
 }
 
-export { createRoom, getWorkerHost };
+export { createRoom, getWorkerHost, joinRoom };

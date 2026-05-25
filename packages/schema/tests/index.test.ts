@@ -21,6 +21,7 @@ const rules = {
 const room: RoomState = {
   id: "room-1",
   inviteCode: "8QJ4",
+  playerCount: 4,
   status: "waiting",
   hostPlayerId: "player-1",
   participants: [

@@ -8,24 +8,28 @@ const actions = [
   {
     title: "ルームを作成",
     description: "新しい対戦ルームを開く",
+    to: "/rooms/new",
     icon: Plus,
   },
   {
     title: "ルームに参加",
     description: "招待コードで合流する",
+    to: "/rooms/join",
     icon: LogIn,
   },
   {
     title: "対戦履歴",
     description: "最近の結果を確認する",
+    to: null,
     icon: History,
   },
   {
     title: "ルールを確認",
     description: "基本ルールとローカル設定",
+    to: "/rules",
     icon: BookOpen,
   },
-];
+] as const;
 
 function App() {
   return (
@@ -60,13 +64,13 @@ function App() {
             <Card key={action.title}>
               <CardContent className="p-0">
                 <Button
-                  asChild={action.title === "ルームを作成" || action.title === "ルールを確認"}
+                  asChild={action.to !== null}
                   type="button"
                   variant="ghost"
                   className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
                 >
-                  {action.title === "ルームを作成" || action.title === "ルールを確認" ? (
-                    <Link to={action.title === "ルームを作成" ? "/rooms/new" : "/rules"}>
+                  {action.to !== null ? (
+                    <Link to={action.to}>
                       <ActionContent
                         description={action.description}
                         icon={<Icon className="size-5" aria-hidden="true" />}

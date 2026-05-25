@@ -122,6 +122,7 @@ export const RoomParticipantSchema = z.object({
 export const RoomStateSchema = z.object({
   id: z.string().min(1),
   inviteCode: z.string().min(1),
+  playerCount: z.number().int().min(3).max(6),
   status: z.enum(["waiting", "playing", "finished"]),
   hostPlayerId: z.string().min(1),
   participants: z.array(RoomParticipantSchema),
@@ -130,6 +131,12 @@ export const RoomStateSchema = z.object({
 });
 
 export const CreateRoomResponseSchema = z.object({
+  room: RoomStateSchema,
+  websocketPath: z.string().min(1),
+});
+
+export const JoinRoomResponseSchema = z.object({
+  playerId: z.string().min(1),
   room: RoomStateSchema,
   websocketPath: z.string().min(1),
 });
@@ -336,6 +343,7 @@ export type GameState = z.infer<typeof GameStateSchema>;
 export type RoomParticipant = z.infer<typeof RoomParticipantSchema>;
 export type RoomState = z.infer<typeof RoomStateSchema>;
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
+export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
 export type ClientEvent = z.infer<typeof ClientEventSchema>;
 export type ServerErrorCode = z.infer<typeof ServerErrorCodeSchema>;
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
