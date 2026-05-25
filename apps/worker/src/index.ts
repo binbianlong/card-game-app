@@ -1,5 +1,11 @@
 import { getServerByName, routePartykitRequest, Server, type Connection } from "partyserver";
-import { ClientEventSchema, getRoomWebSocketPath, type ClientEvent, type RoomState } from "schema";
+import {
+  ClientEventSchema,
+  JoinRoomResponseSchema,
+  getRoomWebSocketPath,
+  type ClientEvent,
+  type RoomState,
+} from "schema";
 import { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState } from "./app.ts";
 import {
   RoomStateError,
@@ -8,8 +14,10 @@ import {
   createFallbackRoom,
   isCpuTurn,
 } from "./room-state.ts";
+import { createRoomRepository } from "./room-repository.ts";
 
 type Env = {
+  DB: D1Database;
   RoomServer: DurableObjectNamespace<RoomServer>;
 };
 
@@ -19,13 +27,20 @@ const app = createWorkerApp<Env>({
   async joinRoom(env, inviteCode, event) {
     const server = await getServerByName(env.RoomServer, inviteCode);
 
-    return server.fetch(
+    const response = await server.fetch(
       new Request("https://room-server.internal/join", {
         body: JSON.stringify(event),
         headers: { "content-type": "application/json" },
         method: "POST",
       }),
     );
+
+    if (response.ok) {
+      const data = JoinRoomResponseSchema.parse(await response.clone().json());
+      await createRoomRepository(env.DB).saveRoomMetadata(data.room);
+    }
+
+    return response;
   },
   async saveRoom(env, roomId, room) {
     const server = await getServerByName(env.RoomServer, roomId);
@@ -37,7 +52,13 @@ const app = createWorkerApp<Env>({
       }),
     );
 
-    return response.ok;
+    if (!response.ok) {
+      return false;
+    }
+
+    await createRoomRepository(env.DB).saveRoomMetadata(room);
+
+    return true;
   },
 });
 

@@ -10,6 +10,8 @@
     "check": "vp check"
   },
   "dependencies": {
+    "db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "game": "workspace:*",
     "hono": "catalog:",
     "partyserver": "catalog:",
