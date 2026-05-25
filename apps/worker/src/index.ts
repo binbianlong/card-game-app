@@ -24,8 +24,11 @@ type Env = {
 const cpuTurnDelayMs = 900;
 
 const app = createWorkerApp<Env>({
-  async joinRoom(env, inviteCode, event) {
-    const server = await getServerByName(env.RoomServer, inviteCode);
+  async findRoomByInviteCode(env, inviteCode) {
+    return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
+  },
+  async joinRoom(env, roomId, event) {
+    const server = await getServerByName(env.RoomServer, roomId);
 
     const response = await server.fetch(
       new Request("https://room-server.internal/join", {

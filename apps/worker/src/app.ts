@@ -17,16 +17,23 @@ type WorkerBindings = {
   RoomServer: DurableObjectNamespace;
 };
 
+type RoomMetadata = {
+  id: string;
+  inviteCode: string;
+};
+
 type CreateWorkerAppOptions<Env extends WorkerBindings> = {
+  findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
   joinRoom: (
     env: Env,
-    inviteCode: string,
+    roomId: string,
     event: Extract<ClientEvent, { type: "joinRoom" }>,
   ) => Promise<Response>;
   saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
 };
 
 function createWorkerApp<Env extends WorkerBindings>({
+  findRoomByInviteCode,
   joinRoom,
   saveRoom,
 }: CreateWorkerAppOptions<Env>) {
@@ -75,9 +82,15 @@ function createWorkerApp<Env extends WorkerBindings>({
     }
 
     const inviteCode = normalizeInviteCode(event.data.roomId);
-    const response = await joinRoom(context.env, inviteCode, {
+    const roomMetadata = await findRoomByInviteCode(context.env, inviteCode);
+
+    if (roomMetadata === null) {
+      return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+    }
+
+    const response = await joinRoom(context.env, roomMetadata.id, {
       ...event.data,
-      roomId: inviteCode,
+      roomId: roomMetadata.id,
     });
 
     if (!response.ok) {

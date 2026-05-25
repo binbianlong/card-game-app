@@ -2,11 +2,21 @@ import { describe, expect, test } from "vite-plus/test";
 import { createWorkerApp } from "../src/app.ts";
 
 const app = createWorkerApp({
+  async findRoomByInviteCode(_env, inviteCode) {
+    if (inviteCode !== "ROOM") {
+      return null;
+    }
+
+    return {
+      id: "room-1",
+      inviteCode,
+    };
+  },
   async joinRoom() {
     return Response.json({
       playerId: "player-2",
       room: {
-        id: "ROOM",
+        id: "room-1",
         inviteCode: "ROOM",
         playerCount: 3,
         status: "waiting",
@@ -71,10 +81,31 @@ describe("worker", () => {
     await expect(response.json()).resolves.toMatchObject({
       playerId: "player-2",
       room: {
-        id: "ROOM",
+        id: "room-1",
         inviteCode: "ROOM",
       },
       websocketPath: "/parties/room-server/ROOM",
+    });
+  });
+
+  test("rejects joins when invite codes are not stored", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/join", {
+        body: JSON.stringify({
+          type: "joinRoom",
+          roomId: "NONE",
+          playerName: "Guest",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      type: "error",
+      code: "roomNotFound",
     });
   });
 });
