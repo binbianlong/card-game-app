@@ -1,40 +1,92 @@
-import { Link, useSearch } from "@tanstack/react-router";
-import {
-  ArrowLeft,
-  Bot,
-  CheckCircle2,
-  Clock,
-  Copy,
-  Crown,
-  Play,
-  Settings2,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import { useState } from "react";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   defaultLocalRuleSettings,
-  localRuleOptions,
   type LocalRuleKey,
 } from "@/features/local-rules/local-rule-options";
-import type { GameRuleSettings } from "game";
+import { useWaitingRoomSocket } from "@/features/waiting-room/use-waiting-room-socket";
+import { WaitingRoomView } from "@/features/waiting-room/waiting-room-view";
+import { createClientEvent } from "schema";
 
 function WaitingRoomPage() {
+  const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
-  const cpuCount = search.cpu;
-  const [localRules, setLocalRules] = useState<GameRuleSettings>(defaultLocalRuleSettings);
-  const humanCount = playerCount - cpuCount;
-  const [joinedHumanCount, setJoinedHumanCount] = useState(1);
-  const isReadyToStart = joinedHumanCount >= humanCount;
+  const roomId = search.roomId ?? "";
+  const playerId = search.playerId ?? "";
+  const { connectionStatus, errorMessage, room, sendEvent } = useWaitingRoomSocket({
+    playerId,
+    roomId,
+  });
+  const localRules = room?.rules ?? defaultLocalRuleSettings;
+  const isConnected = connectionStatus === "open";
+  const isReadyToStart =
+    room !== null &&
+    room.status === "waiting" &&
+    room.participants.length >= playerCount &&
+    room.participants.some((participant) => participant.id === playerId && participant.ready);
+
+  useEffect(() => {
+    if (room?.status !== "playing") {
+      return;
+    }
+
+    void navigate({
+      to: "/rooms/play",
+      search: {
+        players: room.participants.length,
+        cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
+        roomId: room.id,
+        playerId,
+        ...room.rules,
+      },
+    });
+  }, [navigate, room]);
 
   function toggleLocalRule(ruleKey: LocalRuleKey) {
-    setLocalRules((currentRules) => ({
-      ...currentRules,
-      [ruleKey]: !currentRules[ruleKey],
-    }));
+    sendEvent(
+      createClientEvent.updateRules({
+        roomId,
+        playerId,
+        rules: {
+          ...localRules,
+          [ruleKey]: !localRules[ruleKey],
+        },
+      }),
+    );
+  }
+
+  function addParticipant() {
+    const humanParticipantCount =
+      room?.participants.filter((participant) => participant.kind !== "cpu").length ?? 1;
+
+    sendEvent(
+      createClientEvent.joinRoom({
+        roomId,
+        playerName: `参加者 ${humanParticipantCount + 1}`,
+      }),
+    );
+  }
+
+  function setReady() {
+    sendEvent(
+      createClientEvent.setReady({
+        roomId,
+        playerId,
+        ready: true,
+      }),
+    );
+  }
+
+  function startGame() {
+    sendEvent(
+      createClientEvent.startGame({
+        roomId,
+        playerId,
+      }),
+    );
   }
 
   return (
@@ -59,271 +111,22 @@ function WaitingRoomPage() {
         </p>
       </section>
 
-      <WaitingRoom
-        cpuCount={cpuCount}
-        humanCount={humanCount}
+      <WaitingRoomView
+        connectionStatus={connectionStatus}
+        errorMessage={errorMessage}
+        isConnected={isConnected}
         isReadyToStart={isReadyToStart}
-        joinedHumanCount={joinedHumanCount}
         localRules={localRules}
+        onAddParticipant={addParticipant}
+        onReady={setReady}
+        onStartGame={startGame}
         onToggleLocalRule={toggleLocalRule}
-        onAddParticipant={() =>
-          setJoinedHumanCount((currentCount) => clamp(currentCount + 1, 1, humanCount))
-        }
         playerCount={playerCount}
+        playerId={playerId}
+        room={room}
       />
     </main>
   );
-}
-
-function WaitingRoom({
-  cpuCount,
-  humanCount,
-  isReadyToStart,
-  joinedHumanCount,
-  localRules,
-  onToggleLocalRule,
-  onAddParticipant,
-  playerCount,
-}: {
-  cpuCount: number;
-  humanCount: number;
-  isReadyToStart: boolean;
-  joinedHumanCount: number;
-  localRules: GameRuleSettings;
-  onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
-  onAddParticipant: () => void;
-  playerCount: number;
-}) {
-  const waitingCount = humanCount - joinedHumanCount;
-  const participants = [
-    ...Array.from({ length: humanCount }, (_, index) => ({
-      id: `human-${index}`,
-      name: index === 0 ? "あなた" : `参加者 ${index + 1}`,
-      status: index < joinedHumanCount ? "ready" : "waiting",
-      type: index === 0 ? "host" : "guest",
-    })),
-    ...Array.from({ length: cpuCount }, (_, index) => ({
-      id: `cpu-${index}`,
-      name: `CPU ${index + 1}`,
-      status: "ready",
-      type: "cpu",
-    })),
-  ] as const;
-
-  return (
-    <section className="grid flex-1 content-start gap-4" aria-label="ルーム待機画面">
-      <Card className="border-primary/25 bg-primary/5 shadow-none">
-        <CardContent className="grid gap-4 px-4 py-4">
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-card p-3 shadow-xs">
-            <div className="min-w-0">
-              <div className="text-[11px] leading-none font-bold text-muted-foreground">
-                招待コード
-              </div>
-              <div className="mt-1 text-2xl leading-none font-extrabold tracking-[0.16em]">
-                8QJ4
-              </div>
-            </div>
-            <Button type="button" variant="outline" size="icon" aria-label="招待コードをコピー">
-              <Copy className="size-4" aria-hidden="true" />
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <RoomStat label="対戦人数" value={`${playerCount}人`} />
-            <RoomStat label="参加済み" value={`${joinedHumanCount + cpuCount}人`} />
-            <RoomStat label="待機中" value={`${waitingCount}人`} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="px-4 pt-4">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="size-4 text-primary" aria-hidden="true" />
-            参加者
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2.5 px-4 pb-4">
-          {participants.map((participant) => (
-            <ParticipantRow key={participant.id} participant={participant} />
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="px-4 pt-4">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Settings2 className="size-4 text-primary" aria-hidden="true" />
-            採用ルール
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2.5 px-4 pb-4">
-          {localRuleOptions.map((rule) => (
-            <RuleToggle
-              key={rule.key}
-              description={rule.description}
-              enabled={localRules[rule.key]}
-              Icon={rule.Icon}
-              label={rule.label}
-              onClick={() => onToggleLocalRule(rule.key)}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="py-0">
-        <CardContent className="grid gap-3 p-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={isReadyToStart}
-            onClick={onAddParticipant}
-          >
-            <Users className="size-4" aria-hidden="true" />
-            参加者が入室
-          </Button>
-          <Button
-            asChild={isReadyToStart}
-            size="lg"
-            className="h-12 w-full text-base font-bold"
-            disabled={!isReadyToStart}
-          >
-            {isReadyToStart ? (
-              <Link
-                to="/rooms/play"
-                search={{ players: playerCount, cpu: cpuCount, ...localRules }}
-              >
-                <Play className="size-4 fill-current" aria-hidden="true" />
-                開始する
-              </Link>
-            ) : (
-              <>
-                <Play className="size-4 fill-current" aria-hidden="true" />
-                開始する
-              </>
-            )}
-          </Button>
-          {!isReadyToStart ? (
-            <p className="text-center text-[13px] leading-5 text-muted-foreground">
-              あと{waitingCount}人の参加を待っています。
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
-function RuleToggle({
-  description,
-  enabled,
-  Icon,
-  label,
-  onClick,
-}: {
-  description: string;
-  enabled: boolean;
-  Icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={enabled}
-      onClick={onClick}
-      className={
-        enabled
-          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs"
-          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs"
-      }
-    >
-      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-base leading-snug font-bold">{label}</span>
-        <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">
-          {description}
-        </span>
-      </span>
-      <span
-        className={
-          enabled
-            ? "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-xs font-bold text-primary-foreground"
-            : "inline-flex h-7 min-w-12 items-center justify-center rounded-md bg-muted px-2 text-xs font-bold text-muted-foreground"
-        }
-      >
-        {enabled ? "ON" : "OFF"}
-      </span>
-    </button>
-  );
-}
-
-function RoomStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-card p-3 text-center shadow-xs">
-      <div className="text-[11px] leading-none font-bold text-muted-foreground">{label}</div>
-      <div className="mt-2 text-lg leading-none font-extrabold">{value}</div>
-    </div>
-  );
-}
-
-function ParticipantRow({
-  participant,
-}: {
-  participant: {
-    name: string;
-    status: string;
-    type: string;
-  };
-}) {
-  const isReady = participant.status === "ready";
-  const isHost = participant.type === "host";
-  const isCpu = participant.type === "cpu";
-
-  return (
-    <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5">
-      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        {isCpu ? (
-          <Bot className="size-5" aria-hidden="true" />
-        ) : isHost ? (
-          <Crown className="size-5" aria-hidden="true" />
-        ) : (
-          <Users className="size-5" aria-hidden="true" />
-        )}
-      </span>
-      <div className="min-w-0">
-        <div className="truncate text-base leading-snug font-bold">{participant.name}</div>
-        <div className="mt-1 text-[13px] leading-none text-muted-foreground">
-          {isCpu ? "CPU" : isHost ? "ホスト" : "ゲスト"}
-        </div>
-      </div>
-      <span
-        className={
-          isReady
-            ? "inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary"
-            : "inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-bold text-muted-foreground"
-        }
-      >
-        {isReady ? (
-          <CheckCircle2 className="size-3.5" aria-hidden="true" />
-        ) : (
-          <Clock className="size-3.5" aria-hidden="true" />
-        )}
-        {isReady ? "準備OK" : "待機中"}
-      </span>
-    </div>
-  );
-}
-
-function clamp(value: number, min: number, max: number) {
-  if (Number.isNaN(value)) {
-    return min;
-  }
-
-  return Math.min(Math.max(value, min), max);
 }
 
 export { WaitingRoomPage };

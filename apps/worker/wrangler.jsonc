@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "card-game-app-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-24",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RoomServer",
+        "class_name": "RoomServer",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RoomServer"],
+    },
+  ],
+}

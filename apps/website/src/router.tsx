@@ -34,7 +34,12 @@ const waitingRoomRoute = createRoute({
     const players = clampSearchNumber(search.players, 3, 6, 4);
     const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
 
-    return { players, cpu };
+    return {
+      players,
+      cpu,
+      roomId: parseSearchOptionalString(search.roomId),
+      playerId: parseSearchOptionalString(search.playerId),
+    };
   },
   component: WaitingRoomPage,
 });
@@ -49,6 +54,8 @@ const playRoomRoute = createRoute({
     return {
       players,
       cpu,
+      roomId: parseSearchOptionalString(search.roomId),
+      playerId: parseSearchOptionalString(search.playerId),
       eightCut: parseSearchBoolean(search.eightCut),
       elevenBack: parseSearchBoolean(search.elevenBack),
       revolution: parseSearchBoolean(search.revolution),
@@ -79,6 +86,10 @@ function clampSearchNumber(value: unknown, min: number, max: number, fallback: n
 
 function parseSearchBoolean(value: unknown) {
   return value === true || value === "true" || value === "1";
+}
+
+function parseSearchOptionalString(value: unknown) {
+  return typeof value === "string" ? value : undefined;
 }
 
 export const router = createRouter({
