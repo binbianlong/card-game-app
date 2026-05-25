@@ -10,6 +10,8 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
       return room;
     }
 
+    assertRoomEventTarget(room, event.roomId);
+
     switch (event.type) {
       case clientEventTypes.joinRoom:
         return joinRoom(room, event.playerName);
@@ -19,9 +21,10 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
         return updateParticipant(room, event.playerId, { ready: event.ready });
       case clientEventTypes.updateRules:
         assertWaitingRoom(room);
+        assertHost(room, event.playerId);
         return { ...room, rules: event.rules };
       case clientEventTypes.startGame:
-        return startGame(room);
+        return startGame(room, event);
       case clientEventTypes.playCards:
         return applyGameRoomAction(room, event);
       case clientEventTypes.pass:
@@ -82,9 +85,23 @@ function assertWaitingRoom(room: RoomState) {
   }
 }
 
+function assertRoomEventTarget(room: RoomState, roomId: string) {
+  if (roomId !== room.id && roomId !== room.inviteCode) {
+    throw new RoomStateError("notAllowed", "Event targets a different room.");
+  }
+}
+
 function assertParticipantExists(room: RoomState, playerId: string) {
   if (!room.participants.some((participant) => participant.id === playerId)) {
     throw new RoomStateError("notAllowed", "Player is not in this room.");
+  }
+}
+
+function assertHost(room: RoomState, playerId: string) {
+  assertParticipantExists(room, playerId);
+
+  if (playerId !== room.hostPlayerId) {
+    throw new RoomStateError("notAllowed", "Only the host can perform this action.");
   }
 }
 

@@ -75,7 +75,7 @@ describe("room state", () => {
   });
 
   test("starts games and stores game state in room state", () => {
-    const room = createPlayableRoom();
+    const room = readyAllHumanParticipants(createPlayableRoom());
     const playingRoom = applyRoomClientEvent(
       room,
       createClientEvent.startGame({
@@ -87,6 +87,81 @@ describe("room state", () => {
     expect(playingRoom.status).toBe("playing");
     expect(playingRoom.game?.players).toHaveLength(3);
     expect(playingRoom.game?.players.every((player) => player.hand.length > 0)).toBe(true);
+  });
+
+  test("rejects local rule changes from non-host players", () => {
+    const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.updateRules({
+          roomId: room.id,
+          playerId: "player-2",
+          rules: {
+            ...rules,
+            eightCut: true,
+          },
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects events that target another room", () => {
+    const room = createRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.setReady({
+          roomId: "another-room",
+          playerId: room.hostPlayerId,
+          ready: true,
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts from non-host players", () => {
+    const room = readyAllHumanParticipants(createPlayableRoom());
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: "player-2",
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts before all seats are filled", () => {
+    const room = readyAllHumanParticipants(createRoom());
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: room.hostPlayerId,
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts before all human players are ready", () => {
+    const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: room.hostPlayerId,
+        }),
+      ),
+    ).toThrow(RoomStateError);
   });
 
   test("keeps cpu turns visible before the delayed server action", () => {
@@ -111,7 +186,7 @@ describe("room state", () => {
 
   test("stores game actions in room state", () => {
     const room = applyRoomClientEvent(
-      createPlayableRoom(),
+      readyAllHumanParticipants(createPlayableRoom()),
       createClientEvent.startGame({
         roomId: "room-1",
         playerId: "player-1",
@@ -188,7 +263,7 @@ function createCpuRoom() {
 
 function createCpuTurnRoom() {
   let room = applyRoomClientEvent(
-    createCpuRoom(),
+    readyAllHumanParticipants(createCpuRoom()),
     createClientEvent.startGame({
       roomId: "room-1",
       playerId: "player-1",
@@ -234,6 +309,23 @@ function createPlayableRoom() {
       ),
     createRoom(),
   );
+}
+
+function readyAllHumanParticipants(room: RoomState) {
+  return room.participants
+    .filter((participant) => participant.kind !== "cpu")
+    .reduce(
+      (nextRoom, participant) =>
+        applyRoomClientEvent(
+          nextRoom,
+          createClientEvent.setReady({
+            roomId: nextRoom.id,
+            playerId: participant.id,
+            ready: true,
+          }),
+        ),
+      room,
+    );
 }
 
 function expectGame(room: RoomState) {
