@@ -9,7 +9,7 @@ import {
   type RoomState,
   type ServerErrorCode,
 } from "schema";
-import { createInviteCode, createWaitingRoom } from "../room-state.ts";
+import { createInviteCode, createWaitingRoom } from "../rooms/state.ts";
 
 type WorkerBindings = {
   RoomServer: DurableObjectNamespace;

@@ -13,8 +13,8 @@ import {
   applyRoomClientEvent,
   createFallbackRoom,
   isCpuTurn,
-} from "./room-state.ts";
-import { createRoomRepository } from "./room-repository.ts";
+} from "./rooms/state.ts";
+import { createRoomRepository } from "./rooms/repository.ts";
 
 type Env = {
   DB: D1Database;

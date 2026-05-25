@@ -7,7 +7,7 @@ import {
   createInviteCode,
   createWaitingRoom,
   isCpuTurn,
-} from "../src/room-state.ts";
+} from "../src/rooms/state.ts";
 
 const rules = {
   eightCut: false,

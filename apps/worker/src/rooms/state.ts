@@ -1,8 +1,8 @@
 import { GameRuleError } from "game";
 import { clientEventTypes, type ClientEvent, type RoomParticipant, type RoomState } from "schema";
-import { applyGameRoomAction, startGame } from "./room-game.ts";
-import { RoomStateError } from "./room-errors.ts";
-import { createPlayerId } from "./room-factory.ts";
+import { applyGameRoomAction, startGame } from "./game.ts";
+import { RoomStateError } from "./errors.ts";
+import { createPlayerId } from "./factory.ts";
 
 function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
   try {
@@ -112,4 +112,4 @@ export {
   createInviteCode,
   createPlayerId,
   createWaitingRoom,
-} from "./room-factory.ts";
+} from "./factory.ts";

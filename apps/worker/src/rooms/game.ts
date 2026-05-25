@@ -1,6 +1,6 @@
 import { applyGameAction, createNewGame, type PlayerId } from "game";
 import { GameStateSchema, type ClientEvent, type RoomState } from "schema";
-import { RoomStateError } from "./room-errors.ts";
+import { RoomStateError } from "./errors.ts";
 
 function startGame(room: RoomState, event: Extract<ClientEvent, { type: "startGame" }>): RoomState {
   assertCanStartGame(room, event.playerId);
