@@ -10,6 +10,8 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "catalog:",
+    "better-auth": "catalog:",
     "db": "workspace:*",
     "drizzle-orm": "catalog:",
     "game": "workspace:*",

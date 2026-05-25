@@ -5,7 +5,11 @@ import { RoomServer } from "./room-server/server.ts";
 import { createRoomRepository } from "./rooms/repository.ts";
 
 type Env = {
+  BETTER_AUTH_SECRET?: string;
+  BETTER_AUTH_URL?: string;
   DB: D1Database;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   RoomServer: DurableObjectNamespace<RoomServer>;
 };
 

@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RoomStateSchema, createServerEvent, type RoomState, type ServerErrorCode } from "schema";
+import { createAuth, type AuthEnv } from "./auth/auth.ts";
 import { createRoomsRoute, type RoomsRouteOptions } from "./routes/rooms.ts";
 
-type WorkerBindings = {
+type WorkerBindings = AuthEnv & {
   RoomServer: DurableObjectNamespace;
 };
 
@@ -16,7 +17,19 @@ function createWorkerApp<Env extends WorkerBindings>({
 }: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
 
-  app.use("/api/*", cors());
+  app.use(
+    "/api/*",
+    cors({
+      allowHeaders: ["Content-Type", "Authorization"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      credentials: true,
+      origin: (origin) => origin,
+    }),
+  );
+
+  app.on(["GET", "POST"], "/api/auth/*", (context) =>
+    createAuth(context.env).handler(context.req.raw),
+  );
 
   app.get("/health", (context) =>
     context.json({

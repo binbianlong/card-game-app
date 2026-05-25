@@ -112,6 +112,7 @@ describe("worker", () => {
 
 function createTestEnv() {
   return {
+    DB: {} as D1Database,
     RoomServer: {} as DurableObjectNamespace,
   };
 }
