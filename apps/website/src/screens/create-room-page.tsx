@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/features/auth/auth-client";
+import { useNickname } from "@/features/auth/nickname";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
 import { createRoom as createRoomRequest } from "@/features/rooms/room-api";
 
@@ -20,7 +21,7 @@ function CreateRoomPage() {
 
   const humanCount = playerCount - cpuCount;
   const maxCpuCount = playerCount - 1;
-  const playerName = session.data?.user.name ?? "あなた";
+  const { displayName: playerName } = useNickname(session.data?.user.name ?? "あなた");
 
   const roomSummary = useMemo(
     () => [

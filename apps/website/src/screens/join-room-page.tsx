@@ -4,12 +4,13 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getStoredNickname } from "@/features/auth/nickname";
 import { joinRoom as joinRoomRequest } from "@/features/rooms/room-api";
 
 function JoinRoomPage() {
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState("");
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(() => getStoredNickname() ?? "");
   const [status, setStatus] = useState<"idle" | "joining" | "error">("idle");
 
   const normalizedInviteCode = useMemo(
