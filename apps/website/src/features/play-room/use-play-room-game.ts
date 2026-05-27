@@ -32,6 +32,7 @@ type FinalResult = {
   name: string;
   playerId: PlayerId;
   rank: number;
+  remainingCards: readonly Card[];
 };
 
 const emptyPlayerView: PlayerGameView = {
@@ -122,6 +123,7 @@ function usePlayRoomGame({
       const initialHand = gameState.initialHands.find(
         (candidate) => candidate.playerId === rankedPlayerId,
       );
+      const finalPlayer = gameState.players.find((candidate) => candidate.id === rankedPlayerId);
 
       return {
         cards: initialHand?.cards ?? [],
@@ -129,6 +131,7 @@ function usePlayRoomGame({
         name: meta.name,
         playerId: rankedPlayerId,
         rank: index + 1,
+        remainingCards: finalPlayer?.hand ?? [],
       };
     });
   }, [gameState, playerMetas]);

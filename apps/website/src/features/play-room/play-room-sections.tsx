@@ -80,7 +80,7 @@ function FinishedGameResults({
         <CardContent className="grid min-w-0 gap-3 p-4">
           <div className="flex items-center gap-2">
             <Trophy className="size-4 text-primary" aria-hidden="true" />
-            <h2 className="text-base leading-tight font-extrabold">順位と初期手札</h2>
+            <h2 className="text-base leading-tight font-extrabold">順位と手札</h2>
           </div>
 
           <div className="grid gap-2.5">
@@ -138,8 +138,6 @@ function ResultStat({ label, value }: { label: string; value: string }) {
 }
 
 function FinalResultRow({ isViewer, result }: { isViewer: boolean; result: FinalResult }) {
-  const visibleCards = result.cards;
-
   return (
     <div
       className={
@@ -164,7 +162,7 @@ function FinalResultRow({ isViewer, result }: { isViewer: boolean; result: Final
             {isViewer ? "（あなた）" : ""}
           </div>
           <div className="mt-1 text-[13px] leading-none text-muted-foreground">
-            初期手札 {visibleCards.length}枚
+            初期 {result.cards.length}枚 / 残り {result.remainingCards.length}枚
           </div>
         </div>
         <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-sm font-extrabold text-primary-foreground">
@@ -172,9 +170,26 @@ function FinalResultRow({ isViewer, result }: { isViewer: boolean; result: Final
         </span>
       </div>
 
-      <div className="mt-3 min-w-0 max-w-full overflow-x-auto pb-1">
+      <ResultHandCards label="初期手札" cards={result.cards} />
+      {result.remainingCards.length > 0 ? (
+        <ResultHandCards label="残った手札" cards={result.remainingCards} />
+      ) : null}
+    </div>
+  );
+}
+
+function ResultHandCards({ cards, label }: { cards: readonly GameCard[]; label: string }) {
+  return (
+    <div className="mt-3 min-w-0 max-w-full">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="text-[11px] leading-none font-bold text-muted-foreground">{label}</div>
+        <div className="text-[11px] leading-none font-bold text-muted-foreground">
+          {cards.length}枚
+        </div>
+      </div>
+      <div className="min-w-0 max-w-full overflow-x-auto pb-1">
         <div className="flex w-max items-end pl-1 pr-4">
-          {visibleCards.map((card, index) => (
+          {cards.map((card, index) => (
             <PlayingCard
               key={card.id}
               rank={card.rank}
