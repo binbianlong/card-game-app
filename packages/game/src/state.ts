@@ -1,4 +1,4 @@
-import { analyzePlay, canPlayOn } from "./rules.ts";
+import { analyzePlay, canPlayOn, compareRanks } from "./rules.ts";
 import { DEFAULT_GAME_RULES } from "./local-rules/defaults.ts";
 import { isEightCutEnabled } from "./local-rules/eight-cut.ts";
 import { getNextElevenBack } from "./local-rules/eleven-back.ts";
@@ -50,18 +50,23 @@ export function createGameState(
     throw new GameRuleError("First player must exist in players.");
   }
 
+  const normalizedPlayers = players.map((player) => ({
+    ...player,
+    hand: sortCardsByStrength(player.hand),
+  }));
+
   return {
     phase: "playing",
     rules: {
       ...DEFAULT_GAME_RULES,
       ...options.rules,
     },
-    players: players.map((player) => ({
+    players: normalizedPlayers.map((player) => ({
       id: player.id,
       hand: [...player.hand],
       connected: player.connected ?? true,
     })),
-    initialHands: players.map((player) => ({
+    initialHands: normalizedPlayers.map((player) => ({
       playerId: player.id,
       cards: [...player.hand],
     })),
@@ -156,6 +161,33 @@ function applyPlayCards(
     turnPlayerId:
       eightCut && updatedHand.length > 0 ? playerId : getNextActivePlayerId(nextBase, playerId),
   });
+}
+
+function sortCardsByStrength(cards: readonly Card[]): readonly Card[] {
+  return [...cards].sort((left, right) => {
+    const rankDiff = compareRanks(left.rank, right.rank);
+
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+
+    return getSuitStrength(left.suit) - getSuitStrength(right.suit);
+  });
+}
+
+function getSuitStrength(suit: Card["suit"]) {
+  switch (suit) {
+    case "clubs":
+      return 0;
+    case "diamonds":
+      return 1;
+    case "hearts":
+      return 2;
+    case "spades":
+      return 3;
+    case "joker":
+      return 4;
+  }
 }
 
 function applyPass(state: GameState, playerId: PlayerId): GameState {
