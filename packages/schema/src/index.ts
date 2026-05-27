@@ -7,6 +7,7 @@ export const clientEventTypes = {
   setReady: "setReady",
   updateRules: "updateRules",
   startGame: "startGame",
+  rematch: "rematch",
   playCards: "playCards",
   pass: "pass",
 } as const;
@@ -95,10 +96,16 @@ export const PlayerStateSchema = z.object({
   connected: z.boolean(),
 });
 
+export const InitialHandSnapshotSchema = z.object({
+  playerId: z.string().min(1),
+  cards: z.array(CardSchema),
+});
+
 export const GameStateSchema = z.object({
   phase: z.enum(["playing", "finished"]),
   rules: GameRuleSettingsSchema,
   players: z.array(PlayerStateSchema),
+  initialHands: z.array(InitialHandSnapshotSchema),
   turnPlayerId: z.string().min(1),
   table: z.object({
     play: PlaySchema.nullable(),
@@ -172,6 +179,9 @@ export const ClientEventSchema = z.discriminatedUnion("type", [
   }),
   RoomPlayerEventBaseSchema.extend({
     type: z.literal(clientEventTypes.startGame),
+  }),
+  RoomPlayerEventBaseSchema.extend({
+    type: z.literal(clientEventTypes.rematch),
   }),
   RoomPlayerEventBaseSchema.extend({
     type: z.literal(clientEventTypes.playCards),
@@ -271,6 +281,14 @@ export const createClientEvent = {
       ...input,
     }) as ClientEventByType<typeof clientEventTypes.startGame>;
   },
+  rematch(
+    input: Omit<ClientEventByType<typeof clientEventTypes.rematch>, "type">,
+  ): ClientEventByType<typeof clientEventTypes.rematch> {
+    return ClientEventSchema.parse({
+      type: clientEventTypes.rematch,
+      ...input,
+    }) as ClientEventByType<typeof clientEventTypes.rematch>;
+  },
   playCards(
     input: Omit<ClientEventByType<typeof clientEventTypes.playCards>, "type">,
   ): ClientEventByType<typeof clientEventTypes.playCards> {
@@ -339,6 +357,7 @@ export type Card = z.infer<typeof CardSchema>;
 export type Play = z.infer<typeof PlaySchema>;
 export type GameRuleSettings = z.infer<typeof GameRuleSettingsSchema>;
 export type PlayerState = z.infer<typeof PlayerStateSchema>;
+export type InitialHandSnapshot = z.infer<typeof InitialHandSnapshotSchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
 export type RoomParticipant = z.infer<typeof RoomParticipantSchema>;
 export type RoomState = z.infer<typeof RoomStateSchema>;

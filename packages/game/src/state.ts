@@ -61,6 +61,10 @@ export function createGameState(
       hand: [...player.hand],
       connected: player.connected ?? true,
     })),
+    initialHands: players.map((player) => ({
+      playerId: player.id,
+      cards: [...player.hand],
+    })),
     turnPlayerId: firstPlayerId,
     table: {
       play: null,

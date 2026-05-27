@@ -107,6 +107,17 @@ describe("schema", () => {
       roomId: "ROOM",
       playerName: "",
     });
+
+    expect(
+      createClientEvent.rematch({
+        roomId: "room-1",
+        playerId: "player-1",
+      }),
+    ).toEqual({
+      type: "rematch",
+      roomId: "room-1",
+      playerId: "player-1",
+    });
   });
 
   test("creates typed server events", () => {

@@ -63,6 +63,11 @@ export type PlayerState = {
   connected: boolean;
 };
 
+export type InitialHandSnapshot = {
+  playerId: PlayerId;
+  cards: readonly Card[];
+};
+
 export type PlayerViewState = {
   id: PlayerId;
   connected: boolean;
@@ -78,6 +83,7 @@ export type GameState = {
   phase: GamePhase;
   rules: GameRuleSettings;
   players: readonly PlayerState[];
+  initialHands: readonly InitialHandSnapshot[];
   turnPlayerId: PlayerId;
   table: {
     play: Play | null;

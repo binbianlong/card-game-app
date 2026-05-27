@@ -14,6 +14,7 @@ export {
   type GamePhase,
   type GameRuleSettings,
   type GameState,
+  type InitialHandSnapshot,
   type Play,
   type PlayerGameView,
   type PlayKind,

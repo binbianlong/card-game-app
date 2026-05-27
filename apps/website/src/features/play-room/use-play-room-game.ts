@@ -1,6 +1,7 @@
 import {
   getAvailableActions,
   getPlayerView,
+  type Card,
   type Play,
   type PlayerGameView,
   type PlayerId,
@@ -23,6 +24,14 @@ type Opponent = {
   name: string;
   rank: number | null;
   status: "finished" | "passed" | "thinking" | "waiting";
+};
+
+type FinalResult = {
+  cards: readonly Card[];
+  kind: "cpu" | "guest" | "host";
+  name: string;
+  playerId: PlayerId;
+  rank: number;
 };
 
 const emptyPlayerView: PlayerGameView = {
@@ -103,6 +112,27 @@ function usePlayRoomGame({
         }),
     [playerMetas, playerView, viewerId],
   );
+  const finalResults = useMemo(() => {
+    if (gameState === null || gameState.phase !== "finished") {
+      return [];
+    }
+
+    return gameState.rankings.map((rankedPlayerId, index): FinalResult => {
+      const meta = getPlayerMeta(playerMetas, rankedPlayerId);
+      const initialHand = gameState.initialHands.find(
+        (candidate) => candidate.playerId === rankedPlayerId,
+      );
+
+      return {
+        cards: initialHand?.cards ?? [],
+        kind: meta.kind,
+        name: meta.name,
+        playerId: rankedPlayerId,
+        rank: index + 1,
+      };
+    });
+  }, [gameState, playerMetas]);
+  const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
     if (roomId.length === 0 || playerId.length === 0) {
@@ -178,10 +208,22 @@ function usePlayRoomGame({
     setSelectedCardIds([]);
   }
 
+  function startRematch() {
+    socketRef.current?.send(JSON.stringify(createClientEvent.rematch({ roomId, playerId })));
+    setSelectedCardIds([]);
+  }
+
+  function leaveRoom() {
+    socketRef.current?.send(JSON.stringify(createClientEvent.leaveRoom({ roomId, playerId })));
+  }
+
   return {
     availableActions,
+    canStartRematch,
     clearSelection,
     errorMessage,
+    finalResults,
+    leaveRoom,
     opponents,
     passTurn,
     playerHand,
@@ -191,6 +233,7 @@ function usePlayRoomGame({
     playSelectedCards,
     selectedCardIdSet,
     selectedCards,
+    startRematch,
     toggleCard,
   };
 }
@@ -257,6 +300,7 @@ export {
   formatRankings,
   getPlayerMeta,
   usePlayRoomGame,
+  type FinalResult,
   type Opponent,
   type PlayerMeta,
 };

@@ -5,6 +5,19 @@ import { RoomStateError } from "./errors.ts";
 function startGame(room: RoomState, event: Extract<ClientEvent, { type: "startGame" }>): RoomState {
   assertCanStartGame(room, event.playerId);
 
+  return createPlayingRoom(room);
+}
+
+function startRematch(
+  room: RoomState,
+  event: Extract<ClientEvent, { type: "rematch" }>,
+): RoomState {
+  assertCanStartRematch(room, event.playerId);
+
+  return createPlayingRoom(room);
+}
+
+function createPlayingRoom(room: RoomState): RoomState {
   const game = GameStateSchema.parse(
     createNewGame(
       room.participants.map((participant) => participant.id as PlayerId),
@@ -37,6 +50,20 @@ function assertCanStartGame(room: RoomState, playerId: string) {
   }
 }
 
+function assertCanStartRematch(room: RoomState, playerId: string) {
+  if (room.status !== "finished" || room.game?.phase !== "finished") {
+    throw new RoomStateError("notAllowed", "Game is not finished.");
+  }
+
+  if (playerId !== room.hostPlayerId) {
+    throw new RoomStateError("notAllowed", "Only the host can start a rematch.");
+  }
+
+  if (room.participants.length !== room.playerCount) {
+    throw new RoomStateError("notAllowed", "Not enough players are in the room.");
+  }
+}
+
 function applyGameRoomAction(
   room: RoomState,
   event: Extract<ClientEvent, { type: "playCards" | "pass" }>,
@@ -54,4 +81,4 @@ function applyGameRoomAction(
   };
 }
 
-export { applyGameRoomAction, startGame };
+export { applyGameRoomAction, startGame, startRematch };

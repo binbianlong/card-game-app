@@ -1,6 +1,6 @@
 import { GameRuleError } from "game";
 import { clientEventTypes, type ClientEvent, type RoomParticipant, type RoomState } from "schema";
-import { applyGameRoomAction, startGame } from "./game.ts";
+import { applyGameRoomAction, startGame, startRematch } from "./game.ts";
 import { RoomStateError } from "./errors.ts";
 import { createPlayerId, createPlayerName } from "./factory.ts";
 
@@ -25,6 +25,8 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
         return { ...room, rules: event.rules };
       case clientEventTypes.startGame:
         return startGame(room, event);
+      case clientEventTypes.rematch:
+        return startRematch(room, event);
       case clientEventTypes.playCards:
         return applyGameRoomAction(room, event);
       case clientEventTypes.pass:

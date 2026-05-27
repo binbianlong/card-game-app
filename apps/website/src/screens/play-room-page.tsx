@@ -1,14 +1,20 @@
-import { Link, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
 import { ArrowLeft, BookOpen, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
-import { BattleStatus, PlayerArea, TableArea } from "@/features/play-room/play-room-sections";
+import {
+  BattleStatus,
+  FinishedGameResults,
+  PlayerArea,
+  TableArea,
+} from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
 
 function PlayRoomPage() {
+  const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/play" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
@@ -27,7 +33,11 @@ function PlayRoomPage() {
   );
   const {
     availableActions,
+    canStartRematch,
     clearSelection,
+    errorMessage,
+    finalResults,
+    leaveRoom,
     opponents,
     passTurn,
     playerHand,
@@ -37,8 +47,14 @@ function PlayRoomPage() {
     playSelectedCards,
     selectedCardIdSet,
     selectedCards,
+    startRematch,
     toggleCard,
   } = usePlayRoomGame({ cpuCount, playerCount, playerId, roomId });
+
+  function exitRoom() {
+    leaveRoom();
+    void navigate({ to: "/" });
+  }
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
@@ -68,25 +84,41 @@ function PlayRoomPage() {
         <ActiveLocalRulesModal rules={localRules} onClose={() => setIsRulesOpen(false)} />
       ) : null}
 
-      <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-3">
-        <BattleStatus opponents={opponents} playerMetas={playerMetas} playerView={playerView} />
-        <TableArea
-          playerMetas={playerMetas}
-          tablePlay={playerView.table.play}
-          tablePlayedBy={playerView.table.playedBy}
+      {errorMessage !== null ? (
+        <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {playerView.phase === "finished" ? (
+        <FinishedGameResults
+          canStartRematch={canStartRematch}
+          finalResults={finalResults}
+          onLeaveRoom={exitRoom}
+          onStartRematch={startRematch}
+          playerId={playerId}
         />
-        <PlayerArea
-          availableActions={availableActions}
-          onClearSelection={clearSelection}
-          onPass={passTurn}
-          onPlaySelectedCards={playSelectedCards}
-          onToggleCard={toggleCard}
-          playerHand={playerHand}
-          playerRank={playerRank}
-          selectedCards={selectedCards}
-          selectedCardIdSet={selectedCardIdSet}
-        />
-      </section>
+      ) : (
+        <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-3">
+          <BattleStatus opponents={opponents} playerMetas={playerMetas} playerView={playerView} />
+          <TableArea
+            playerMetas={playerMetas}
+            tablePlay={playerView.table.play}
+            tablePlayedBy={playerView.table.playedBy}
+          />
+          <PlayerArea
+            availableActions={availableActions}
+            onClearSelection={clearSelection}
+            onPass={passTurn}
+            onPlaySelectedCards={playSelectedCards}
+            onToggleCard={toggleCard}
+            playerHand={playerHand}
+            playerRank={playerRank}
+            selectedCards={selectedCards}
+            selectedCardIdSet={selectedCardIdSet}
+          />
+        </section>
+      )}
     </main>
   );
 }

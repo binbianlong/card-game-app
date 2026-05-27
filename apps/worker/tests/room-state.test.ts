@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import { getAvailableActions } from "game";
 import { createClientEvent, type RoomState } from "schema";
 import {
   RoomStateError,
@@ -246,6 +247,31 @@ describe("room state", () => {
     expect(nextGame.table.play?.cards.map((playedCard) => playedCard.id)).toEqual([card.id]);
   });
 
+  test("starts rematches with the same participants after games finish", () => {
+    const finishedRoom = finishGame(
+      applyRoomClientEvent(
+        readyAllHumanParticipants(createPlayableRoom()),
+        createClientEvent.startGame({
+          roomId: "room-1",
+          playerId: "player-1",
+        }),
+      ),
+    );
+    const rematchRoom = applyRoomClientEvent(
+      finishedRoom,
+      createClientEvent.rematch({
+        roomId: finishedRoom.id,
+        playerId: finishedRoom.hostPlayerId,
+      }),
+    );
+
+    expect(finishedRoom.status).toBe("finished");
+    expect(rematchRoom.status).toBe("playing");
+    expect(rematchRoom.participants).toEqual(finishedRoom.participants);
+    expect(rematchRoom.game?.phase).toBe("playing");
+    expect(rematchRoom.game?.initialHands).toHaveLength(finishedRoom.participants.length);
+  });
+
   test("rejects game actions before the game starts", () => {
     const room = createRoom();
 
@@ -260,6 +286,49 @@ describe("room state", () => {
     ).toThrow(RoomStateError);
   });
 });
+
+function finishGame(room: RoomState) {
+  let nextRoom = room;
+
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (nextRoom.status === "finished") {
+      return nextRoom;
+    }
+
+    const game = expectGame(nextRoom);
+    const player = game.players.find((candidate) => candidate.id === game.turnPlayerId);
+    const playableCard = player?.hand.find(
+      (card) =>
+        getAvailableActions(game, game.turnPlayerId, { selectedCardIds: [card.id] })
+          .canPlaySelectedCards,
+    );
+
+    if (player === undefined) {
+      throw new Error("Expected current player with cards.");
+    }
+
+    if (playableCard === undefined) {
+      nextRoom = applyRoomClientEvent(
+        nextRoom,
+        createClientEvent.pass({
+          roomId: nextRoom.id,
+          playerId: player.id,
+        }),
+      );
+    } else {
+      nextRoom = applyRoomClientEvent(
+        nextRoom,
+        createClientEvent.playCards({
+          roomId: nextRoom.id,
+          playerId: player.id,
+          cardIds: [playableCard.id],
+        }),
+      );
+    }
+  }
+
+  throw new Error("Expected game to finish.");
+}
 
 function createRoom() {
   return createWaitingRoom(
