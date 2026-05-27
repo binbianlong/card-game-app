@@ -96,6 +96,17 @@ describe("schema", () => {
       cpuCount: 1,
       rules,
     });
+
+    expect(
+      createClientEvent.joinRoom({
+        roomId: "ROOM",
+        playerName: "",
+      }),
+    ).toEqual({
+      type: "joinRoom",
+      roomId: "ROOM",
+      playerName: "",
+    });
   });
 
   test("creates typed server events", () => {

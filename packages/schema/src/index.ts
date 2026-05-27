@@ -149,7 +149,7 @@ const RoomPlayerEventBaseSchema = z.object({
 export const ClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal(clientEventTypes.createRoom),
-    playerName: z.string().min(1),
+    playerName: z.string(),
     playerCount: z.number().int().min(3).max(6),
     cpuCount: z.number().int().min(0).max(5),
     rules: GameRuleSettingsSchema,
@@ -157,7 +157,7 @@ export const ClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal(clientEventTypes.joinRoom),
     roomId: z.string().min(1),
-    playerName: z.string().min(1),
+    playerName: z.string(),
   }),
   RoomPlayerEventBaseSchema.extend({
     type: z.literal(clientEventTypes.leaveRoom),

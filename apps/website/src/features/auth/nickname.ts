@@ -29,7 +29,7 @@ function setStoredNickname(value: string) {
   window.dispatchEvent(new Event(nicknameChangeEventName));
 }
 
-function useNickname(fallbackName: string) {
+function useNickname() {
   const [nickname, setNicknameState] = useState(getStoredNickname);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ function useNickname(fallbackName: string) {
   }, []);
 
   return {
-    displayName: nickname ?? fallbackName,
+    displayName: nickname ?? "",
     nickname,
     setNickname: setStoredNickname,
   };

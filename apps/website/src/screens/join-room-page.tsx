@@ -17,8 +17,7 @@ function JoinRoomPage() {
     () => inviteCode.trim().replace(/\s|-/g, "").toUpperCase(),
     [inviteCode],
   );
-  const canSubmit =
-    status !== "joining" && normalizedInviteCode.length > 0 && playerName.trim().length > 0;
+  const canSubmit = status !== "joining" && normalizedInviteCode.length > 0;
 
   async function joinRoom() {
     if (!canSubmit) {
@@ -104,7 +103,7 @@ function JoinRoomPage() {
                 setPlayerName(value);
                 setStatus("idle");
               }}
-              placeholder="あなたの名前"
+              placeholder="未設定"
               value={playerName}
             />
           </CardContent>

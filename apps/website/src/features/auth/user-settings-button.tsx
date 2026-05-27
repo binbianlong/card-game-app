@@ -9,8 +9,7 @@ function UserSettingsButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const session = authClient.useSession();
-  const fallbackName = session.data?.user.name ?? "あなた";
-  const { displayName, setNickname } = useNickname(fallbackName);
+  const { displayName, setNickname } = useNickname();
   const [nicknameInput, setNicknameInput] = useState(displayName);
 
   useEffect(() => {
@@ -68,7 +67,7 @@ function UserSettingsButton() {
             <div className="min-w-0 flex-1">
               <div className="text-sm leading-snug font-bold">ユーザー設定</div>
               <div className="mt-1 truncate text-xs text-muted-foreground">
-                表示名: {displayName}
+                表示名: {displayName.length > 0 ? displayName : "未設定"}
               </div>
             </div>
           </div>
@@ -81,6 +80,7 @@ function UserSettingsButton() {
             type="text"
             value={nicknameInput}
             maxLength={24}
+            placeholder="未設定"
             onChange={(event) => setNicknameInput(event.currentTarget.value)}
             className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm font-bold outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />

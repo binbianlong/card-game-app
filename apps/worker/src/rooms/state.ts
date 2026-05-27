@@ -2,7 +2,7 @@ import { GameRuleError } from "game";
 import { clientEventTypes, type ClientEvent, type RoomParticipant, type RoomState } from "schema";
 import { applyGameRoomAction, startGame } from "./game.ts";
 import { RoomStateError } from "./errors.ts";
-import { createPlayerId } from "./factory.ts";
+import { createPlayerId, createPlayerName } from "./factory.ts";
 
 function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
   try {
@@ -52,7 +52,7 @@ function joinRoom(room: RoomState, playerName: string): RoomState {
 
   const participant: RoomParticipant = {
     id: createPlayerId(room.participants),
-    name: playerName,
+    name: createPlayerName(playerName, room.participants),
     kind: "guest",
     connected: true,
     ready: false,

@@ -60,6 +60,32 @@ describe("room state", () => {
     });
   });
 
+  test("assigns default player names when names are empty", () => {
+    const room = createWaitingRoom(
+      createClientEvent.createRoom({
+        playerName: "",
+        playerCount: 4,
+        cpuCount: 1,
+        rules,
+      }),
+      "room-1",
+      createInviteCode("room-1"),
+    );
+    const joinedRoom = applyRoomClientEvent(
+      room,
+      createClientEvent.joinRoom({
+        roomId: room.id,
+        playerName: "",
+      }),
+    );
+
+    expect(room.participants[0]?.name).toBe("プレイヤー1");
+    expect(joinedRoom.participants.at(-1)).toMatchObject({
+      id: "player-3",
+      name: "プレイヤー2",
+    });
+  });
+
   test("rejects joins when rooms are full", () => {
     const room = createPlayableRoom();
 

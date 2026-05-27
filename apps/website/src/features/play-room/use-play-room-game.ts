@@ -67,7 +67,7 @@ function usePlayRoomGame({
     () => (gameState === null ? emptyPlayerView : getPlayerView(gameState, viewerId)),
     [gameState, viewerId],
   );
-  const playerMetas = useMemo(() => createPlayerMetas(room, viewerId), [room, viewerId]);
+  const playerMetas = useMemo(() => createPlayerMetas(room), [room]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
   const playerHand = viewer?.hand ?? [];
   const playerRank = viewer?.rank ?? null;
@@ -195,12 +195,12 @@ function usePlayRoomGame({
   };
 }
 
-function createPlayerMetas(room: RoomState | null, viewerId: string): readonly PlayerMeta[] {
+function createPlayerMetas(room: RoomState | null): readonly PlayerMeta[] {
   return (
     room?.participants.map((participant) => ({
       id: participant.id,
       kind: participant.kind,
-      name: participant.id === viewerId ? "あなた" : participant.name,
+      name: participant.name,
     })) ?? []
   );
 }
