@@ -16,6 +16,7 @@ async function createRoom(input: CreateRoomInput) {
   const response = await fetch(createApiUrl("/api/rooms"), {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(createClientEvent.createRoom(input)),
   });
 
@@ -31,6 +32,7 @@ async function joinRoom({ inviteCode, playerName }: { inviteCode: string; player
   const response = await fetch(createApiUrl("/api/rooms/join"), {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(createClientEvent.joinRoom({ roomId, playerName })),
   });
 
@@ -63,4 +65,4 @@ function getWorkerOrigin() {
   return origin === undefined || origin.length === 0 ? null : origin;
 }
 
-export { createRoom, getWorkerHost, joinRoom };
+export { createRoom, getWorkerHost, getWorkerOrigin, joinRoom };

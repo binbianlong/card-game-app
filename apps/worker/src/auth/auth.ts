@@ -9,6 +9,7 @@ type AuthEnv = {
   DB: D1Database;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  TRUSTED_ORIGINS?: string;
 };
 
 function createAuth(env: AuthEnv) {
@@ -22,6 +23,7 @@ function createAuth(env: AuthEnv) {
     }),
     secret: env.BETTER_AUTH_SECRET,
     socialProviders: createSocialProviders(env),
+    trustedOrigins: parseTrustedOrigins(env.TRUSTED_ORIGINS),
   });
 }
 
@@ -41,6 +43,17 @@ function createSocialProviders(env: AuthEnv) {
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   };
+}
+
+function parseTrustedOrigins(value: string | undefined) {
+  if (value === undefined || value.length === 0) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
 }
 
 export { createAuth };

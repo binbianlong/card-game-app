@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { authClient } from "@/features/auth/auth-client";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
 import { createRoom as createRoomRequest } from "@/features/rooms/room-api";
 
@@ -15,9 +16,11 @@ function CreateRoomPage() {
   const [playerCount, setPlayerCount] = useState(4);
   const [cpuCount, setCpuCount] = useState(1);
   const [status, setStatus] = useState<"idle" | "creating" | "error">("idle");
+  const session = authClient.useSession();
 
   const humanCount = playerCount - cpuCount;
   const maxCpuCount = playerCount - 1;
+  const playerName = session.data?.user.name ?? "あなた";
 
   const roomSummary = useMemo(
     () => [
@@ -44,7 +47,7 @@ function CreateRoomPage() {
 
     try {
       const data = await createRoomRequest({
-        playerName: "あなた",
+        playerName,
         playerCount,
         cpuCount,
         rules: defaultLocalRuleSettings,

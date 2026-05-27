@@ -114,6 +114,9 @@ importers:
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      better-auth:
+        specifier: 'catalog:'
+        version: 1.6.11(@cloudflare/workers-types@4.20260524.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260524.1)(kysely@0.28.17))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1

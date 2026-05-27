@@ -11,6 +11,7 @@ type Env = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   RoomServer: DurableObjectNamespace<RoomServer>;
+  TRUSTED_ORIGINS?: string;
 };
 
 const app = createWorkerApp<Env>({

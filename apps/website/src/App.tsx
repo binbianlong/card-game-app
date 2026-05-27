@@ -3,6 +3,7 @@ import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-reac
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AuthStatusButton } from "@/features/auth/auth-status-button";
 
 const actions = [
   {
@@ -41,9 +42,7 @@ function App() {
           </span>
           <span className="truncate text-[15px] font-bold">Card Room</span>
         </div>
-        <Button variant="ghost" size="sm">
-          ログイン
-        </Button>
+        <AuthStatusButton />
       </header>
 
       <section className="pt-10 pb-7" aria-labelledby="home-title">
