@@ -13,6 +13,7 @@ type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>
 function createWorkerApp<Env extends WorkerBindings>({
   findRoomByInviteCode,
   joinRoom,
+  listMatchHistory,
   saveRoom,
 }: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
@@ -42,6 +43,7 @@ function createWorkerApp<Env extends WorkerBindings>({
     createRoomsRoute({
       findRoomByInviteCode,
       joinRoom,
+      listMatchHistory,
       saveRoom,
     }),
   );

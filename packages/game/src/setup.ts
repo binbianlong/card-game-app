@@ -33,6 +33,7 @@ export type CreateDeckOptions = {
 
 export type CreateNewGameOptions = CreateDeckOptions & {
   deck?: readonly Card[];
+  matchId?: CreateGameStateOptions["matchId"];
   rng?: () => number;
   rules?: CreateGameStateOptions["rules"];
 };
@@ -113,7 +114,10 @@ export function createNewGame(
   const players = dealCards(playerIds, shuffled);
   const firstPlayerId = findCardOwner(players, "diamonds-3") ?? playerIds[0];
 
-  return createGameState(players, firstPlayerId, { rules: options.rules });
+  return createGameState(players, firstPlayerId, {
+    matchId: options.matchId,
+    rules: options.rules,
+  });
 }
 
 function findCardOwner(

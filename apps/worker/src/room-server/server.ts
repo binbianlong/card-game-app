@@ -8,8 +8,10 @@ import {
   createFallbackRoom,
   isCpuTurn,
 } from "../rooms/state.ts";
+import { createRoomRepository } from "../rooms/repository.ts";
 
 type RoomServerEnv = {
+  DB?: D1Database;
   RoomServer: DurableObjectNamespace<RoomServer>;
 };
 
@@ -120,13 +122,17 @@ class RoomServer extends Server<RoomServerEnv> {
   }
 
   private async applyClientEvent(event: ClientEvent) {
-    const room = await this.getRoom();
-    return this.setRoom(applyRoomClientEvent(room, event));
+    const previousRoom = await this.getRoom();
+    const nextRoom = await this.setRoom(applyRoomClientEvent(previousRoom, event));
+    await this.saveFinishedRoom(previousRoom, nextRoom);
+
+    return nextRoom;
   }
 
   async onAlarm() {
     const room = await this.getRoom();
     const nextRoom = await this.setRoom(applyNextCpuTurn(room));
+    await this.saveFinishedRoom(room, nextRoom);
 
     if (nextRoom !== room) {
       this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
@@ -153,6 +159,18 @@ class RoomServer extends Server<RoomServerEnv> {
     return room;
   }
 
+  private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
+    if (!shouldSaveFinishedRoom(previousRoom, nextRoom)) {
+      return;
+    }
+
+    if (this.env.DB === undefined) {
+      return;
+    }
+
+    await createRoomRepository(this.env.DB).saveRoomMetadata(nextRoom);
+  }
+
   private async scheduleCpuTurn(room: RoomState) {
     if (isCpuTurn(room)) {
       await this.ctx.storage.setAlarm(Date.now() + cpuTurnDelayMs);
@@ -161,6 +179,14 @@ class RoomServer extends Server<RoomServerEnv> {
 
     await this.ctx.storage.deleteAlarm();
   }
+}
+
+function shouldSaveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
+  return (
+    previousRoom.status !== "finished" &&
+    nextRoom.status === "finished" &&
+    nextRoom.game?.phase === "finished"
+  );
 }
 
 function parseMessage(message: string) {

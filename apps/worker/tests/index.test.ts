@@ -49,6 +49,27 @@ const app = createWorkerApp({
       websocketPath: "/parties/room-server/ROOM",
     });
   },
+  async listMatchHistory() {
+    return [
+      {
+        id: "match-1",
+        roomId: "room-1",
+        inviteCode: "ROOM",
+        playerCount: 3,
+        status: "finished",
+        startedAt: 1,
+        finishedAt: 2,
+        rules: {
+          eightCut: true,
+          elevenBack: true,
+          revolution: true,
+          sequence: true,
+          suitLock: true,
+        },
+        players: [],
+      },
+    ];
+  },
   async saveRoom() {
     return true;
   },
@@ -106,6 +127,23 @@ describe("worker", () => {
     await expect(response.json()).resolves.toMatchObject({
       type: "error",
       code: "roomNotFound",
+    });
+  });
+
+  test("lists match history", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history"),
+      createTestEnv(),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      matches: [
+        {
+          id: "match-1",
+          roomId: "room-1",
+          status: "finished",
+        },
+      ],
     });
   });
 });

@@ -96,15 +96,52 @@ export const roomParticipants = sqliteTable(
   (table) => [uniqueIndex("room_participants_room_player_unique").on(table.roomId, table.playerId)],
 );
 
+export const matches = sqliteTable("matches", {
+  id: text("id").primaryKey(),
+  roomId: text("room_id")
+    .notNull()
+    .references(() => rooms.id, { onDelete: "cascade" }),
+  inviteCode: text("invite_code").notNull(),
+  playerCount: integer("player_count").notNull(),
+  status: text("status", { enum: ["playing", "finished"] }).notNull(),
+  rulesJson: text("rules_json").notNull(),
+  startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+  finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+  ...timestamps,
+});
+
+export const matchPlayers = sqliteTable(
+  "match_players",
+  {
+    id: text("id").primaryKey(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    roomId: text("room_id").notNull(),
+    playerId: text("player_id").notNull(),
+    displayName: text("display_name").notNull(),
+    kind: text("kind", { enum: ["host", "guest", "cpu"] }).notNull(),
+    rank: integer("rank"),
+    initialHandJson: text("initial_hand_json").notNull(),
+    remainingHandJson: text("remaining_hand_json").notNull(),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("match_players_match_player_unique").on(table.matchId, table.playerId)],
+);
+
 export type UserInsert = typeof user.$inferInsert;
 export type SessionInsert = typeof session.$inferInsert;
 export type AccountInsert = typeof account.$inferInsert;
 export type VerificationInsert = typeof verification.$inferInsert;
 export type RoomInsert = typeof rooms.$inferInsert;
 export type RoomParticipantInsert = typeof roomParticipants.$inferInsert;
+export type MatchInsert = typeof matches.$inferInsert;
+export type MatchPlayerInsert = typeof matchPlayers.$inferInsert;
 export type UserSelect = typeof user.$inferSelect;
 export type SessionSelect = typeof session.$inferSelect;
 export type AccountSelect = typeof account.$inferSelect;
 export type VerificationSelect = typeof verification.$inferSelect;
 export type RoomSelect = typeof rooms.$inferSelect;
 export type RoomParticipantSelect = typeof roomParticipants.$inferSelect;
+export type MatchSelect = typeof matches.$inferSelect;
+export type MatchPlayerSelect = typeof matchPlayers.$inferSelect;

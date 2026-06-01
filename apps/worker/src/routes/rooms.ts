@@ -3,9 +3,11 @@ import {
   ClientEventSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  MatchHistoryResponseSchema,
   createServerEvent,
   getRoomWebSocketPath,
   type ClientEvent,
+  type MatchHistoryItem,
   type RoomState,
   type ServerErrorCode,
 } from "schema";
@@ -27,15 +29,23 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
     roomId: string,
     event: Extract<ClientEvent, { type: "joinRoom" }>,
   ) => Promise<Response>;
+  listMatchHistory: (env: Env) => Promise<readonly MatchHistoryItem[]>;
   saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
   findRoomByInviteCode,
   joinRoom,
+  listMatchHistory,
   saveRoom,
 }: RoomsRouteOptions<Env>) {
   const route = new Hono<{ Bindings: Env }>();
+
+  route.get("/history", async (context) => {
+    const matches = await listMatchHistory(context.env);
+
+    return context.json(MatchHistoryResponseSchema.parse({ matches }));
+  });
 
   route.post("/", async (context) => {
     const body = await context.req.json().catch(() => null);

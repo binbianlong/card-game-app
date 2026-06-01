@@ -36,6 +36,9 @@ const app = createWorkerApp<Env>({
 
     return response;
   },
+  async listMatchHistory(env) {
+    return createRoomRepository(env.DB).listMatchHistory();
+  },
   async saveRoom(env, roomId, room) {
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(

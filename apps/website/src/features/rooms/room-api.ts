@@ -1,6 +1,7 @@
 import {
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  MatchHistoryResponseSchema,
   createClientEvent,
   type GameRuleSettings,
 } from "schema";
@@ -43,6 +44,18 @@ async function joinRoom({ inviteCode, playerName }: { inviteCode: string; player
   return JoinRoomResponseSchema.parse(await response.json());
 }
 
+async function getMatchHistory() {
+  const response = await fetch(createApiUrl("/api/rooms/history"), {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load match history.");
+  }
+
+  return MatchHistoryResponseSchema.parse(await response.json());
+}
+
 function normalizeInviteCode(inviteCode: string) {
   return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
@@ -65,4 +78,4 @@ function getWorkerOrigin() {
   return origin === undefined || origin.length === 0 ? null : origin;
 }
 
-export { createRoom, getWorkerHost, getWorkerOrigin, joinRoom };
+export { createRoom, getMatchHistory, getWorkerHost, getWorkerOrigin, joinRoom };

@@ -80,6 +80,7 @@ export type PlayerViewState = {
 export type GamePhase = "playing" | "finished";
 
 export type GameState = {
+  matchId: string;
   phase: GamePhase;
   rules: GameRuleSettings;
   players: readonly PlayerState[];
@@ -97,6 +98,7 @@ export type GameState = {
 };
 
 export type PlayerGameView = {
+  matchId: string;
   phase: GamePhase;
   rules: GameRuleSettings;
   viewerId: PlayerId;

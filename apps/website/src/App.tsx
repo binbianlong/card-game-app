@@ -21,7 +21,7 @@ const actions = [
   {
     title: "対戦履歴",
     description: "最近の結果を確認する",
-    to: null,
+    to: "/rooms/history",
     icon: History,
   },
   {
@@ -63,26 +63,18 @@ function App() {
             <Card key={action.title}>
               <CardContent className="p-0">
                 <Button
-                  asChild={action.to !== null}
+                  asChild
                   type="button"
                   variant="ghost"
                   className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
                 >
-                  {action.to !== null ? (
-                    <Link to={action.to}>
-                      <ActionContent
-                        description={action.description}
-                        icon={<Icon className="size-5" aria-hidden="true" />}
-                        title={action.title}
-                      />
-                    </Link>
-                  ) : (
+                  <Link to={action.to}>
                     <ActionContent
                       description={action.description}
                       icon={<Icon className="size-5" aria-hidden="true" />}
                       title={action.title}
                     />
-                  )}
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

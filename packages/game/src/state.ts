@@ -16,6 +16,7 @@ import {
 } from "./types.ts";
 
 export type CreateGameStateOptions = {
+  matchId?: string;
   rules?: Partial<GameRuleSettings>;
 };
 
@@ -56,6 +57,7 @@ export function createGameState(
   }));
 
   return {
+    matchId: options.matchId ?? createMatchId(),
     phase: "playing",
     rules: {
       ...DEFAULT_GAME_RULES,
@@ -81,6 +83,10 @@ export function createGameState(
     suitLock: null,
     rankings: [],
   };
+}
+
+function createMatchId() {
+  return `match-${crypto.randomUUID()}`;
 }
 
 export function applyGameAction(state: GameState, action: GameAction): GameState {

@@ -36,6 +36,7 @@ type FinalResult = {
 };
 
 const emptyPlayerView: PlayerGameView = {
+  matchId: "",
   phase: "playing",
   rules: {
     eightCut: false,
