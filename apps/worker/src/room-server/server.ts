@@ -168,7 +168,11 @@ class RoomServer extends Server<RoomServerEnv> {
       return;
     }
 
-    await createRoomRepository(this.env.DB).saveRoomMetadata(nextRoom);
+    try {
+      await createRoomRepository(this.env.DB).saveRoomMetadata(nextRoom);
+    } catch (error) {
+      console.error("Failed to save finished room metadata.", error);
+    }
   }
 
   private async scheduleCpuTurn(room: RoomState) {
