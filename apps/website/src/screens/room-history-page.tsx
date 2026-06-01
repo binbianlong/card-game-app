@@ -1,5 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Bot, CalendarClock, ChevronRight, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Bot, ChevronDown, ChevronRight, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import type { MatchHistoryItem, MatchHistoryPlayer, RoomHistoryItem } from "schema";
@@ -207,9 +207,6 @@ function RoomHistoryCard({ room }: { room: RoomHistoryItem }) {
           className="h-auto min-h-24 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
         >
           <Link to="/rooms/history/$inviteCode" params={{ inviteCode: room.inviteCode }}>
-            <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <CalendarClock className="size-5" aria-hidden="true" />
-            </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-base leading-snug font-extrabold">
                 {room.inviteCode}
@@ -237,10 +234,7 @@ function MatchHistoryCard({ match }: { match: MatchHistoryItem }) {
   return (
     <details className="group rounded-lg border bg-card shadow-sm">
       <summary className="grid cursor-pointer list-none gap-3 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-lg bg-primary/10 text-primary">
-            <Trophy className="size-5" aria-hidden="true" />
-          </span>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <div className="truncate text-base leading-snug font-extrabold">
               {winner === undefined ? "結果集計中" : `${winner.name} が優勝`}
@@ -249,8 +243,8 @@ function MatchHistoryCard({ match }: { match: MatchHistoryItem }) {
               {finishedLabel}
             </div>
           </div>
-          <span className="inline-flex h-8 min-w-14 items-center justify-center rounded-md bg-muted px-2 text-xs font-bold text-muted-foreground">
-            {match.playerCount}人
+          <span className="grid size-7 place-items-center text-muted-foreground transition-transform group-open:rotate-180">
+            <ChevronDown className="size-4" aria-hidden="true" />
           </span>
         </div>
       </summary>
