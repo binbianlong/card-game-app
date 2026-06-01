@@ -18,6 +18,9 @@ const app = createWorkerApp<Env>({
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
   },
+  async getRoomHistory(env, roomId) {
+    return createRoomRepository(env.DB).getRoomHistory(roomId);
+  },
   async joinRoom(env, roomId, event) {
     const server = await getServerByName(env.RoomServer, roomId);
 
@@ -36,8 +39,11 @@ const app = createWorkerApp<Env>({
 
     return response;
   },
-  async listMatchHistory(env) {
-    return createRoomRepository(env.DB).listMatchHistory();
+  async listMatchHistory(env, roomId) {
+    return createRoomRepository(env.DB).listMatchHistory(roomId);
+  },
+  async listRoomHistory(env) {
+    return createRoomRepository(env.DB).listRoomHistory();
   },
   async saveRoom(env, roomId, room) {
     const server = await getServerByName(env.RoomServer, roomId);

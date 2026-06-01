@@ -174,6 +174,25 @@ export const MatchHistoryResponseSchema = z.object({
   matches: z.array(MatchHistoryItemSchema),
 });
 
+export const RoomHistoryItemSchema = z.object({
+  id: z.string().min(1),
+  inviteCode: z.string().min(1),
+  playerCount: z.number().int().min(3).max(6),
+  status: z.enum(["waiting", "playing", "finished"]),
+  createdAt: z.number().int(),
+  matchCount: z.number().int().nonnegative(),
+  latestFinishedAt: z.number().int().nullable(),
+});
+
+export const RoomHistoryResponseSchema = z.object({
+  rooms: z.array(RoomHistoryItemSchema),
+});
+
+export const RoomMatchHistoryResponseSchema = z.object({
+  room: RoomHistoryItemSchema,
+  matches: z.array(MatchHistoryItemSchema),
+});
+
 const RoomPlayerEventBaseSchema = z.object({
   roomId: z.string().min(1),
   playerId: z.string().min(1),
@@ -392,6 +411,9 @@ export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
 export type MatchHistoryItem = z.infer<typeof MatchHistoryItemSchema>;
 export type MatchHistoryPlayer = z.infer<typeof MatchHistoryPlayerSchema>;
 export type MatchHistoryResponse = z.infer<typeof MatchHistoryResponseSchema>;
+export type RoomHistoryItem = z.infer<typeof RoomHistoryItemSchema>;
+export type RoomHistoryResponse = z.infer<typeof RoomHistoryResponseSchema>;
+export type RoomMatchHistoryResponse = z.infer<typeof RoomMatchHistoryResponseSchema>;
 export type ClientEvent = z.infer<typeof ClientEventSchema>;
 export type ServerErrorCode = z.infer<typeof ServerErrorCodeSchema>;
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

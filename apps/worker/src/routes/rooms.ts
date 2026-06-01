@@ -3,11 +3,13 @@ import {
   ClientEventSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
-  MatchHistoryResponseSchema,
+  RoomHistoryResponseSchema,
+  RoomMatchHistoryResponseSchema,
   createServerEvent,
   getRoomWebSocketPath,
   type ClientEvent,
   type MatchHistoryItem,
+  type RoomHistoryItem,
   type RoomState,
   type ServerErrorCode,
 } from "schema";
@@ -29,22 +31,39 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
     roomId: string,
     event: Extract<ClientEvent, { type: "joinRoom" }>,
   ) => Promise<Response>;
-  listMatchHistory: (env: Env) => Promise<readonly MatchHistoryItem[]>;
+  getRoomHistory: (env: Env, roomId: string) => Promise<RoomHistoryItem | null>;
+  listMatchHistory: (env: Env, roomId: string) => Promise<readonly MatchHistoryItem[]>;
+  listRoomHistory: (env: Env) => Promise<readonly RoomHistoryItem[]>;
   saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
   findRoomByInviteCode,
+  getRoomHistory,
   joinRoom,
   listMatchHistory,
+  listRoomHistory,
   saveRoom,
 }: RoomsRouteOptions<Env>) {
   const route = new Hono<{ Bindings: Env }>();
 
   route.get("/history", async (context) => {
-    const matches = await listMatchHistory(context.env);
+    const rooms = await listRoomHistory(context.env);
 
-    return context.json(MatchHistoryResponseSchema.parse({ matches }));
+    return context.json(RoomHistoryResponseSchema.parse({ rooms }));
+  });
+
+  route.get("/history/:inviteCode", async (context) => {
+    const inviteCode = context.req.param("inviteCode");
+    const room = await getRoomHistory(context.env, inviteCode);
+
+    if (room === null) {
+      return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+    }
+
+    const matches = await listMatchHistory(context.env, room.id);
+
+    return context.json(RoomMatchHistoryResponseSchema.parse({ room, matches }));
   });
 
   route.post("/", async (context) => {

@@ -1,16 +1,17 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Bot, Trophy, Users } from "lucide-react";
+import { Link, useParams } from "@tanstack/react-router";
+import { ArrowLeft, Bot, CalendarClock, ChevronRight, Trophy, Users } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { MatchHistoryItem, MatchHistoryPlayer } from "schema";
+import type { MatchHistoryItem, MatchHistoryPlayer, RoomHistoryItem } from "schema";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getMatchHistory } from "@/features/rooms/room-api";
+import { getRoomHistory, getRoomMatchHistory } from "@/features/rooms/room-api";
 
 type LoadStatus = "error" | "idle" | "loading" | "success";
 
 function RoomHistoryPage() {
-  const [matches, setMatches] = useState<readonly MatchHistoryItem[]>([]);
+  const [rooms, setRooms] = useState<readonly RoomHistoryItem[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
 
   useEffect(() => {
@@ -20,10 +21,10 @@ function RoomHistoryPage() {
       setStatus("loading");
 
       try {
-        const data = await getMatchHistory();
+        const data = await getRoomHistory();
 
         if (!ignore) {
-          setMatches(data.matches);
+          setRooms(data.rooms);
           setStatus("success");
         }
       } catch {
@@ -41,24 +42,80 @@ function RoomHistoryPage() {
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="ホームに戻る">
-          <Link to="/">
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">対戦履歴</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
+    <HistoryShell backTo="/" title="対戦履歴">
       <section className="pt-8 pb-5" aria-labelledby="room-history-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Match history</p>
+        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Room history</p>
         <h1 id="room-history-title" className="text-3xl leading-tight font-extrabold">
-          最近の対戦
+          ルームごとの履歴
         </h1>
         <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          終了した対戦の順位、初期手札、残った手札を確認できます。
+          作成済みルームを選んで、そのルーム内の対戦結果を確認できます。
+        </p>
+      </section>
+
+      <section className="grid flex-1 content-start gap-3" aria-label="ルーム履歴一覧">
+        {status === "loading" || status === "idle" ? (
+          <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
+        ) : null}
+        {status === "error" ? (
+          <HistoryMessage>ルーム履歴を読み込めませんでした。</HistoryMessage>
+        ) : null}
+        {status === "success" && rooms.length === 0 ? (
+          <HistoryMessage>まだ対戦履歴がありません。</HistoryMessage>
+        ) : null}
+        {rooms.map((room) => (
+          <RoomHistoryCard key={room.id} room={room} />
+        ))}
+      </section>
+    </HistoryShell>
+  );
+}
+
+function RoomMatchHistoryPage() {
+  const { inviteCode } = useParams({ from: "/rooms/history/$inviteCode" });
+  const [matches, setMatches] = useState<readonly MatchHistoryItem[]>([]);
+  const [room, setRoom] = useState<RoomHistoryItem | null>(null);
+  const [status, setStatus] = useState<LoadStatus>("idle");
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadHistory() {
+      setStatus("loading");
+
+      try {
+        const data = await getRoomMatchHistory(inviteCode);
+
+        if (!ignore) {
+          setRoom(data.room);
+          setMatches(data.matches);
+          setStatus("success");
+        }
+      } catch {
+        if (!ignore) {
+          setStatus("error");
+        }
+      }
+    }
+
+    void loadHistory();
+
+    return () => {
+      ignore = true;
+    };
+  }, [inviteCode]);
+
+  return (
+    <HistoryShell backTo="/rooms/history" title="ルーム履歴">
+      <section className="pt-8 pb-5" aria-labelledby="match-history-title">
+        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Match history</p>
+        <h1 id="match-history-title" className="text-3xl leading-tight font-extrabold">
+          ルーム内の対戦
+        </h1>
+        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
+          {room === null
+            ? "このルームで終了した対戦を確認できます。"
+            : `${formatDateTime(new Date(room.createdAt))} 作成 / ${room.matchCount}戦`}
         </p>
       </section>
 
@@ -70,12 +127,56 @@ function RoomHistoryPage() {
           <HistoryMessage>対戦履歴を読み込めませんでした。</HistoryMessage>
         ) : null}
         {status === "success" && matches.length === 0 ? (
-          <HistoryMessage>まだ対戦履歴がありません。</HistoryMessage>
+          <HistoryMessage>このルームにはまだ対戦履歴がありません。</HistoryMessage>
         ) : null}
         {matches.map((match) => (
           <MatchHistoryCard key={match.id} match={match} />
         ))}
       </section>
+    </HistoryShell>
+  );
+}
+
+function HistoryShell({
+  backTo,
+  children,
+  title,
+}: {
+  backTo: "/";
+  children: ReactNode;
+  title: string;
+}): ReactNode;
+function HistoryShell({
+  backTo,
+  children,
+  title,
+}: {
+  backTo: "/rooms/history";
+  children: ReactNode;
+  title: string;
+}): ReactNode;
+function HistoryShell({
+  backTo,
+  children,
+  title,
+}: {
+  backTo: "/" | "/rooms/history";
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
+      <header className="flex min-h-11 items-center justify-between gap-3">
+        <Button asChild variant="ghost" size="icon" aria-label="戻る">
+          <Link to={backTo}>
+            <ArrowLeft className="size-5" aria-hidden="true" />
+          </Link>
+        </Button>
+        <div className="text-sm font-bold">{title}</div>
+        <div className="size-9" aria-hidden="true" />
+      </header>
+
+      {children}
     </main>
   );
 }
@@ -85,6 +186,44 @@ function HistoryMessage({ children }: { children: string }) {
     <Card>
       <CardContent className="p-4 text-center text-sm font-bold text-muted-foreground">
         {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoomHistoryCard({ room }: { room: RoomHistoryItem }) {
+  const latestLabel =
+    room.latestFinishedAt === null
+      ? "終了済み対戦なし"
+      : `最終対戦 ${formatDateTime(new Date(room.latestFinishedAt))}`;
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Button
+          asChild
+          type="button"
+          variant="ghost"
+          className="h-auto min-h-24 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
+        >
+          <Link to="/rooms/history/$inviteCode" params={{ inviteCode: room.inviteCode }}>
+            <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+              <CalendarClock className="size-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base leading-snug font-extrabold">
+                {room.inviteCode}
+              </span>
+              <span className="mt-1 block text-[12px] leading-none text-muted-foreground">
+                作成 {formatDateTime(new Date(room.createdAt))}
+              </span>
+              <span className="mt-2 block text-[12px] leading-none font-bold text-muted-foreground">
+                {room.matchCount}戦 / {room.playerCount}人 / {latestLabel}
+              </span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
@@ -190,4 +329,4 @@ function formatDateTime(date: Date) {
   }).format(date);
 }
 
-export { RoomHistoryPage };
+export { RoomHistoryPage, RoomMatchHistoryPage };

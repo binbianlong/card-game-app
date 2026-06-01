@@ -12,6 +12,21 @@ const app = createWorkerApp({
       inviteCode,
     };
   },
+  async getRoomHistory(_env, roomKey) {
+    if (roomKey !== "ROOM" && roomKey !== "room-1") {
+      return null;
+    }
+
+    return {
+      id: "room-1",
+      inviteCode: "ROOM",
+      playerCount: 3,
+      status: "finished",
+      createdAt: 1,
+      matchCount: 1,
+      latestFinishedAt: 2,
+    };
+  },
   async joinRoom() {
     return Response.json({
       playerId: "player-2",
@@ -49,7 +64,11 @@ const app = createWorkerApp({
       websocketPath: "/parties/room-server/ROOM",
     });
   },
-  async listMatchHistory() {
+  async listMatchHistory(_env, roomId) {
+    if (roomId !== "room-1") {
+      return [];
+    }
+
     return [
       {
         id: "match-1",
@@ -67,6 +86,19 @@ const app = createWorkerApp({
           suitLock: true,
         },
         players: [],
+      },
+    ];
+  },
+  async listRoomHistory() {
+    return [
+      {
+        id: "room-1",
+        inviteCode: "ROOM",
+        playerCount: 3,
+        status: "finished",
+        createdAt: 1,
+        matchCount: 1,
+        latestFinishedAt: 2,
       },
     ];
   },
@@ -130,13 +162,33 @@ describe("worker", () => {
     });
   });
 
-  test("lists match history", async () => {
+  test("lists room history", async () => {
     const response = await app.fetch(
       new Request("https://worker.test/api/rooms/history"),
       createTestEnv(),
     );
 
     await expect(response.json()).resolves.toMatchObject({
+      rooms: [
+        {
+          id: "room-1",
+          status: "finished",
+          matchCount: 1,
+        },
+      ],
+    });
+  });
+
+  test("lists match history in a room", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history/ROOM"),
+      createTestEnv(),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      room: {
+        id: "room-1",
+      },
       matches: [
         {
           id: "match-1",

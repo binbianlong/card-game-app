@@ -1,5 +1,5 @@
 import { matchPlayers, matches, roomParticipants, rooms } from "db";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   CardSchema,
@@ -7,6 +7,7 @@ import {
   type Card,
   type GameRuleSettings,
   type MatchHistoryItem,
+  type RoomHistoryItem,
   type RoomState,
 } from "schema";
 
@@ -86,11 +87,100 @@ function createRoomRepository(database: D1Database) {
       }
     },
 
-    async listMatchHistory(limit = 20): Promise<readonly MatchHistoryItem[]> {
+    async listRoomHistory(limit = 20): Promise<readonly RoomHistoryItem[]> {
+      const matchRows = await db
+        .select({
+          roomId: matches.roomId,
+          finishedAt: matches.finishedAt,
+        })
+        .from(matches)
+        .where(eq(matches.status, "finished"));
+
+      const roomIds = unique(matchRows.map((match) => match.roomId));
+
+      if (roomIds.length === 0) {
+        return [];
+      }
+
+      const roomRows = await db
+        .select()
+        .from(rooms)
+        .where(inArray(rooms.id, roomIds))
+        .orderBy(desc(rooms.createdAt))
+        .limit(limit);
+
+      return roomRows.map((room): RoomHistoryItem => {
+        const roomMatches = matchRows.filter((match) => match.roomId === room.id);
+        const latestFinishedAt = roomMatches.reduce<Date | null>((latest, match) => {
+          if (match.finishedAt === null) {
+            return latest;
+          }
+
+          if (latest === null || match.finishedAt.getTime() > latest.getTime()) {
+            return match.finishedAt;
+          }
+
+          return latest;
+        }, null);
+
+        return {
+          id: room.id,
+          inviteCode: room.inviteCode,
+          playerCount: room.playerCount,
+          status: room.status,
+          createdAt: room.createdAt.getTime(),
+          matchCount: roomMatches.length,
+          latestFinishedAt: latestFinishedAt?.getTime() ?? null,
+        };
+      });
+    },
+
+    async getRoomHistory(roomKey: string): Promise<RoomHistoryItem | null> {
+      const room = await db
+        .select()
+        .from(rooms)
+        .where(or(eq(rooms.id, roomKey), eq(rooms.inviteCode, normalizeInviteCode(roomKey))))
+        .get();
+
+      if (room === undefined) {
+        return null;
+      }
+
+      const matchRows = await db
+        .select({
+          roomId: matches.roomId,
+          finishedAt: matches.finishedAt,
+        })
+        .from(matches)
+        .where(and(eq(matches.roomId, room.id), eq(matches.status, "finished")));
+      const latestFinishedAt = matchRows.reduce<Date | null>((latest, match) => {
+        if (match.finishedAt === null) {
+          return latest;
+        }
+
+        if (latest === null || match.finishedAt.getTime() > latest.getTime()) {
+          return match.finishedAt;
+        }
+
+        return latest;
+      }, null);
+
+      return {
+        id: room.id,
+        inviteCode: room.inviteCode,
+        playerCount: room.playerCount,
+        status: room.status,
+        createdAt: room.createdAt.getTime(),
+        matchCount: matchRows.length,
+        latestFinishedAt: latestFinishedAt?.getTime() ?? null,
+      };
+    },
+
+    async listMatchHistory(roomId: string, limit = 20): Promise<readonly MatchHistoryItem[]> {
       const matchRows = await db
         .select()
         .from(matches)
-        .where(eq(matches.status, "finished"))
+        .where(and(eq(matches.roomId, roomId), eq(matches.status, "finished")))
         .orderBy(desc(matches.startedAt))
         .limit(limit);
 
@@ -222,6 +312,14 @@ function parseRules(value: string): GameRuleSettings {
 
 function parseCards(value: string): Card[] {
   return CardSchema.array().parse(JSON.parse(value));
+}
+
+function unique<T>(values: readonly T[]): T[] {
+  return [...new Set(values)];
+}
+
+function normalizeInviteCode(inviteCode: string) {
+  return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
 
 export { createRoomRepository };

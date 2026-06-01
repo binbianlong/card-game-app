@@ -3,7 +3,7 @@ import App from "./App";
 import { CreateRoomPage } from "./screens/create-room-page";
 import { JoinRoomPage } from "./screens/join-room-page";
 import { PlayRoomPage } from "./screens/play-room-page";
-import { RoomHistoryPage } from "./screens/room-history-page";
+import { RoomHistoryPage, RoomMatchHistoryPage } from "./screens/room-history-page";
 import { RulesPage } from "./screens/rules-page";
 import { WaitingRoomPage } from "./screens/waiting-room-page";
 
@@ -39,6 +39,12 @@ const roomHistoryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/history",
   component: RoomHistoryPage,
+});
+
+const roomMatchHistoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rooms/history/$inviteCode",
+  component: RoomMatchHistoryPage,
 });
 
 const waitingRoomRoute = createRoute({
@@ -86,6 +92,7 @@ const routeTree = rootRoute.addChildren([
   createRoomRoute,
   joinRoomRoute,
   roomHistoryRoute,
+  roomMatchHistoryRoute,
   waitingRoomRoute,
   playRoomRoute,
 ]);
