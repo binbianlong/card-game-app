@@ -3,29 +3,34 @@ import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-reac
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { UserSettingsButton } from "@/features/auth/user-settings-button";
 
 const actions = [
   {
     title: "ルームを作成",
     description: "新しい対戦ルームを開く",
+    to: "/rooms/new",
     icon: Plus,
   },
   {
     title: "ルームに参加",
     description: "招待コードで合流する",
+    to: "/rooms/join",
     icon: LogIn,
   },
   {
     title: "対戦履歴",
     description: "最近の結果を確認する",
+    to: "/rooms/history",
     icon: History,
   },
   {
     title: "ルールを確認",
     description: "基本ルールとローカル設定",
+    to: "/rules",
     icon: BookOpen,
   },
-];
+] as const;
 
 function App() {
   return (
@@ -37,9 +42,7 @@ function App() {
           </span>
           <span className="truncate text-[15px] font-bold">Card Room</span>
         </div>
-        <Button variant="ghost" size="sm">
-          ログイン
-        </Button>
+        <UserSettingsButton />
       </header>
 
       <section className="pt-10 pb-7" aria-labelledby="home-title">
@@ -60,26 +63,18 @@ function App() {
             <Card key={action.title}>
               <CardContent className="p-0">
                 <Button
-                  asChild={action.title === "ルームを作成" || action.title === "ルールを確認"}
+                  asChild
                   type="button"
                   variant="ghost"
                   className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
                 >
-                  {action.title === "ルームを作成" || action.title === "ルールを確認" ? (
-                    <Link to={action.title === "ルームを作成" ? "/rooms/new" : "/rules"}>
-                      <ActionContent
-                        description={action.description}
-                        icon={<Icon className="size-5" aria-hidden="true" />}
-                        title={action.title}
-                      />
-                    </Link>
-                  ) : (
+                  <Link to={action.to}>
                     <ActionContent
                       description={action.description}
                       icon={<Icon className="size-5" aria-hidden="true" />}
                       title={action.title}
                     />
-                  )}
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

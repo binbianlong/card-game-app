@@ -21,6 +21,7 @@ const rules = {
 const room: RoomState = {
   id: "room-1",
   inviteCode: "8QJ4",
+  playerCount: 4,
   status: "waiting",
   hostPlayerId: "player-1",
   participants: [
@@ -94,6 +95,28 @@ describe("schema", () => {
       playerCount: 4,
       cpuCount: 1,
       rules,
+    });
+
+    expect(
+      createClientEvent.joinRoom({
+        roomId: "ROOM",
+        playerName: "",
+      }),
+    ).toEqual({
+      type: "joinRoom",
+      roomId: "ROOM",
+      playerName: "",
+    });
+
+    expect(
+      createClientEvent.rematch({
+        roomId: "room-1",
+        playerId: "player-1",
+      }),
+    ).toEqual({
+      type: "rematch",
+      roomId: "room-1",
+      playerId: "player-1",
     });
   });
 

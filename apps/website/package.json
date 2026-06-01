@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-router": "catalog:",
+    "better-auth": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "game": "workspace:*",

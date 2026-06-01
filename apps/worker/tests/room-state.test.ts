@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import { getAvailableActions } from "game";
 import { createClientEvent, type RoomState } from "schema";
 import {
   RoomStateError,
@@ -7,7 +8,7 @@ import {
   createInviteCode,
   createWaitingRoom,
   isCpuTurn,
-} from "../src/room-state.ts";
+} from "../src/rooms/state.ts";
 
 const rules = {
   eightCut: false,
@@ -60,8 +61,48 @@ describe("room state", () => {
     });
   });
 
-  test("starts games and stores game state in room state", () => {
+  test("assigns default player names when names are empty", () => {
+    const room = createWaitingRoom(
+      createClientEvent.createRoom({
+        playerName: "",
+        playerCount: 4,
+        cpuCount: 1,
+        rules,
+      }),
+      "room-1",
+      createInviteCode("room-1"),
+    );
+    const joinedRoom = applyRoomClientEvent(
+      room,
+      createClientEvent.joinRoom({
+        roomId: room.id,
+        playerName: "",
+      }),
+    );
+
+    expect(room.participants[0]?.name).toBe("プレイヤー1");
+    expect(joinedRoom.participants.at(-1)).toMatchObject({
+      id: "player-3",
+      name: "プレイヤー2",
+    });
+  });
+
+  test("rejects joins when rooms are full", () => {
     const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.joinRoom({
+          roomId: room.id,
+          playerName: "Extra Guest",
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("starts games and stores game state in room state", () => {
+    const room = readyAllHumanParticipants(createPlayableRoom());
     const playingRoom = applyRoomClientEvent(
       room,
       createClientEvent.startGame({
@@ -73,6 +114,81 @@ describe("room state", () => {
     expect(playingRoom.status).toBe("playing");
     expect(playingRoom.game?.players).toHaveLength(3);
     expect(playingRoom.game?.players.every((player) => player.hand.length > 0)).toBe(true);
+  });
+
+  test("rejects local rule changes from non-host players", () => {
+    const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.updateRules({
+          roomId: room.id,
+          playerId: "player-2",
+          rules: {
+            ...rules,
+            eightCut: true,
+          },
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects events that target another room", () => {
+    const room = createRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.setReady({
+          roomId: "another-room",
+          playerId: room.hostPlayerId,
+          ready: true,
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts from non-host players", () => {
+    const room = readyAllHumanParticipants(createPlayableRoom());
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: "player-2",
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts before all seats are filled", () => {
+    const room = readyAllHumanParticipants(createRoom());
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: room.hostPlayerId,
+        }),
+      ),
+    ).toThrow(RoomStateError);
+  });
+
+  test("rejects game starts before all human players are ready", () => {
+    const room = createPlayableRoom();
+
+    expect(() =>
+      applyRoomClientEvent(
+        room,
+        createClientEvent.startGame({
+          roomId: room.id,
+          playerId: room.hostPlayerId,
+        }),
+      ),
+    ).toThrow(RoomStateError);
   });
 
   test("keeps cpu turns visible before the delayed server action", () => {
@@ -97,7 +213,7 @@ describe("room state", () => {
 
   test("stores game actions in room state", () => {
     const room = applyRoomClientEvent(
-      createPlayableRoom(),
+      readyAllHumanParticipants(createPlayableRoom()),
       createClientEvent.startGame({
         roomId: "room-1",
         playerId: "player-1",
@@ -131,6 +247,31 @@ describe("room state", () => {
     expect(nextGame.table.play?.cards.map((playedCard) => playedCard.id)).toEqual([card.id]);
   });
 
+  test("starts rematches with the same participants after games finish", () => {
+    const finishedRoom = finishGame(
+      applyRoomClientEvent(
+        readyAllHumanParticipants(createPlayableRoom()),
+        createClientEvent.startGame({
+          roomId: "room-1",
+          playerId: "player-1",
+        }),
+      ),
+    );
+    const rematchRoom = applyRoomClientEvent(
+      finishedRoom,
+      createClientEvent.rematch({
+        roomId: finishedRoom.id,
+        playerId: finishedRoom.hostPlayerId,
+      }),
+    );
+
+    expect(finishedRoom.status).toBe("finished");
+    expect(rematchRoom.status).toBe("playing");
+    expect(rematchRoom.participants).toEqual(finishedRoom.participants);
+    expect(rematchRoom.game?.phase).toBe("playing");
+    expect(rematchRoom.game?.initialHands).toHaveLength(finishedRoom.participants.length);
+  });
+
   test("rejects game actions before the game starts", () => {
     const room = createRoom();
 
@@ -145,6 +286,49 @@ describe("room state", () => {
     ).toThrow(RoomStateError);
   });
 });
+
+function finishGame(room: RoomState) {
+  let nextRoom = room;
+
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (nextRoom.status === "finished") {
+      return nextRoom;
+    }
+
+    const game = expectGame(nextRoom);
+    const player = game.players.find((candidate) => candidate.id === game.turnPlayerId);
+    const playableCard = player?.hand.find(
+      (card) =>
+        getAvailableActions(game, game.turnPlayerId, { selectedCardIds: [card.id] })
+          .canPlaySelectedCards,
+    );
+
+    if (player === undefined) {
+      throw new Error("Expected current player with cards.");
+    }
+
+    if (playableCard === undefined) {
+      nextRoom = applyRoomClientEvent(
+        nextRoom,
+        createClientEvent.pass({
+          roomId: nextRoom.id,
+          playerId: player.id,
+        }),
+      );
+    } else {
+      nextRoom = applyRoomClientEvent(
+        nextRoom,
+        createClientEvent.playCards({
+          roomId: nextRoom.id,
+          playerId: player.id,
+          cardIds: [playableCard.id],
+        }),
+      );
+    }
+  }
+
+  throw new Error("Expected game to finish.");
+}
 
 function createRoom() {
   return createWaitingRoom(
@@ -174,7 +358,7 @@ function createCpuRoom() {
 
 function createCpuTurnRoom() {
   let room = applyRoomClientEvent(
-    createCpuRoom(),
+    readyAllHumanParticipants(createCpuRoom()),
     createClientEvent.startGame({
       roomId: "room-1",
       playerId: "player-1",
@@ -220,6 +404,23 @@ function createPlayableRoom() {
       ),
     createRoom(),
   );
+}
+
+function readyAllHumanParticipants(room: RoomState) {
+  return room.participants
+    .filter((participant) => participant.kind !== "cpu")
+    .reduce(
+      (nextRoom, participant) =>
+        applyRoomClientEvent(
+          nextRoom,
+          createClientEvent.setReady({
+            roomId: nextRoom.id,
+            playerId: participant.id,
+            ready: true,
+          }),
+        ),
+      room,
+    );
 }
 
 function expectGame(room: RoomState) {

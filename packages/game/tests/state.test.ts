@@ -30,6 +30,18 @@ describe("game state", () => {
     });
   });
 
+  test("sorts hands by card strength from the start", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("A"), card("3"), card("J"), card("2")] },
+      { id: "p2", hand: [card("4")] },
+      { id: "p3", hand: [card("5")] },
+    ]);
+    const expectedHand = [card("3"), card("J"), card("A"), card("2")];
+
+    expect(state.players.find((player) => player.id === "p1")?.hand).toEqual(expectedHand);
+    expect(state.initialHands.find((hand) => hand.playerId === "p1")?.cards).toEqual(expectedHand);
+  });
+
   test("plays cards, removes them from hand, and advances turn", () => {
     const state = createGameState([
       { id: "p1", hand: [card("3"), card("5")] },

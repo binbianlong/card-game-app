@@ -1,6 +1,7 @@
 import {
   getAvailableActions,
   getPlayerView,
+  type Card,
   type Play,
   type PlayerGameView,
   type PlayerId,
@@ -25,7 +26,17 @@ type Opponent = {
   status: "finished" | "passed" | "thinking" | "waiting";
 };
 
+type FinalResult = {
+  cards: readonly Card[];
+  kind: "cpu" | "guest" | "host";
+  name: string;
+  playerId: PlayerId;
+  rank: number;
+  remainingCards: readonly Card[];
+};
+
 const emptyPlayerView: PlayerGameView = {
+  matchId: "",
   phase: "playing",
   rules: {
     eightCut: false,
@@ -67,7 +78,7 @@ function usePlayRoomGame({
     () => (gameState === null ? emptyPlayerView : getPlayerView(gameState, viewerId)),
     [gameState, viewerId],
   );
-  const playerMetas = useMemo(() => createPlayerMetas(room, viewerId), [room, viewerId]);
+  const playerMetas = useMemo(() => createPlayerMetas(room), [room]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
   const playerHand = viewer?.hand ?? [];
   const playerRank = viewer?.rank ?? null;
@@ -103,6 +114,29 @@ function usePlayRoomGame({
         }),
     [playerMetas, playerView, viewerId],
   );
+  const finalResults = useMemo(() => {
+    if (gameState === null || gameState.phase !== "finished") {
+      return [];
+    }
+
+    return gameState.rankings.map((rankedPlayerId, index): FinalResult => {
+      const meta = getPlayerMeta(playerMetas, rankedPlayerId);
+      const initialHand = gameState.initialHands.find(
+        (candidate) => candidate.playerId === rankedPlayerId,
+      );
+      const finalPlayer = gameState.players.find((candidate) => candidate.id === rankedPlayerId);
+
+      return {
+        cards: initialHand?.cards ?? [],
+        kind: meta.kind,
+        name: meta.name,
+        playerId: rankedPlayerId,
+        rank: index + 1,
+        remainingCards: finalPlayer?.hand ?? [],
+      };
+    });
+  }, [gameState, playerMetas]);
+  const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
     if (roomId.length === 0 || playerId.length === 0) {
@@ -178,10 +212,22 @@ function usePlayRoomGame({
     setSelectedCardIds([]);
   }
 
+  function startRematch() {
+    socketRef.current?.send(JSON.stringify(createClientEvent.rematch({ roomId, playerId })));
+    setSelectedCardIds([]);
+  }
+
+  function leaveRoom() {
+    socketRef.current?.send(JSON.stringify(createClientEvent.leaveRoom({ roomId, playerId })));
+  }
+
   return {
     availableActions,
+    canStartRematch,
     clearSelection,
     errorMessage,
+    finalResults,
+    leaveRoom,
     opponents,
     passTurn,
     playerHand,
@@ -191,16 +237,17 @@ function usePlayRoomGame({
     playSelectedCards,
     selectedCardIdSet,
     selectedCards,
+    startRematch,
     toggleCard,
   };
 }
 
-function createPlayerMetas(room: RoomState | null, viewerId: string): readonly PlayerMeta[] {
+function createPlayerMetas(room: RoomState | null): readonly PlayerMeta[] {
   return (
     room?.participants.map((participant) => ({
       id: participant.id,
       kind: participant.kind,
-      name: participant.id === viewerId ? "あなた" : participant.name,
+      name: participant.name,
     })) ?? []
   );
 }
@@ -257,6 +304,7 @@ export {
   formatRankings,
   getPlayerMeta,
   usePlayRoomGame,
+  type FinalResult,
   type Opponent,
   type PlayerMeta,
 };

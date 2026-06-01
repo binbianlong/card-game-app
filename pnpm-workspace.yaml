@@ -34,6 +34,10 @@ catalog:
   partyserver: ^0.5.6
   partysocket: ^1.1.19
   wrangler: ^4.94.0
+  drizzle-orm: ^0.45.2
+  drizzle-kit: ^0.31.10
+  better-auth: ^1.6.11
+  "@better-auth/drizzle-adapter": ^1.6.11
 overrides:
   vite: "catalog:"
   vitest: "catalog:"

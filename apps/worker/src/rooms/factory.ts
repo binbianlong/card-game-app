@@ -15,7 +15,7 @@ function createWaitingRoom(
 ): RoomState {
   const host: RoomParticipant = {
     id: "player-1",
-    name: event.playerName,
+    name: createPlayerName(event.playerName, []),
     kind: "host",
     connected: true,
     ready: false,
@@ -34,6 +34,7 @@ function createWaitingRoom(
   return {
     id: roomId,
     inviteCode,
+    playerCount: event.playerCount,
     status: "waiting",
     hostPlayerId: host.id,
     participants: [host, ...cpuParticipants],
@@ -46,12 +47,13 @@ function createFallbackRoom(roomId: string): RoomState {
   return {
     id: roomId,
     inviteCode: createInviteCode(roomId),
+    playerCount: 4,
     status: "waiting",
     hostPlayerId: "player-1",
     participants: [
       {
         id: "player-1",
-        name: "Host",
+        name: "プレイヤー1",
         kind: "host",
         connected: true,
         ready: false,
@@ -70,4 +72,22 @@ function createPlayerId(participants: readonly RoomParticipant[]) {
   return `player-${participants.length + 1}`;
 }
 
-export { createFallbackRoom, createInviteCode, createPlayerId, createWaitingRoom };
+function createPlayerName(playerName: string, participants: readonly RoomParticipant[]) {
+  const normalizedName = playerName.trim();
+
+  if (normalizedName.length > 0) {
+    return normalizedName;
+  }
+
+  const humanPlayerCount = participants.filter((participant) => participant.kind !== "cpu").length;
+
+  return `プレイヤー${humanPlayerCount + 1}`;
+}
+
+export {
+  createFallbackRoom,
+  createInviteCode,
+  createPlayerId,
+  createPlayerName,
+  createWaitingRoom,
+};

@@ -75,6 +75,12 @@ describe("createNewGame", () => {
     expect(state.phase).toBe("playing");
     expect(state.turnPlayerId).toBe("p2");
     expect(uniqueCardIds(state.players.flatMap((player) => player.hand))).toHaveLength(4);
+    expect(state.initialHands).toEqual(
+      state.players.map((player) => ({
+        playerId: player.id,
+        cards: player.hand,
+      })),
+    );
   });
 
   test("falls back to the first player when diamonds three is absent", () => {

@@ -10,6 +10,7 @@ export function getPlayerView(state: GameState, viewerId: PlayerId): PlayerGameV
   assertPlayerExists(state, viewerId);
 
   return {
+    matchId: state.matchId,
     phase: state.phase,
     rules: state.rules,
     viewerId,

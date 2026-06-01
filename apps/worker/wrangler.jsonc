@@ -3,6 +3,7 @@
   "name": "card-game-app-worker",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-24",
+  "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
     "bindings": [
       {
@@ -11,6 +12,14 @@
       },
     ],
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "card-game-app",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations",
+    },
+  ],
   "migrations": [
     {
       "tag": "v1",

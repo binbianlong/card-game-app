@@ -13,6 +13,7 @@ describe("player view", () => {
     const view = getPlayerView(state, "p1");
 
     expect(view.viewerId).toBe("p1");
+    expect(view.matchId).toBe(state.matchId);
     expect(view.players).toEqual([
       {
         id: "p1",

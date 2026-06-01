@@ -1,4 +1,11 @@
-import { CreateRoomResponseSchema, createClientEvent, type GameRuleSettings } from "schema";
+import {
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
+  RoomHistoryResponseSchema,
+  RoomMatchHistoryResponseSchema,
+  createClientEvent,
+  type GameRuleSettings,
+} from "schema";
 
 type CreateRoomInput = {
   cpuCount: number;
@@ -11,6 +18,7 @@ async function createRoom(input: CreateRoomInput) {
   const response = await fetch(createApiUrl("/api/rooms"), {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(createClientEvent.createRoom(input)),
   });
 
@@ -19,6 +27,53 @@ async function createRoom(input: CreateRoomInput) {
   }
 
   return CreateRoomResponseSchema.parse(await response.json());
+}
+
+async function joinRoom({ inviteCode, playerName }: { inviteCode: string; playerName: string }) {
+  const roomId = normalizeInviteCode(inviteCode);
+  const response = await fetch(createApiUrl("/api/rooms/join"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(createClientEvent.joinRoom({ roomId, playerName })),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to join room.");
+  }
+
+  return JoinRoomResponseSchema.parse(await response.json());
+}
+
+async function getRoomHistory() {
+  const response = await fetch(createApiUrl("/api/rooms/history"), {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load match history.");
+  }
+
+  return RoomHistoryResponseSchema.parse(await response.json());
+}
+
+async function getRoomMatchHistory(inviteCode: string) {
+  const response = await fetch(
+    createApiUrl(`/api/rooms/history/${encodeURIComponent(inviteCode)}`),
+    {
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load match history.");
+  }
+
+  return RoomMatchHistoryResponseSchema.parse(await response.json());
+}
+
+function normalizeInviteCode(inviteCode: string) {
+  return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
 
 function createApiUrl(path: string) {
@@ -39,4 +94,11 @@ function getWorkerOrigin() {
   return origin === undefined || origin.length === 0 ? null : origin;
 }
 
-export { createRoom, getWorkerHost };
+export {
+  createRoom,
+  getRoomHistory,
+  getRoomMatchHistory,
+  getWorkerHost,
+  getWorkerOrigin,
+  joinRoom,
+};

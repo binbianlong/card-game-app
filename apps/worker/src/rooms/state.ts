@@ -1,14 +1,16 @@
 import { GameRuleError } from "game";
 import { clientEventTypes, type ClientEvent, type RoomParticipant, type RoomState } from "schema";
-import { applyGameRoomAction, startGame } from "./room-game.ts";
-import { RoomStateError } from "./room-errors.ts";
-import { createPlayerId } from "./room-factory.ts";
+import { applyGameRoomAction, startGame, startRematch } from "./game.ts";
+import { RoomStateError } from "./errors.ts";
+import { createPlayerId, createPlayerName } from "./factory.ts";
 
 function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
   try {
     if (event.type === clientEventTypes.createRoom) {
       return room;
     }
+
+    assertRoomEventTarget(room, event.roomId);
 
     switch (event.type) {
       case clientEventTypes.joinRoom:
@@ -19,9 +21,12 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
         return updateParticipant(room, event.playerId, { ready: event.ready });
       case clientEventTypes.updateRules:
         assertWaitingRoom(room);
+        assertHost(room, event.playerId);
         return { ...room, rules: event.rules };
       case clientEventTypes.startGame:
-        return startGame(room);
+        return startGame(room, event);
+      case clientEventTypes.rematch:
+        return startRematch(room, event);
       case clientEventTypes.playCards:
         return applyGameRoomAction(room, event);
       case clientEventTypes.pass:
@@ -43,9 +48,13 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
 function joinRoom(room: RoomState, playerName: string): RoomState {
   assertWaitingRoom(room);
 
+  if (room.participants.length >= room.playerCount) {
+    throw new RoomStateError("roomFull", "Room is full.");
+  }
+
   const participant: RoomParticipant = {
     id: createPlayerId(room.participants),
-    name: playerName,
+    name: createPlayerName(playerName, room.participants),
     kind: "guest",
     connected: true,
     ready: false,
@@ -78,9 +87,23 @@ function assertWaitingRoom(room: RoomState) {
   }
 }
 
+function assertRoomEventTarget(room: RoomState, roomId: string) {
+  if (roomId !== room.id && roomId !== room.inviteCode) {
+    throw new RoomStateError("notAllowed", "Event targets a different room.");
+  }
+}
+
 function assertParticipantExists(room: RoomState, playerId: string) {
   if (!room.participants.some((participant) => participant.id === playerId)) {
     throw new RoomStateError("notAllowed", "Player is not in this room.");
+  }
+}
+
+function assertHost(room: RoomState, playerId: string) {
+  assertParticipantExists(room, playerId);
+
+  if (playerId !== room.hostPlayerId) {
+    throw new RoomStateError("notAllowed", "Only the host can perform this action.");
   }
 }
 
@@ -91,4 +114,4 @@ export {
   createInviteCode,
   createPlayerId,
   createWaitingRoom,
-} from "./room-factory.ts";
+} from "./factory.ts";

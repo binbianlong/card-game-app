@@ -58,18 +58,6 @@ function WaitingRoomPage() {
     );
   }
 
-  function addParticipant() {
-    const humanParticipantCount =
-      room?.participants.filter((participant) => participant.kind !== "cpu").length ?? 1;
-
-    sendEvent(
-      createClientEvent.joinRoom({
-        roomId,
-        playerName: `参加者 ${humanParticipantCount + 1}`,
-      }),
-    );
-  }
-
   function setReady() {
     sendEvent(
       createClientEvent.setReady({
@@ -117,7 +105,6 @@ function WaitingRoomPage() {
         isConnected={isConnected}
         isReadyToStart={isReadyToStart}
         localRules={localRules}
-        onAddParticipant={addParticipant}
         onReady={setReady}
         onStartGame={startGame}
         onToggleLocalRule={toggleLocalRule}

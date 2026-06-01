@@ -1,28 +1,38 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import {
-  ClientEventSchema,
-  CreateRoomResponseSchema,
-  RoomStateSchema,
-  createServerEvent,
-  getRoomWebSocketPath,
-  type RoomState,
-  type ServerErrorCode,
-} from "schema";
-import { createInviteCode, createWaitingRoom } from "./room-state.ts";
+import { RoomStateSchema, createServerEvent, type RoomState, type ServerErrorCode } from "schema";
+import { createAuth, type AuthEnv } from "./auth/auth.ts";
+import { createRoomsRoute, type RoomsRouteOptions } from "./routes/rooms.ts";
 
-type WorkerBindings = {
+type WorkerBindings = AuthEnv & {
   RoomServer: DurableObjectNamespace;
 };
 
-type CreateWorkerAppOptions<Env extends WorkerBindings> = {
-  saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
-};
+type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>;
 
-function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerAppOptions<Env>) {
+function createWorkerApp<Env extends WorkerBindings>({
+  findRoomByInviteCode,
+  getRoomHistory,
+  joinRoom,
+  listMatchHistory,
+  listRoomHistory,
+  saveRoom,
+}: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
 
-  app.use("/api/*", cors());
+  app.use(
+    "/api/*",
+    cors({
+      allowHeaders: ["Content-Type", "Authorization"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      credentials: true,
+      origin: (origin) => origin,
+    }),
+  );
+
+  app.on(["GET", "POST"], "/api/auth/*", (context) =>
+    createAuth(context.env).handler(context.req.raw),
+  );
 
   app.get("/health", (context) =>
     context.json({
@@ -30,31 +40,17 @@ function createWorkerApp<Env extends WorkerBindings>({ saveRoom }: CreateWorkerA
       service: "card-game-app-worker",
     }),
   );
-
-  app.post("/api/rooms", async (context) => {
-    const body = await context.req.json().catch(() => null);
-    const event = ClientEventSchema.safeParse(body);
-
-    if (!event.success || event.data.type !== "createRoom") {
-      return context.json(createErrorEvent("invalidEvent", "createRoom event is required."), 400);
-    }
-
-    const roomId = createRoomId();
-    const inviteCode = createInviteCode(roomId);
-    const room = createWaitingRoom(event.data, roomId, inviteCode);
-    const saved = await saveRoom(context.env, roomId, room);
-
-    if (!saved) {
-      return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
-    }
-
-    return context.json(
-      CreateRoomResponseSchema.parse({
-        room,
-        websocketPath: getRoomWebSocketPath(roomId),
-      }),
-    );
-  });
+  app.route(
+    "/api/rooms",
+    createRoomsRoute({
+      findRoomByInviteCode,
+      getRoomHistory,
+      joinRoom,
+      listMatchHistory,
+      listRoomHistory,
+      saveRoom,
+    }),
+  );
 
   return app;
 }
@@ -69,10 +65,6 @@ function createErrorEvent(code: ServerErrorCode, message: string) {
 
 function parseRoomState(value: unknown) {
   return RoomStateSchema.parse(value);
-}
-
-function createRoomId() {
-  return crypto.randomUUID();
 }
 
 export { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState };

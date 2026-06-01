@@ -67,9 +67,13 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
     return null;
   }
 
+  if (state.table.play === null) {
+    return player.hand[0] === undefined ? null : [player.hand[0].id];
+  }
+
   const cardCount = state.table.play?.cards.length ?? 1;
 
-  for (const cardIds of createCardIdCombinations(
+  for (const cardIds of iterateCardIdCombinations(
     player.hand.map((card) => card.id),
     cardCount,
   )) {
@@ -81,32 +85,28 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
   return null;
 }
 
-function createCardIdCombinations(
+function* iterateCardIdCombinations(
   cardIds: readonly string[],
   count: number,
-): readonly (readonly string[])[] {
+): Generator<readonly string[]> {
   if (count <= 0 || count > cardIds.length) {
-    return [];
+    return;
   }
 
-  const combinations: string[][] = [];
-
-  function collect(startIndex: number, currentCardIds: string[]) {
+  function* collect(startIndex: number, currentCardIds: string[]): Generator<readonly string[]> {
     if (currentCardIds.length === count) {
-      combinations.push([...currentCardIds]);
+      yield [...currentCardIds];
       return;
     }
 
     for (let index = startIndex; index < cardIds.length; index += 1) {
       currentCardIds.push(cardIds[index]);
-      collect(index + 1, currentCardIds);
+      yield* collect(index + 1, currentCardIds);
       currentCardIds.pop();
     }
   }
 
-  collect(0, []);
-
-  return combinations;
+  yield* collect(0, []);
 }
 
 export { applyNextCpuTurn, isCpuTurn };
