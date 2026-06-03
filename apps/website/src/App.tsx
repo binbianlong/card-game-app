@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { authClient } from "@/features/auth/auth-client";
+import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-prompt-dialog";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
 
 const actions = [
@@ -32,7 +35,16 @@ const actions = [
   },
 ] as const;
 
+type HomeAction = (typeof actions)[number];
+
+const actionButtonClassName =
+  "h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent";
+
 function App() {
+  const session = authClient.useSession();
+  const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
+  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
+
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
       <header className="flex min-h-11 items-center justify-between gap-3" aria-label="ホーム">
@@ -56,32 +68,85 @@ function App() {
       </section>
 
       <section className="grid gap-3" aria-label="メニュー">
-        {actions.map((action) => {
-          const Icon = action.icon;
-
-          return (
-            <Card key={action.title}>
-              <CardContent className="p-0">
-                <Button
-                  asChild
-                  type="button"
-                  variant="ghost"
-                  className="h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
-                >
-                  <Link to={action.to}>
-                    <ActionContent
-                      description={action.description}
-                      icon={<Icon className="size-5" aria-hidden="true" />}
-                      title={action.title}
-                    />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {actions.map((action) => (
+          <HomeActionCard
+            key={action.title}
+            action={action}
+            isLoggedOut={isLoggedOut}
+            onLoginPrompt={setLoginPrompt}
+          />
+        ))}
       </section>
+
+      {loginPrompt !== null && isLoggedOut ? (
+        <LoginPromptDialog
+          isPending={session.isPending}
+          prompt={loginPrompt}
+          onClose={() => setLoginPrompt(null)}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function HomeActionCard({
+  action,
+  isLoggedOut,
+  onLoginPrompt,
+}: {
+  action: HomeAction;
+  isLoggedOut: boolean;
+  onLoginPrompt: (prompt: LoginPrompt) => void;
+}) {
+  const Icon = action.icon;
+  const isCreateRoomAction = action.to === "/rooms/new";
+  const isJoinRoomAction = action.to === "/rooms/join";
+  const isDisabled = isCreateRoomAction && isLoggedOut;
+  const shouldShowJoinPrompt = isJoinRoomAction && isLoggedOut;
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        {isDisabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            aria-disabled="true"
+            className={`${actionButtonClassName} opacity-50 grayscale`}
+            onClick={() => onLoginPrompt("createRoom")}
+          >
+            <ActionContent
+              description={action.description}
+              icon={<Icon className="size-5" aria-hidden="true" />}
+              title={action.title}
+            />
+          </Button>
+        ) : shouldShowJoinPrompt ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className={actionButtonClassName}
+            onClick={() => onLoginPrompt("joinRoom")}
+          >
+            <ActionContent
+              description={action.description}
+              icon={<Icon className="size-5" aria-hidden="true" />}
+              title={action.title}
+            />
+          </Button>
+        ) : (
+          <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
+            <Link to={action.to}>
+              <ActionContent
+                description={action.description}
+                icon={<Icon className="size-5" aria-hidden="true" />}
+                title={action.title}
+              />
+            </Link>
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
