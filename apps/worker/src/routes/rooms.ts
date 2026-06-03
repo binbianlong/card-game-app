@@ -36,11 +36,16 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
     env: Env,
     roomId: string,
     event: Extract<ClientEvent, { type: "joinRoom" }>,
+    user: AuthenticatedUser | null,
   ) => Promise<Response>;
-  getRoomHistory: (env: Env, roomId: string) => Promise<RoomHistoryItem | null>;
-  listMatchHistory: (env: Env, roomId: string) => Promise<readonly MatchHistoryItem[]>;
-  listRoomHistory: (env: Env) => Promise<readonly RoomHistoryItem[]>;
-  saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<string | null>;
+  getRoomHistory: (env: Env, roomId: string, userId: string) => Promise<RoomHistoryItem | null>;
+  listMatchHistory: (
+    env: Env,
+    roomId: string,
+    userId: string,
+  ) => Promise<readonly MatchHistoryItem[]>;
+  listRoomHistory: (env: Env, userId: string) => Promise<readonly RoomHistoryItem[]>;
+  saveRoom: (env: Env, roomId: string, room: RoomState, userId: string) => Promise<string | null>;
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
@@ -64,7 +69,7 @@ function createRoomsRoute<Env extends WorkerBindings>({
         );
       }
 
-      const rooms = await listRoomHistory(context.env);
+      const rooms = await listRoomHistory(context.env, user.id);
 
       return context.json(RoomHistoryResponseSchema.parse({ rooms }));
     })
@@ -81,13 +86,13 @@ function createRoomsRoute<Env extends WorkerBindings>({
       }
 
       const roomKey = context.req.param("roomKey");
-      const room = await getRoomHistory(context.env, roomKey);
+      const room = await getRoomHistory(context.env, roomKey, user.id);
 
       if (room === null) {
         return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
       }
 
-      const matches = await listMatchHistory(context.env, room.id);
+      const matches = await listMatchHistory(context.env, room.id, user.id);
 
       return context.json(RoomMatchHistoryResponseSchema.parse({ room, matches }));
     })
@@ -110,7 +115,7 @@ function createRoomsRoute<Env extends WorkerBindings>({
         const roomId = createRoomId();
         const inviteCode = createInviteCode(roomId);
         const room = createWaitingRoom(event, roomId, inviteCode);
-        const connectionToken = await saveRoom(env, roomId, room);
+        const connectionToken = await saveRoom(env, roomId, room, user.id);
 
         if (connectionToken === null) {
           return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
@@ -131,6 +136,7 @@ function createRoomsRoute<Env extends WorkerBindings>({
       createClientEventValidator("joinRoom", "joinRoom event is required."),
       async (context) => {
         const env = context.env as Env;
+        const user = await getSessionUser(env, context.req.raw);
         const event = context.req.valid("json");
         const inviteCode = normalizeInviteCode(event.roomId);
         const roomMetadata = await findRoomByInviteCode(env, inviteCode);
@@ -139,10 +145,15 @@ function createRoomsRoute<Env extends WorkerBindings>({
           return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
         }
 
-        const response = await joinRoom(env, roomMetadata.id, {
-          ...event,
-          roomId: roomMetadata.id,
-        });
+        const response = await joinRoom(
+          env,
+          roomMetadata.id,
+          {
+            ...event,
+            roomId: roomMetadata.id,
+          },
+          user,
+        );
 
         if (!response.ok) {
           return response;

@@ -11,6 +11,11 @@ import {
   type RoomState,
 } from "schema";
 
+type SaveRoomMetadataOptions = {
+  hostUserId?: string;
+  playerUserIds?: Record<string, string>;
+};
+
 function createRoomRepository(database: D1Database) {
   const db = drizzle(database);
 
@@ -28,14 +33,23 @@ function createRoomRepository(database: D1Database) {
       return row ?? null;
     },
 
-    async saveRoomMetadata(room: RoomState) {
+    async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {
       const now = new Date();
+      const roomUpdate = {
+        inviteCode: room.inviteCode,
+        hostPlayerId: room.hostPlayerId,
+        playerCount: room.playerCount,
+        status: room.status,
+        updatedAt: now,
+        ...(options.hostUserId === undefined ? {} : { hostUserId: options.hostUserId }),
+      };
 
       await db
         .insert(rooms)
         .values({
           id: room.id,
           inviteCode: room.inviteCode,
+          hostUserId: options.hostUserId ?? null,
           hostPlayerId: room.hostPlayerId,
           playerCount: room.playerCount,
           status: room.status,
@@ -44,23 +58,29 @@ function createRoomRepository(database: D1Database) {
         })
         .onConflictDoUpdate({
           target: rooms.id,
-          set: {
-            inviteCode: room.inviteCode,
-            hostPlayerId: room.hostPlayerId,
-            playerCount: room.playerCount,
-            status: room.status,
-            updatedAt: now,
-          },
+          set: roomUpdate,
         });
 
       await Promise.all(
-        room.participants.map((participant) =>
-          db
+        room.participants.map((participant) => {
+          const userId = options.playerUserIds?.[participant.id];
+          const participantUpdate = {
+            displayName: participant.name,
+            kind: participant.kind,
+            connected: participant.connected,
+            ready: participant.ready,
+            leftAt: participant.connected ? null : now,
+            updatedAt: now,
+            ...(userId === undefined ? {} : { userId }),
+          };
+
+          return db
             .insert(roomParticipants)
             .values({
               id: createRoomParticipantRowId(room.id, participant.id),
               roomId: room.id,
               playerId: participant.id,
+              userId: userId ?? null,
               displayName: participant.name,
               kind: participant.kind,
               connected: participant.connected,
@@ -70,16 +90,9 @@ function createRoomRepository(database: D1Database) {
             })
             .onConflictDoUpdate({
               target: roomParticipants.id,
-              set: {
-                displayName: participant.name,
-                kind: participant.kind,
-                connected: participant.connected,
-                ready: participant.ready,
-                leftAt: participant.connected ? null : now,
-                updatedAt: now,
-              },
-            }),
-        ),
+              set: participantUpdate,
+            });
+        }),
       );
 
       if (room.game?.phase === "finished") {
@@ -87,14 +100,20 @@ function createRoomRepository(database: D1Database) {
       }
     },
 
-    async listRoomHistory(limit = 20): Promise<readonly RoomHistoryItem[]> {
+    async listRoomHistory(userId: string, limit = 20): Promise<readonly RoomHistoryItem[]> {
+      const accessibleRoomIds = await getAccessibleRoomIds(userId);
+
+      if (accessibleRoomIds.length === 0) {
+        return [];
+      }
+
       const matchRows = await db
         .select({
           roomId: matches.roomId,
           finishedAt: matches.finishedAt,
         })
         .from(matches)
-        .where(eq(matches.status, "finished"));
+        .where(and(eq(matches.status, "finished"), inArray(matches.roomId, accessibleRoomIds)));
 
       const roomIds = unique(matchRows.map((match) => match.roomId));
 
@@ -134,7 +153,7 @@ function createRoomRepository(database: D1Database) {
       });
     },
 
-    async getRoomHistory(roomKey: string): Promise<RoomHistoryItem | null> {
+    async getRoomHistory(roomKey: string, userId: string): Promise<RoomHistoryItem | null> {
       const room = await db
         .select()
         .from(rooms)
@@ -142,6 +161,10 @@ function createRoomRepository(database: D1Database) {
         .get();
 
       if (room === undefined) {
+        return null;
+      }
+
+      if (!(await canAccessRoom(userId, room.id))) {
         return null;
       }
 
@@ -174,7 +197,15 @@ function createRoomRepository(database: D1Database) {
       };
     },
 
-    async listMatchHistory(roomId: string, limit = 20): Promise<readonly MatchHistoryItem[]> {
+    async listMatchHistory(
+      roomId: string,
+      userId: string,
+      limit = 20,
+    ): Promise<readonly MatchHistoryItem[]> {
+      if (!(await canAccessRoom(userId, roomId))) {
+        return [];
+      }
+
       const matchRows = await db
         .select()
         .from(matches)
@@ -292,6 +323,39 @@ function createRoomRepository(database: D1Database) {
           });
       }),
     );
+  }
+
+  async function getAccessibleRoomIds(userId: string) {
+    const hostedRooms = await db
+      .select({ roomId: rooms.id })
+      .from(rooms)
+      .where(eq(rooms.hostUserId, userId));
+    const joinedRooms = await db
+      .select({ roomId: roomParticipants.roomId })
+      .from(roomParticipants)
+      .where(eq(roomParticipants.userId, userId));
+
+    return unique([...hostedRooms, ...joinedRooms].map((room) => room.roomId));
+  }
+
+  async function canAccessRoom(userId: string, roomId: string) {
+    const hostedRoom = await db
+      .select({ id: rooms.id })
+      .from(rooms)
+      .where(and(eq(rooms.id, roomId), eq(rooms.hostUserId, userId)))
+      .get();
+
+    if (hostedRoom !== undefined) {
+      return true;
+    }
+
+    const joinedRoom = await db
+      .select({ id: roomParticipants.id })
+      .from(roomParticipants)
+      .where(and(eq(roomParticipants.roomId, roomId), eq(roomParticipants.userId, userId)))
+      .get();
+
+    return joinedRoom !== undefined;
   }
 }
 

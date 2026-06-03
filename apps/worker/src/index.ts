@@ -21,8 +21,8 @@ const app = createWorkerApp<Env>({
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
   },
-  async getRoomHistory(env, roomId) {
-    return createRoomRepository(env.DB).getRoomHistory(roomId);
+  async getRoomHistory(env, roomId, userId) {
+    return createRoomRepository(env.DB).getRoomHistory(roomId, userId);
   },
   async getSessionUser(env, request) {
     const session = await createAuth(env).api.getSession({
@@ -31,7 +31,7 @@ const app = createWorkerApp<Env>({
 
     return session?.user ?? null;
   },
-  async joinRoom(env, roomId, event) {
+  async joinRoom(env, roomId, event, user) {
     const server = await getServerByName(env.RoomServer, roomId);
 
     const response = await server.fetch(
@@ -45,18 +45,20 @@ const app = createWorkerApp<Env>({
 
     if (response.ok) {
       const data = JoinRoomResponseSchema.parse(await response.clone().json());
-      await createRoomRepository(env.DB).saveRoomMetadata(data.room);
+      await createRoomRepository(env.DB).saveRoomMetadata(data.room, {
+        playerUserIds: user === null ? {} : { [data.playerId]: user.id },
+      });
     }
 
     return response;
   },
-  async listMatchHistory(env, roomId) {
-    return createRoomRepository(env.DB).listMatchHistory(roomId);
+  async listMatchHistory(env, roomId, userId) {
+    return createRoomRepository(env.DB).listMatchHistory(roomId, userId);
   },
-  async listRoomHistory(env) {
-    return createRoomRepository(env.DB).listRoomHistory();
+  async listRoomHistory(env, userId) {
+    return createRoomRepository(env.DB).listRoomHistory(userId);
   },
-  async saveRoom(env, roomId, room) {
+  async saveRoom(env, roomId, room, userId) {
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(
       createInternalRoomRequest({
@@ -72,7 +74,10 @@ const app = createWorkerApp<Env>({
     }
 
     const data = CreateRoomResponseSchema.parse(await response.clone().json());
-    await createRoomRepository(env.DB).saveRoomMetadata(room);
+    await createRoomRepository(env.DB).saveRoomMetadata(room, {
+      hostUserId: userId,
+      playerUserIds: { [room.hostPlayerId]: userId },
+    });
 
     return data.connectionToken;
   },

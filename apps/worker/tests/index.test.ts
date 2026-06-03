@@ -12,8 +12,8 @@ const app = createWorkerApp({
       inviteCode,
     };
   },
-  async getRoomHistory(_env, roomKey) {
-    if (roomKey !== "ROOM" && roomKey !== "room-1") {
+  async getRoomHistory(_env, roomKey, userId) {
+    if (userId !== "user-1" || (roomKey !== "ROOM" && roomKey !== "room-1")) {
       return null;
     }
 
@@ -27,7 +27,17 @@ const app = createWorkerApp({
     };
   },
   async getSessionUser(_env, request) {
-    return request.headers.get("authorization") === "Bearer test-session" ? { id: "user-1" } : null;
+    const token = request.headers.get("authorization");
+
+    if (token === "Bearer test-session") {
+      return { id: "user-1" };
+    }
+
+    if (token === "Bearer other-session") {
+      return { id: "user-2" };
+    }
+
+    return null;
   },
   async joinRoom() {
     return Response.json({
@@ -67,8 +77,8 @@ const app = createWorkerApp({
       websocketPath: "/parties/room-server/ROOM",
     });
   },
-  async listMatchHistory(_env, roomId) {
-    if (roomId !== "room-1") {
+  async listMatchHistory(_env, roomId, userId) {
+    if (userId !== "user-1" || roomId !== "room-1") {
       return [];
     }
 
@@ -91,7 +101,11 @@ const app = createWorkerApp({
       },
     ];
   },
-  async listRoomHistory() {
+  async listRoomHistory(_env, userId) {
+    if (userId !== "user-1") {
+      return [];
+    }
+
     return [
       {
         id: "room-1",
@@ -260,6 +274,20 @@ describe("worker", () => {
     });
   });
 
+  test("does not list room history for non-participants", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history", {
+        headers: { authorization: "Bearer other-session" },
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      rooms: [],
+    });
+  });
+
   test("lists match history in a room", async () => {
     const response = await app.fetch(
       new Request("https://worker.test/api/rooms/history/ROOM", {
@@ -291,6 +319,21 @@ describe("worker", () => {
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
       code: "notAllowed",
+      type: "error",
+    });
+  });
+
+  test("does not show match history to non-participants", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history/ROOM", {
+        headers: { authorization: "Bearer other-session" },
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "roomNotFound",
       type: "error",
     });
   });
