@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createClientEvent, type RoomState } from "schema";
-import { createRoomStateEvent } from "../src/app.ts";
+import { createRoomClientState } from "../src/room-server/client-state.ts";
 import {
   validateConnectionEvent,
   validateConnectionToken,
@@ -11,10 +11,10 @@ import {
 } from "../src/room-server/internal-request.ts";
 
 describe("room server", () => {
-  test("redacts other players' hands from websocket room state events", () => {
-    const event = createRoomStateEvent(createPlayingRoom(), "player-1");
+  test("redacts other players' hands from client room states", () => {
+    const room = createRoomClientState(createPlayingRoom(), "player-1");
 
-    expect(event.room.game?.players).toEqual([
+    expect(room.game?.players).toEqual([
       expect.objectContaining({
         id: "player-1",
         hand: [{ id: "clubs-3", rank: "3", suit: "clubs" }],
