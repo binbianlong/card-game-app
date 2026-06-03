@@ -2,6 +2,17 @@ import { describe, expect, test } from "vite-plus/test";
 import { createWorkerApp } from "../src/app.ts";
 
 const app = createWorkerApp({
+  async createConnectionTicket(_env, roomId, request) {
+    if (
+      roomId !== "room-1" ||
+      request.playerId !== "player-1" ||
+      request.connectionToken !== "host-token"
+    ) {
+      return null;
+    }
+
+    return "ticket-1";
+  },
   async findRoomByInviteCode(_env, inviteCode) {
     if (inviteCode !== "ROOM") {
       return null;
@@ -239,6 +250,45 @@ describe("worker", () => {
     await expect(response.json()).resolves.toMatchObject({
       type: "error",
       code: "roomNotFound",
+    });
+  });
+
+  test("creates one-time websocket connection tickets", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1/ticket", {
+        body: JSON.stringify({
+          connectionToken: "host-token",
+          playerId: "player-1",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ticket: "ticket-1",
+    });
+  });
+
+  test("rejects websocket connection ticket requests with invalid tokens", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1/ticket", {
+        body: JSON.stringify({
+          connectionToken: "wrong-token",
+          playerId: "player-1",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
     });
   });
 

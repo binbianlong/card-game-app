@@ -7,7 +7,7 @@ import {
 } from "game";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PartySocket from "partysocket";
-import { getWorkerHost } from "@/features/rooms/room-api";
+import { createRoomConnectionTicket, getWorkerHost } from "@/features/rooms/room-api";
 import { ServerEventSchema, createClientEvent, roomPartyName, type RoomClientState } from "schema";
 
 type PlayerMeta = {
@@ -142,35 +142,50 @@ function usePlayRoomGame({
       return;
     }
 
-    const socket = new PartySocket({
-      host: getWorkerHost(),
-      party: roomPartyName,
-      query: { token: connectionToken },
-      room: roomId,
-      id: playerId,
-    });
-    socketRef.current = socket;
+    let closed = false;
 
-    socket.addEventListener("message", (event) => {
-      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+    void createRoomConnectionTicket({ connectionToken, playerId, roomId })
+      .then((ticket) => {
+        if (closed) {
+          return;
+        }
 
-      if (!serverEvent.success) {
-        setErrorMessage("ゲーム状態を読み取れませんでした。");
-        return;
-      }
+        const socket = new PartySocket({
+          host: getWorkerHost(),
+          party: roomPartyName,
+          query: { ticket },
+          room: roomId,
+          id: playerId,
+        });
+        socketRef.current = socket;
 
-      if (serverEvent.data.type === "error") {
-        setErrorMessage(serverEvent.data.message);
-        return;
-      }
+        socket.addEventListener("message", (event) => {
+          const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
 
-      setRoom(serverEvent.data.room);
-      setErrorMessage(null);
-    });
-    socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
+          if (!serverEvent.success) {
+            setErrorMessage("ゲーム状態を読み取れませんでした。");
+            return;
+          }
+
+          if (serverEvent.data.type === "error") {
+            setErrorMessage(serverEvent.data.message);
+            return;
+          }
+
+          setRoom(serverEvent.data.room);
+          setErrorMessage(null);
+        });
+        socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
+      })
+      .catch(() => {
+        if (!closed) {
+          setErrorMessage("リアルタイム接続に失敗しました。");
+        }
+      });
 
     return () => {
-      socket.close();
+      closed = true;
+      socketRef.current?.close();
       socketRef.current = null;
     };
   }, [connectionToken, playerId, roomId]);

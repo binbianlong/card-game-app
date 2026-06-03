@@ -1,4 +1,5 @@
 import {
+  CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
   RoomHistoryResponseSchema,
@@ -72,6 +73,30 @@ async function getRoomMatchHistory(roomId: string) {
   return RoomMatchHistoryResponseSchema.parse(await response.json());
 }
 
+async function createRoomConnectionTicket({
+  connectionToken,
+  playerId,
+  roomId,
+}: {
+  connectionToken: string;
+  playerId: string;
+  roomId: string;
+}) {
+  const response = await createRoomsClient()[":roomId"].ticket.$post(
+    {
+      json: { connectionToken, playerId },
+      param: { roomId },
+    },
+    createRequestOptions(),
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to create connection ticket.");
+  }
+
+  return CreateConnectionTicketResponseSchema.parse(await response.json()).ticket;
+}
+
 function normalizeInviteCode(inviteCode: string) {
   return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
@@ -107,6 +132,7 @@ function getWorkerOrigin() {
 }
 
 export {
+  createRoomConnectionTicket,
   createRoom,
   getRoomHistory,
   getRoomMatchHistory,

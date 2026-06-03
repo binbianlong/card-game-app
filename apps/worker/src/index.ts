@@ -1,5 +1,9 @@
 import { getServerByName, routePartykitRequest } from "partyserver";
-import { CreateRoomResponseSchema, JoinRoomResponseSchema } from "schema";
+import {
+  CreateConnectionTicketResponseSchema,
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
+} from "schema";
 import { createWorkerApp } from "./app.ts";
 import { createAuth } from "./auth/auth.ts";
 import { createInternalRoomRequest } from "./room-server/internal-request.ts";
@@ -18,6 +22,25 @@ type Env = {
 };
 
 const app = createWorkerApp<Env>({
+  async createConnectionTicket(env, roomId, request) {
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify(request),
+        method: "POST",
+        path: "/ticket",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = CreateConnectionTicketResponseSchema.parse(await response.json());
+
+    return data.ticket;
+  },
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
   },

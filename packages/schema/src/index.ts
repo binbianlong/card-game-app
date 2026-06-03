@@ -183,6 +183,15 @@ export const JoinRoomResponseSchema = z.object({
   websocketPath: z.string().min(1),
 });
 
+export const CreateConnectionTicketRequestSchema = z.object({
+  connectionToken: z.string().min(1),
+  playerId: z.string().min(1),
+});
+
+export const CreateConnectionTicketResponseSchema = z.object({
+  ticket: z.string().min(1),
+});
+
 export const MatchHistoryPlayerSchema = z.object({
   playerId: z.string().min(1),
   name: z.string().min(1),
@@ -443,6 +452,8 @@ export type RoomState = z.infer<typeof RoomStateSchema>;
 export type RoomClientState = z.infer<typeof RoomClientStateSchema>;
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
+export type CreateConnectionTicketRequest = z.infer<typeof CreateConnectionTicketRequestSchema>;
+export type CreateConnectionTicketResponse = z.infer<typeof CreateConnectionTicketResponseSchema>;
 export type MatchHistoryItem = z.infer<typeof MatchHistoryItemSchema>;
 export type MatchHistoryPlayer = z.infer<typeof MatchHistoryPlayerSchema>;
 export type MatchHistoryResponse = z.infer<typeof MatchHistoryResponseSchema>;

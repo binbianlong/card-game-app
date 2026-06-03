@@ -1,5 +1,11 @@
 import { Server, type Connection, type ConnectionContext } from "partyserver";
-import { ClientEventSchema, getRoomWebSocketPath, type ClientEvent, type RoomState } from "schema";
+import {
+  ClientEventSchema,
+  CreateConnectionTicketRequestSchema,
+  getRoomWebSocketPath,
+  type ClientEvent,
+  type RoomState,
+} from "schema";
 import { createErrorEvent, createRoomStateEvent, parseRoomState } from "../app.ts";
 import {
   RoomStateError,
@@ -26,7 +32,15 @@ type RoomConnectionState = {
   connectionToken: string;
 };
 
+type ConnectionTicket = {
+  connectionToken: string;
+  expiresAt: number;
+  playerId: string;
+};
+
 const cpuTurnDelayMs = 900;
+const connectionTicketTtlMs = 30 * 1000;
+const connectionTicketsStorageKey = "connectionTickets";
 const connectionTokenTtlMs = 60 * 60 * 1000;
 const connectionTokensStorageKey = "connectionTokens";
 
@@ -36,21 +50,17 @@ class RoomServer extends Server<RoomServerEnv> {
   };
 
   async onConnect(connection: Connection<RoomConnectionState>, context: ConnectionContext) {
-    const requestToken = getRequestConnectionToken(context.request);
-    const tokenError = await this.validateConnectionToken(connection.id, requestToken);
+    const ticketResult = await this.consumeConnectionTicket(connection.id, context.request);
 
-    if (tokenError !== null) {
-      connection.send(JSON.stringify(createErrorEvent(tokenError.code, tokenError.message)));
-      connection.close(1008, tokenError.message);
+    if (!ticketResult.ok) {
+      connection.send(
+        JSON.stringify(createErrorEvent(ticketResult.error.code, ticketResult.error.message)),
+      );
+      connection.close(1008, ticketResult.error.message);
       return;
     }
 
-    if (requestToken === null) {
-      connection.close(1008, "Connection token is required.");
-      return;
-    }
-
-    connection.setState({ connectionToken: requestToken });
+    connection.setState({ connectionToken: ticketResult.connectionToken });
 
     const room = await this.getRoom();
     this.sendRoomState(connection, room);
@@ -188,6 +198,35 @@ class RoomServer extends Server<RoomServerEnv> {
       });
     }
 
+    if (request.method === "POST" && url.pathname === "/ticket") {
+      const body = await request.json().catch(() => null);
+      const ticketRequest = CreateConnectionTicketRequestSchema.safeParse(body);
+
+      if (!ticketRequest.success) {
+        return Response.json(
+          createErrorEvent("invalidEvent", "Connection ticket request is required."),
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const tokenError = await this.validateConnectionToken(
+        ticketRequest.data.playerId,
+        ticketRequest.data.connectionToken,
+      );
+
+      if (tokenError !== null) {
+        return Response.json(createErrorEvent(tokenError.code, tokenError.message), {
+          status: 403,
+        });
+      }
+
+      return Response.json({
+        ticket: await this.setConnectionTicket(ticketRequest.data),
+      });
+    }
+
     return new Response("Not Found", { status: 404 });
   }
 
@@ -263,6 +302,90 @@ class RoomServer extends Server<RoomServerEnv> {
     );
   }
 
+  private async setConnectionTicket({
+    connectionToken,
+    playerId,
+  }: {
+    connectionToken: string;
+    playerId: string;
+  }) {
+    const tickets = await this.getConnectionTickets();
+    const ticket = crypto.randomUUID();
+    const now = Date.now();
+
+    await this.ctx.storage.put(connectionTicketsStorageKey, {
+      ...removeExpiredConnectionTickets(tickets, now),
+      [ticket]: {
+        connectionToken,
+        expiresAt: now + connectionTicketTtlMs,
+        playerId,
+      },
+    });
+
+    return ticket;
+  }
+
+  private async getConnectionTickets() {
+    return (
+      (await this.ctx.storage.get<Record<string, ConnectionTicket>>(connectionTicketsStorageKey)) ??
+      {}
+    );
+  }
+
+  private async consumeConnectionTicket(playerId: string, request: Request) {
+    const requestTicket = getRequestConnectionTicket(request);
+
+    if (requestTicket === null || requestTicket.length === 0) {
+      return {
+        error: new RoomStateError("notAllowed", "Connection ticket is required."),
+        ok: false as const,
+      };
+    }
+
+    const tickets = await this.getConnectionTickets();
+    const now = Date.now();
+    const ticket = tickets[requestTicket];
+    const nextTickets = removeExpiredConnectionTickets(tickets, now);
+
+    delete nextTickets[requestTicket];
+    await this.ctx.storage.put(connectionTicketsStorageKey, nextTickets);
+
+    if (ticket === undefined) {
+      return {
+        error: new RoomStateError("notAllowed", "Connection ticket is invalid."),
+        ok: false as const,
+      };
+    }
+
+    if (ticket.expiresAt <= now) {
+      return {
+        error: new RoomStateError("notAllowed", "Connection ticket has expired."),
+        ok: false as const,
+      };
+    }
+
+    if (ticket.playerId !== playerId) {
+      return {
+        error: new RoomStateError("notAllowed", "Connection ticket does not match the player."),
+        ok: false as const,
+      };
+    }
+
+    const tokenError = await this.validateConnectionToken(playerId, ticket.connectionToken);
+
+    if (tokenError !== null) {
+      return {
+        error: tokenError,
+        ok: false as const,
+      };
+    }
+
+    return {
+      connectionToken: ticket.connectionToken,
+      ok: true as const,
+    };
+  }
+
   private async validateConnectionToken(playerId: string, requestToken: string | null) {
     const room = await this.getRoom();
     const connectionTokens = await this.getConnectionTokens();
@@ -329,8 +452,12 @@ function parseMessage(message: string) {
   }
 }
 
-function getRequestConnectionToken(request: Request) {
-  return new URL(request.url).searchParams.get("token");
+function getRequestConnectionTicket(request: Request) {
+  return new URL(request.url).searchParams.get("ticket");
+}
+
+function removeExpiredConnectionTickets(tickets: Record<string, ConnectionTicket>, now: number) {
+  return Object.fromEntries(Object.entries(tickets).filter(([, ticket]) => ticket.expiresAt > now));
 }
 
 function getJoinedPlayerId(previousRoom: RoomState, nextRoom: RoomState) {

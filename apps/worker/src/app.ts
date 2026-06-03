@@ -13,6 +13,7 @@ type WorkerBindings = AuthEnv & {
 type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>;
 
 function createWorkerApp<Env extends WorkerBindings>({
+  createConnectionTicket,
   findRoomByInviteCode,
   getRoomHistory,
   getSessionUser,
@@ -46,6 +47,7 @@ function createWorkerApp<Env extends WorkerBindings>({
   app.route(
     "/api/rooms",
     createRoomsRoute({
+      createConnectionTicket,
       findRoomByInviteCode,
       getRoomHistory,
       getSessionUser,

@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { validator } from "hono/validator";
 import {
   ClientEventSchema,
+  CreateConnectionTicketRequestSchema,
+  CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
   RoomHistoryResponseSchema,
@@ -30,6 +32,14 @@ type AuthenticatedUser = {
 };
 
 type RoomsRouteOptions<Env extends WorkerBindings> = {
+  createConnectionTicket: (
+    env: Env,
+    roomId: string,
+    request: {
+      connectionToken: string;
+      playerId: string;
+    },
+  ) => Promise<string | null>;
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
   getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
@@ -49,6 +59,7 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
+  createConnectionTicket,
   findRoomByInviteCode,
   getRoomHistory,
   getSessionUser,
@@ -161,7 +172,19 @@ function createRoomsRoute<Env extends WorkerBindings>({
 
         return context.json(JoinRoomResponseSchema.parse(await response.json()));
       },
-    );
+    )
+
+    .post("/:roomId/ticket", createConnectionTicketRequestValidator(), async (context) => {
+      const request = context.req.valid("json");
+      const env = context.env as Env;
+      const ticket = await createConnectionTicket(env, context.req.param("roomId"), request);
+
+      if (ticket === null) {
+        return context.json(createErrorEvent("notAllowed", "Connection token is invalid."), 403);
+      }
+
+      return context.json(CreateConnectionTicketResponseSchema.parse({ ticket }));
+    });
 
   return route;
 }
@@ -175,6 +198,21 @@ function createClientEventValidator<Type extends ClientEvent["type"]>(type: Type
     }
 
     return event.data as Extract<ClientEvent, { type: Type }>;
+  });
+}
+
+function createConnectionTicketRequestValidator() {
+  return validator("json", (body, context) => {
+    const request = CreateConnectionTicketRequestSchema.safeParse(body);
+
+    if (!request.success) {
+      return context.json(
+        createErrorEvent("invalidEvent", "Connection ticket request is required."),
+        400,
+      );
+    }
+
+    return request.data;
   });
 }
 
