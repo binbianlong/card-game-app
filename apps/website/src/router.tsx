@@ -43,7 +43,7 @@ const roomHistoryRoute = createRoute({
 
 const roomMatchHistoryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/rooms/history/$inviteCode",
+  path: "/rooms/history/$roomId",
   component: RoomMatchHistoryPage,
 });
 

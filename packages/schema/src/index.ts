@@ -163,7 +163,6 @@ export const MatchHistoryPlayerSchema = z.object({
 export const MatchHistoryItemSchema = z.object({
   id: z.string().min(1),
   roomId: z.string().min(1),
-  inviteCode: z.string().min(1),
   playerCount: z.number().int().min(3).max(6),
   status: z.enum(["playing", "finished"]),
   startedAt: z.number().int(),
@@ -178,7 +177,6 @@ export const MatchHistoryResponseSchema = z.object({
 
 export const RoomHistoryItemSchema = z.object({
   id: z.string().min(1),
-  inviteCode: z.string().min(1),
   playerCount: z.number().int().min(3).max(6),
   status: z.enum(["waiting", "playing", "finished"]),
   createdAt: z.number().int(),

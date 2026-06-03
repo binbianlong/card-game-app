@@ -6,15 +6,23 @@ import type { MatchHistoryItem, MatchHistoryPlayer, RoomHistoryItem } from "sche
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { authClient } from "@/features/auth/auth-client";
+import { LoginButton } from "@/features/auth/login-button";
 import { getRoomHistory, getRoomMatchHistory } from "@/features/rooms/room-api";
 
 type LoadStatus = "error" | "idle" | "loading" | "success";
 
 function RoomHistoryPage() {
+  const session = authClient.useSession();
   const [rooms, setRooms] = useState<readonly RoomHistoryItem[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
+  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   useEffect(() => {
+    if (session.isPending || isLoggedOut) {
+      return;
+    }
+
     let ignore = false;
 
     async function loadHistory() {
@@ -39,7 +47,7 @@ function RoomHistoryPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [isLoggedOut, session.isPending]);
 
   return (
     <HistoryShell backTo="/" title="対戦履歴">
@@ -54,37 +62,42 @@ function RoomHistoryPage() {
       </section>
 
       <section className="grid flex-1 content-start gap-3" aria-label="ルーム履歴一覧">
-        {status === "loading" || status === "idle" ? (
+        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}
-        {status === "error" ? (
+        {!isLoggedOut && status === "error" ? (
           <HistoryMessage>ルーム履歴を読み込めませんでした。</HistoryMessage>
         ) : null}
-        {status === "success" && rooms.length === 0 ? (
+        {!isLoggedOut && status === "success" && rooms.length === 0 ? (
           <HistoryMessage>まだ対戦履歴がありません。</HistoryMessage>
         ) : null}
-        {rooms.map((room) => (
-          <RoomHistoryCard key={room.id} room={room} />
-        ))}
+        {!isLoggedOut && rooms.map((room) => <RoomHistoryCard key={room.id} room={room} />)}
       </section>
     </HistoryShell>
   );
 }
 
 function RoomMatchHistoryPage() {
-  const { inviteCode } = useParams({ from: "/rooms/history/$inviteCode" });
+  const { roomId } = useParams({ from: "/rooms/history/$roomId" });
+  const session = authClient.useSession();
   const [matches, setMatches] = useState<readonly MatchHistoryItem[]>([]);
   const [room, setRoom] = useState<RoomHistoryItem | null>(null);
   const [status, setStatus] = useState<LoadStatus>("idle");
+  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   useEffect(() => {
+    if (session.isPending || isLoggedOut) {
+      return;
+    }
+
     let ignore = false;
 
     async function loadHistory() {
       setStatus("loading");
 
       try {
-        const data = await getRoomMatchHistory(inviteCode);
+        const data = await getRoomMatchHistory(roomId);
 
         if (!ignore) {
           setRoom(data.room);
@@ -103,7 +116,7 @@ function RoomMatchHistoryPage() {
     return () => {
       ignore = true;
     };
-  }, [inviteCode]);
+  }, [roomId, isLoggedOut, session.isPending]);
 
   return (
     <HistoryShell backTo="/rooms/history" title="ルーム履歴">
@@ -120,18 +133,17 @@ function RoomMatchHistoryPage() {
       </section>
 
       <section className="grid flex-1 content-start gap-3" aria-label="対戦履歴一覧">
-        {status === "loading" || status === "idle" ? (
+        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}
-        {status === "error" ? (
+        {!isLoggedOut && status === "error" ? (
           <HistoryMessage>対戦履歴を読み込めませんでした。</HistoryMessage>
         ) : null}
-        {status === "success" && matches.length === 0 ? (
+        {!isLoggedOut && status === "success" && matches.length === 0 ? (
           <HistoryMessage>このルームにはまだ対戦履歴がありません。</HistoryMessage>
         ) : null}
-        {matches.map((match) => (
-          <MatchHistoryCard key={match.id} match={match} />
-        ))}
+        {!isLoggedOut && matches.map((match) => <MatchHistoryCard key={match.id} match={match} />)}
       </section>
     </HistoryShell>
   );
@@ -191,6 +203,19 @@ function HistoryMessage({ children }: { children: string }) {
   );
 }
 
+function HistoryLoginRequired({ isPending }: { isPending: boolean }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+      <CardContent className="grid gap-3 px-4 py-4">
+        <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+          対戦履歴を見るにはログインが必要です。
+        </p>
+        <LoginButton className="h-12 w-full text-base font-bold" isPending={isPending} size="lg" />
+      </CardContent>
+    </Card>
+  );
+}
+
 function RoomHistoryCard({ room }: { room: RoomHistoryItem }) {
   const latestLabel =
     room.latestFinishedAt === null
@@ -206,13 +231,13 @@ function RoomHistoryCard({ room }: { room: RoomHistoryItem }) {
           variant="ghost"
           className="h-auto min-h-24 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent"
         >
-          <Link to="/rooms/history/$inviteCode" params={{ inviteCode: room.inviteCode }}>
+          <Link to="/rooms/history/$roomId" params={{ roomId: room.id }}>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-base leading-snug font-extrabold">
-                {room.inviteCode}
+                {formatDateTime(new Date(room.createdAt))}
               </span>
               <span className="mt-1 block text-[12px] leading-none text-muted-foreground">
-                作成 {formatDateTime(new Date(room.createdAt))}
+                ルームID {room.id}
               </span>
               <span className="mt-2 block text-[12px] leading-none font-bold text-muted-foreground">
                 {room.matchCount}戦 / {room.playerCount}人 / {latestLabel}

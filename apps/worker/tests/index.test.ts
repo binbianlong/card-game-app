@@ -19,7 +19,6 @@ const app = createWorkerApp({
 
     return {
       id: "room-1",
-      inviteCode: "ROOM",
       playerCount: 3,
       status: "finished",
       createdAt: 1,
@@ -77,7 +76,6 @@ const app = createWorkerApp({
       {
         id: "match-1",
         roomId: "room-1",
-        inviteCode: "ROOM",
         playerCount: 3,
         status: "finished",
         startedAt: 1,
@@ -97,7 +95,6 @@ const app = createWorkerApp({
     return [
       {
         id: "room-1",
-        inviteCode: "ROOM",
         playerCount: 3,
         status: "finished",
         createdAt: 1,
@@ -233,7 +230,9 @@ describe("worker", () => {
 
   test("lists room history", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history"),
+      new Request("https://worker.test/api/rooms/history", {
+        headers: { authorization: "Bearer test-session" },
+      }),
       createTestEnv(),
     );
 
@@ -248,9 +247,24 @@ describe("worker", () => {
     });
   });
 
+  test("rejects room history from anonymous users", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history"),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
+    });
+  });
+
   test("lists match history in a room", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM"),
+      new Request("https://worker.test/api/rooms/history/ROOM", {
+        headers: { authorization: "Bearer test-session" },
+      }),
       createTestEnv(),
     );
 
@@ -265,6 +279,19 @@ describe("worker", () => {
           status: "finished",
         },
       ],
+    });
+  });
+
+  test("rejects match history from anonymous users", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history/ROOM"),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
     });
   });
 

@@ -125,7 +125,6 @@ function createRoomRepository(database: D1Database) {
 
         return {
           id: room.id,
-          inviteCode: room.inviteCode,
           playerCount: room.playerCount,
           status: room.status,
           createdAt: room.createdAt.getTime(),
@@ -167,7 +166,6 @@ function createRoomRepository(database: D1Database) {
 
       return {
         id: room.id,
-        inviteCode: room.inviteCode,
         playerCount: room.playerCount,
         status: room.status,
         createdAt: room.createdAt.getTime(),
@@ -209,7 +207,6 @@ function createRoomRepository(database: D1Database) {
         (match): MatchHistoryItem => ({
           id: match.id,
           roomId: match.roomId,
-          inviteCode: match.inviteCode,
           playerCount: match.playerCount,
           status: match.status,
           startedAt: match.startedAt.getTime(),

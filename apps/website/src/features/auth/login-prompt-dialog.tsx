@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoginButton } from "./login-button";
 
-type LoginPrompt = "createRoom" | "joinRoom";
+type LoginPrompt = "createRoom" | "history" | "joinRoom";
 
 function LoginPromptDialog({
   isPending,
@@ -14,10 +14,7 @@ function LoginPromptDialog({
   onClose: () => void;
   prompt: LoginPrompt;
 }) {
-  const message =
-    prompt === "createRoom"
-      ? "未ログインだとルームを作成できません。"
-      : "未ログインだと、再参加ができません。";
+  const message = getLoginPromptMessage(prompt);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -36,6 +33,18 @@ function LoginPromptDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function getLoginPromptMessage(prompt: LoginPrompt) {
+  if (prompt === "createRoom") {
+    return "未ログインだとルームを作成できません。";
+  }
+
+  if (prompt === "history") {
+    return "対戦履歴を見るにはログインが必要です。";
+  }
+
+  return "未ログインだと、再参加ができません。";
 }
 
 export { LoginPromptDialog };

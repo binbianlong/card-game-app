@@ -54,14 +54,34 @@ function createRoomsRoute<Env extends WorkerBindings>({
 }: RoomsRouteOptions<Env>) {
   const route = new Hono<{ Bindings: Env }>()
     .get("/history", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(
+          createErrorEvent("notAllowed", "Login is required to view match history."),
+          401,
+        );
+      }
+
       const rooms = await listRoomHistory(context.env);
 
       return context.json(RoomHistoryResponseSchema.parse({ rooms }));
     })
 
-    .get("/history/:inviteCode", async (context) => {
-      const inviteCode = context.req.param("inviteCode");
-      const room = await getRoomHistory(context.env, inviteCode);
+    .get("/history/:roomKey", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(
+          createErrorEvent("notAllowed", "Login is required to view match history."),
+          401,
+        );
+      }
+
+      const roomKey = context.req.param("roomKey");
+      const room = await getRoomHistory(context.env, roomKey);
 
       if (room === null) {
         return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);

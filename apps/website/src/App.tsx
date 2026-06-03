@@ -100,8 +100,9 @@ function HomeActionCard({
 }) {
   const Icon = action.icon;
   const isCreateRoomAction = action.to === "/rooms/new";
+  const isHistoryAction = action.to === "/rooms/history";
   const isJoinRoomAction = action.to === "/rooms/join";
-  const isDisabled = isCreateRoomAction && isLoggedOut;
+  const isDisabled = (isCreateRoomAction || isHistoryAction) && isLoggedOut;
   const shouldShowJoinPrompt = isJoinRoomAction && isLoggedOut;
 
   return (
@@ -113,7 +114,7 @@ function HomeActionCard({
             variant="ghost"
             aria-disabled="true"
             className={`${actionButtonClassName} opacity-50 grayscale`}
-            onClick={() => onLoginPrompt("createRoom")}
+            onClick={() => onLoginPrompt(isHistoryAction ? "history" : "createRoom")}
           >
             <ActionContent
               description={action.description}

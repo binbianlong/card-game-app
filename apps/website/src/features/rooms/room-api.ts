@@ -57,10 +57,10 @@ async function getRoomHistory() {
   return RoomHistoryResponseSchema.parse(await response.json());
 }
 
-async function getRoomMatchHistory(inviteCode: string) {
-  const response = await createRoomsClient().history[":inviteCode"].$get(
+async function getRoomMatchHistory(roomId: string) {
+  const response = await createRoomsClient().history[":roomKey"].$get(
     {
-      param: { inviteCode },
+      param: { roomKey: roomId },
     },
     createRequestOptions(),
   );
