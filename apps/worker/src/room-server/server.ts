@@ -9,7 +9,11 @@ import {
   isCpuTurn,
 } from "../rooms/state.ts";
 import { createRoomRepository } from "../rooms/repository.ts";
-import { validateConnectionEvent, validateConnectionToken } from "./connection-event.ts";
+import {
+  validateConnectionEvent,
+  validateConnectionToken,
+  type ConnectionToken,
+} from "./connection-event.ts";
 import { validateInternalRoomRequest } from "./internal-request.ts";
 
 type RoomServerEnv = {
@@ -19,6 +23,7 @@ type RoomServerEnv = {
 };
 
 const cpuTurnDelayMs = 900;
+const connectionTokenTtlMs = 60 * 60 * 1000;
 const connectionTokensStorageKey = "connectionTokens";
 
 class RoomServer extends Server<RoomServerEnv> {
@@ -210,18 +215,24 @@ class RoomServer extends Server<RoomServerEnv> {
 
   private async setConnectionToken(playerId: string) {
     const connectionTokens = await this.getConnectionTokens();
-    const connectionToken = crypto.randomUUID();
+    const connectionToken = {
+      expiresAt: Date.now() + connectionTokenTtlMs,
+      value: crypto.randomUUID(),
+    };
 
     await this.ctx.storage.put(connectionTokensStorageKey, {
       ...connectionTokens,
       [playerId]: connectionToken,
     });
 
-    return connectionToken;
+    return connectionToken.value;
   }
 
   private async getConnectionTokens() {
-    return (await this.ctx.storage.get<Record<string, string>>(connectionTokensStorageKey)) ?? {};
+    return (
+      (await this.ctx.storage.get<Record<string, ConnectionToken>>(connectionTokensStorageKey)) ??
+      {}
+    );
   }
 
   private async validateConnectionToken(playerId: string, request: Request) {
@@ -232,6 +243,7 @@ class RoomServer extends Server<RoomServerEnv> {
     return validateConnectionToken({
       expectedConnectionToken: connectionTokens[playerId],
       hasParticipant: room.participants.some((participant) => participant.id === playerId),
+      now: Date.now(),
       requestConnectionToken: requestToken,
     });
   }

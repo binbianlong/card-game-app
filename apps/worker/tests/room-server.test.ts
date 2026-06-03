@@ -71,8 +71,12 @@ describe("room server", () => {
 
   test("accepts websocket connections with the matching player token", () => {
     const error = validateConnectionToken({
-      expectedConnectionToken: "token-1",
+      expectedConnectionToken: {
+        expiresAt: 2000,
+        value: "token-1",
+      },
       hasParticipant: true,
+      now: 1000,
       requestConnectionToken: "token-1",
     });
 
@@ -81,8 +85,12 @@ describe("room server", () => {
 
   test("rejects websocket connections with another player's token", () => {
     const error = validateConnectionToken({
-      expectedConnectionToken: "token-1",
+      expectedConnectionToken: {
+        expiresAt: 2000,
+        value: "token-1",
+      },
       hasParticipant: true,
+      now: 1000,
       requestConnectionToken: "token-2",
     });
 
@@ -93,9 +101,29 @@ describe("room server", () => {
 
   test("rejects websocket connections without a player token", () => {
     const error = validateConnectionToken({
-      expectedConnectionToken: "token-1",
+      expectedConnectionToken: {
+        expiresAt: 2000,
+        value: "token-1",
+      },
       hasParticipant: true,
+      now: 1000,
       requestConnectionToken: null,
+    });
+
+    expect(error).toMatchObject({
+      code: "notAllowed",
+    });
+  });
+
+  test("rejects websocket connections with an expired player token", () => {
+    const error = validateConnectionToken({
+      expectedConnectionToken: {
+        expiresAt: 1000,
+        value: "token-1",
+      },
+      hasParticipant: true,
+      now: 1000,
+      requestConnectionToken: "token-1",
     });
 
     expect(error).toMatchObject({

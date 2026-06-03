@@ -2,9 +2,15 @@ import type { ClientEvent } from "schema";
 import { RoomStateError } from "../rooms/state.ts";
 
 type ConnectionTokenValidationOptions = {
-  expectedConnectionToken: string | undefined;
+  expectedConnectionToken: ConnectionToken | undefined;
   hasParticipant: boolean;
+  now: number;
   requestConnectionToken: string | null;
+};
+
+type ConnectionToken = {
+  expiresAt: number;
+  value: string;
 };
 
 function validateConnectionEvent(connectionId: string, event: ClientEvent) {
@@ -22,6 +28,7 @@ function validateConnectionEvent(connectionId: string, event: ClientEvent) {
 function validateConnectionToken({
   expectedConnectionToken,
   hasParticipant,
+  now,
   requestConnectionToken,
 }: ConnectionTokenValidationOptions) {
   if (!hasParticipant) {
@@ -32,11 +39,19 @@ function validateConnectionToken({
     return new RoomStateError("notAllowed", "Connection token is required.");
   }
 
-  if (expectedConnectionToken !== requestConnectionToken) {
+  if (
+    expectedConnectionToken === undefined ||
+    expectedConnectionToken.value !== requestConnectionToken
+  ) {
     return new RoomStateError("notAllowed", "Connection token is invalid.");
+  }
+
+  if (expectedConnectionToken.expiresAt <= now) {
+    return new RoomStateError("notAllowed", "Connection token has expired.");
   }
 
   return null;
 }
 
 export { validateConnectionEvent, validateConnectionToken };
+export type { ConnectionToken };
