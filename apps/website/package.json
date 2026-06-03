@@ -16,6 +16,7 @@
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "game": "workspace:*",
+    "hono": "catalog:",
     "lucide-react": "catalog:",
     "partysocket": "catalog:",
     "radix-ui": "catalog:",

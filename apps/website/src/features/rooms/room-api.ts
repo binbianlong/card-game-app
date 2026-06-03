@@ -6,6 +6,8 @@ import {
   createClientEvent,
   type GameRuleSettings,
 } from "schema";
+import { hc } from "hono/client";
+import type { RoomsRoute } from "../../../../worker/src/routes/rooms.ts";
 
 type CreateRoomInput = {
   cpuCount: number;
@@ -15,12 +17,12 @@ type CreateRoomInput = {
 };
 
 async function createRoom(input: CreateRoomInput) {
-  const response = await fetch(createApiUrl("/api/rooms"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(createClientEvent.createRoom(input)),
-  });
+  const response = await createRoomsClient().index.$post(
+    {
+      json: createClientEvent.createRoom(input),
+    },
+    createRequestOptions(),
+  );
 
   if (!response.ok) {
     throw new Error("Failed to create room.");
@@ -31,12 +33,12 @@ async function createRoom(input: CreateRoomInput) {
 
 async function joinRoom({ inviteCode, playerName }: { inviteCode: string; playerName: string }) {
   const roomId = normalizeInviteCode(inviteCode);
-  const response = await fetch(createApiUrl("/api/rooms/join"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(createClientEvent.joinRoom({ roomId, playerName })),
-  });
+  const response = await createRoomsClient().join.$post(
+    {
+      json: createClientEvent.joinRoom({ roomId, playerName }),
+    },
+    createRequestOptions(),
+  );
 
   if (!response.ok) {
     throw new Error("Failed to join room.");
@@ -46,9 +48,7 @@ async function joinRoom({ inviteCode, playerName }: { inviteCode: string; player
 }
 
 async function getRoomHistory() {
-  const response = await fetch(createApiUrl("/api/rooms/history"), {
-    credentials: "include",
-  });
+  const response = await createRoomsClient().history.$get(undefined, createRequestOptions());
 
   if (!response.ok) {
     throw new Error("Failed to load match history.");
@@ -58,11 +58,11 @@ async function getRoomHistory() {
 }
 
 async function getRoomMatchHistory(inviteCode: string) {
-  const response = await fetch(
-    createApiUrl(`/api/rooms/history/${encodeURIComponent(inviteCode)}`),
+  const response = await createRoomsClient().history[":inviteCode"].$get(
     {
-      credentials: "include",
+      param: { inviteCode },
     },
+    createRequestOptions(),
   );
 
   if (!response.ok) {
@@ -80,6 +80,18 @@ function createApiUrl(path: string) {
   const origin = getWorkerOrigin();
 
   return origin === null ? path : new URL(path, origin).toString();
+}
+
+function createRoomsClient() {
+  return hc<RoomsRoute>(createApiUrl("/api/rooms"));
+}
+
+function createRequestOptions() {
+  return {
+    init: {
+      credentials: "include" as const,
+    },
+  };
 }
 
 function getWorkerHost() {
