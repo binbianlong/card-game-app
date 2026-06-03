@@ -22,6 +22,10 @@ type RoomServerEnv = {
   ROOM_SERVER_SECRET?: string;
 };
 
+type RoomConnectionState = {
+  connectionToken: string;
+};
+
 const cpuTurnDelayMs = 900;
 const connectionTokenTtlMs = 60 * 60 * 1000;
 const connectionTokensStorageKey = "connectionTokens";
@@ -31,8 +35,9 @@ class RoomServer extends Server<RoomServerEnv> {
     hibernate: true,
   };
 
-  async onConnect(connection: Connection, context: ConnectionContext) {
-    const tokenError = await this.validateConnectionToken(connection.id, context.request);
+  async onConnect(connection: Connection<RoomConnectionState>, context: ConnectionContext) {
+    const requestToken = getRequestConnectionToken(context.request);
+    const tokenError = await this.validateConnectionToken(connection.id, requestToken);
 
     if (tokenError !== null) {
       connection.send(JSON.stringify(createErrorEvent(tokenError.code, tokenError.message)));
@@ -40,12 +45,33 @@ class RoomServer extends Server<RoomServerEnv> {
       return;
     }
 
+    if (requestToken === null) {
+      connection.close(1008, "Connection token is required.");
+      return;
+    }
+
+    connection.setState({ connectionToken: requestToken });
+
     const room = await this.getRoom();
     this.sendRoomState(connection, room);
     await this.scheduleCpuTurn(room);
   }
 
-  async onMessage(connection: Connection, message: string | ArrayBuffer | ArrayBufferView) {
+  async onMessage(
+    connection: Connection<RoomConnectionState>,
+    message: string | ArrayBuffer | ArrayBufferView,
+  ) {
+    const tokenError = await this.validateConnectionToken(
+      connection.id,
+      connection.state?.connectionToken ?? null,
+    );
+
+    if (tokenError !== null) {
+      connection.send(JSON.stringify(createErrorEvent(tokenError.code, tokenError.message)));
+      connection.close(1008, tokenError.message);
+      return;
+    }
+
     if (typeof message !== "string") {
       connection.send(JSON.stringify(createErrorEvent("invalidEvent", "Text messages only.")));
       return;
@@ -225,6 +251,8 @@ class RoomServer extends Server<RoomServerEnv> {
       [playerId]: connectionToken,
     });
 
+    this.closeStalePlayerConnections(playerId, connectionToken.value);
+
     return connectionToken.value;
   }
 
@@ -235,9 +263,8 @@ class RoomServer extends Server<RoomServerEnv> {
     );
   }
 
-  private async validateConnectionToken(playerId: string, request: Request) {
+  private async validateConnectionToken(playerId: string, requestToken: string | null) {
     const room = await this.getRoom();
-    const requestToken = new URL(request.url).searchParams.get("token");
     const connectionTokens = await this.getConnectionTokens();
 
     return validateConnectionToken({
@@ -246,6 +273,18 @@ class RoomServer extends Server<RoomServerEnv> {
       now: Date.now(),
       requestConnectionToken: requestToken,
     });
+  }
+
+  private closeStalePlayerConnections(playerId: string, activeConnectionToken: string) {
+    for (const connection of this.getConnections<RoomConnectionState>(playerId)) {
+      if (connection.state?.connectionToken === activeConnectionToken) {
+        continue;
+      }
+
+      const error = createErrorEvent("notAllowed", "Connection token has been rotated.");
+      connection.send(JSON.stringify(error));
+      connection.close(1008, error.message);
+    }
   }
 
   private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
@@ -288,6 +327,10 @@ function parseMessage(message: string) {
   } catch {
     return null;
   }
+}
+
+function getRequestConnectionToken(request: Request) {
+  return new URL(request.url).searchParams.get("token");
 }
 
 function getJoinedPlayerId(previousRoom: RoomState, nextRoom: RoomState) {
