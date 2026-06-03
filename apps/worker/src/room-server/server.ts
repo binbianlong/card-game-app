@@ -9,6 +9,7 @@ import {
   isCpuTurn,
 } from "../rooms/state.ts";
 import { createRoomRepository } from "../rooms/repository.ts";
+import { validateConnectionEvent } from "./connection-event.ts";
 
 type RoomServerEnv = {
   DB?: D1Database;
@@ -39,6 +40,15 @@ class RoomServer extends Server<RoomServerEnv> {
 
     if (!event.success) {
       connection.send(JSON.stringify(createErrorEvent("invalidEvent", "Invalid client event.")));
+      return;
+    }
+
+    const connectionEventError = validateConnectionEvent(connection.id, event.data);
+
+    if (connectionEventError !== null) {
+      connection.send(
+        JSON.stringify(createErrorEvent(connectionEventError.code, connectionEventError.message)),
+      );
       return;
     }
 
