@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   ClientEventSchema,
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
   RoomStateSchema,
   ServerEventSchema,
   clientEventTypes,
@@ -67,6 +69,34 @@ describe("schema", () => {
 
   test("parses room state", () => {
     expect(RoomStateSchema.parse(room)).toEqual(room);
+  });
+
+  test("parses room API responses with connection tokens", () => {
+    expect(
+      CreateRoomResponseSchema.parse({
+        connectionToken: "host-token",
+        room,
+        websocketPath: "/parties/room-server/room-1",
+      }),
+    ).toEqual({
+      connectionToken: "host-token",
+      room,
+      websocketPath: "/parties/room-server/room-1",
+    });
+
+    expect(
+      JoinRoomResponseSchema.parse({
+        connectionToken: "guest-token",
+        playerId: "player-2",
+        room,
+        websocketPath: "/parties/room-server/room-1",
+      }),
+    ).toEqual({
+      connectionToken: "guest-token",
+      playerId: "player-2",
+      room,
+      websocketPath: "/parties/room-server/room-1",
+    });
   });
 
   test("parses server events", () => {

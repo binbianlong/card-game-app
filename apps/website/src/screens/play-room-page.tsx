@@ -12,6 +12,7 @@ import {
   TableArea,
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
+import { getRoomConnectionToken } from "@/features/rooms/connection-token";
 
 function PlayRoomPage() {
   const navigate = useNavigate();
@@ -20,6 +21,10 @@ function PlayRoomPage() {
   const cpuCount = search.cpu;
   const roomId = search.roomId ?? "";
   const playerId = search.playerId ?? "";
+  const connectionToken =
+    roomId.length === 0 || playerId.length === 0
+      ? ""
+      : getRoomConnectionToken({ playerId, roomId });
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const localRules = useMemo(
     () => ({
@@ -49,7 +54,7 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
-  } = usePlayRoomGame({ cpuCount, playerCount, playerId, roomId });
+  } = usePlayRoomGame({ connectionToken, cpuCount, playerCount, playerId, roomId });
 
   function exitRoom() {
     leaveRoom();

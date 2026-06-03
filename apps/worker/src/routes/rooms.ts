@@ -40,7 +40,7 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
   getRoomHistory: (env: Env, roomId: string) => Promise<RoomHistoryItem | null>;
   listMatchHistory: (env: Env, roomId: string) => Promise<readonly MatchHistoryItem[]>;
   listRoomHistory: (env: Env) => Promise<readonly RoomHistoryItem[]>;
-  saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
+  saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<string | null>;
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
@@ -90,14 +90,15 @@ function createRoomsRoute<Env extends WorkerBindings>({
         const roomId = createRoomId();
         const inviteCode = createInviteCode(roomId);
         const room = createWaitingRoom(event, roomId, inviteCode);
-        const saved = await saveRoom(env, roomId, room);
+        const connectionToken = await saveRoom(env, roomId, room);
 
-        if (!saved) {
+        if (connectionToken === null) {
           return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
         }
 
         return context.json(
           CreateRoomResponseSchema.parse({
+            connectionToken,
             room,
             websocketPath: getRoomWebSocketPath(roomId),
           }),

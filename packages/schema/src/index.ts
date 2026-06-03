@@ -139,11 +139,13 @@ export const RoomStateSchema = z.object({
 });
 
 export const CreateRoomResponseSchema = z.object({
+  connectionToken: z.string().min(1),
   room: RoomStateSchema,
   websocketPath: z.string().min(1),
 });
 
 export const JoinRoomResponseSchema = z.object({
+  connectionToken: z.string().min(1),
   playerId: z.string().min(1),
   room: RoomStateSchema,
   websocketPath: z.string().min(1),

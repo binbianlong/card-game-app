@@ -1,5 +1,5 @@
 import { getServerByName, routePartykitRequest } from "partyserver";
-import { JoinRoomResponseSchema } from "schema";
+import { CreateRoomResponseSchema, JoinRoomResponseSchema } from "schema";
 import { createWorkerApp } from "./app.ts";
 import { createAuth } from "./auth/auth.ts";
 import { createInternalRoomRequest } from "./room-server/internal-request.ts";
@@ -68,12 +68,13 @@ const app = createWorkerApp<Env>({
     );
 
     if (!response.ok) {
-      return false;
+      return null;
     }
 
+    const data = CreateRoomResponseSchema.parse(await response.clone().json());
     await createRoomRepository(env.DB).saveRoomMetadata(room);
 
-    return true;
+    return data.connectionToken;
   },
 });
 

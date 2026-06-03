@@ -1,4 +1,4 @@
-import { Server, type Connection } from "partyserver";
+import { Server, type Connection, type ConnectionContext } from "partyserver";
 import { ClientEventSchema, getRoomWebSocketPath, type ClientEvent, type RoomState } from "schema";
 import { createErrorEvent, createRoomStateEvent, parseRoomState } from "../app.ts";
 import {
@@ -9,7 +9,7 @@ import {
   isCpuTurn,
 } from "../rooms/state.ts";
 import { createRoomRepository } from "../rooms/repository.ts";
-import { validateConnectionEvent } from "./connection-event.ts";
+import { validateConnectionEvent, validateConnectionToken } from "./connection-event.ts";
 import { validateInternalRoomRequest } from "./internal-request.ts";
 
 type RoomServerEnv = {
@@ -19,13 +19,22 @@ type RoomServerEnv = {
 };
 
 const cpuTurnDelayMs = 900;
+const connectionTokensStorageKey = "connectionTokens";
 
 class RoomServer extends Server<RoomServerEnv> {
   static override options = {
     hibernate: true,
   };
 
-  async onConnect(connection: Connection) {
+  async onConnect(connection: Connection, context: ConnectionContext) {
+    const tokenError = await this.validateConnectionToken(connection.id, context.request);
+
+    if (tokenError !== null) {
+      connection.send(JSON.stringify(createErrorEvent(tokenError.code, tokenError.message)));
+      connection.close(1008, tokenError.message);
+      return;
+    }
+
     const room = await this.getRoom();
     connection.send(JSON.stringify(createRoomStateEvent(room)));
     await this.scheduleCpuTurn(room);
@@ -94,9 +103,14 @@ class RoomServer extends Server<RoomServerEnv> {
       const room = parseRoomState(body);
 
       await this.setRoom(room);
+      const connectionToken = await this.setConnectionToken(room.hostPlayerId);
       await this.scheduleCpuTurn(room);
 
-      return Response.json(room);
+      return Response.json({
+        connectionToken,
+        room,
+        websocketPath: getRoomWebSocketPath(room.id),
+      });
     }
 
     if (request.method === "POST" && url.pathname === "/join") {
@@ -130,11 +144,13 @@ class RoomServer extends Server<RoomServerEnv> {
       }
 
       const playerId = getJoinedPlayerId(storedRoom, nextRoom);
+      const connectionToken = await this.setConnectionToken(playerId);
 
       this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
       await this.scheduleCpuTurn(nextRoom);
 
       return Response.json({
+        connectionToken,
         playerId,
         room: nextRoom,
         websocketPath: getRoomWebSocketPath(nextRoom.id),
@@ -180,6 +196,34 @@ class RoomServer extends Server<RoomServerEnv> {
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
+  }
+
+  private async setConnectionToken(playerId: string) {
+    const connectionTokens = await this.getConnectionTokens();
+    const connectionToken = crypto.randomUUID();
+
+    await this.ctx.storage.put(connectionTokensStorageKey, {
+      ...connectionTokens,
+      [playerId]: connectionToken,
+    });
+
+    return connectionToken;
+  }
+
+  private async getConnectionTokens() {
+    return (await this.ctx.storage.get<Record<string, string>>(connectionTokensStorageKey)) ?? {};
+  }
+
+  private async validateConnectionToken(playerId: string, request: Request) {
+    const room = await this.getRoom();
+    const requestToken = new URL(request.url).searchParams.get("token");
+    const connectionTokens = await this.getConnectionTokens();
+
+    return validateConnectionToken({
+      expectedConnectionToken: connectionTokens[playerId],
+      hasParticipant: room.participants.some((participant) => participant.id === playerId),
+      requestConnectionToken: requestToken,
+    });
   }
 
   private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {

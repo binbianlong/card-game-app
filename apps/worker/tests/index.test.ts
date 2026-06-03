@@ -32,6 +32,7 @@ const app = createWorkerApp({
   },
   async joinRoom() {
     return Response.json({
+      connectionToken: "guest-token",
       playerId: "player-2",
       room: {
         id: "room-1",
@@ -106,7 +107,7 @@ const app = createWorkerApp({
     ];
   },
   async saveRoom() {
-    return true;
+    return "host-token";
   },
 });
 
@@ -135,6 +136,7 @@ describe("worker", () => {
     );
 
     await expect(response.json()).resolves.toMatchObject({
+      connectionToken: "guest-token",
       playerId: "player-2",
       room: {
         id: "room-1",
@@ -171,6 +173,7 @@ describe("worker", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
+      connectionToken: "host-token",
       room: {
         hostPlayerId: "player-1",
         status: "waiting",

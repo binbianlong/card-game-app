@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createClientEvent } from "schema";
-import { validateConnectionEvent } from "../src/room-server/connection-event.ts";
+import {
+  validateConnectionEvent,
+  validateConnectionToken,
+} from "../src/room-server/connection-event.ts";
 import {
   createInternalRoomRequest,
   validateInternalRoomRequest,
@@ -42,6 +45,40 @@ describe("room server", () => {
         playerName: "Guest",
       }),
     );
+
+    expect(error).toMatchObject({
+      code: "notAllowed",
+    });
+  });
+
+  test("accepts websocket connections with the matching player token", () => {
+    const error = validateConnectionToken({
+      expectedConnectionToken: "token-1",
+      hasParticipant: true,
+      requestConnectionToken: "token-1",
+    });
+
+    expect(error).toBeNull();
+  });
+
+  test("rejects websocket connections with another player's token", () => {
+    const error = validateConnectionToken({
+      expectedConnectionToken: "token-1",
+      hasParticipant: true,
+      requestConnectionToken: "token-2",
+    });
+
+    expect(error).toMatchObject({
+      code: "notAllowed",
+    });
+  });
+
+  test("rejects websocket connections without a player token", () => {
+    const error = validateConnectionToken({
+      expectedConnectionToken: "token-1",
+      hasParticipant: true,
+      requestConnectionToken: null,
+    });
 
     expect(error).toMatchObject({
       code: "notAllowed",

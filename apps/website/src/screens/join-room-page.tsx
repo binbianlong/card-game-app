@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
 import { getStoredNickname } from "@/features/auth/nickname";
+import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
 import { joinRoom as joinRoomRequest } from "@/features/rooms/room-api";
 
 function JoinRoomPage() {
@@ -34,6 +35,11 @@ function JoinRoomPage() {
       const data = await joinRoomRequest({
         inviteCode: normalizedInviteCode,
         playerName: playerName.trim(),
+      });
+      saveRoomConnectionToken({
+        connectionToken: data.connectionToken,
+        playerId: data.playerId,
+        roomId: data.room.id,
       });
 
       await navigate({

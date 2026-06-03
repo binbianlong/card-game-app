@@ -5,14 +5,22 @@ import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomState } fr
 
 type ConnectionStatus = "closed" | "connecting" | "open";
 
-function useWaitingRoomSocket({ playerId, roomId }: { playerId: string; roomId: string }) {
+function useWaitingRoomSocket({
+  connectionToken,
+  playerId,
+  roomId,
+}: {
+  connectionToken: string;
+  playerId: string;
+  roomId: string;
+}) {
   const socketRef = useRef<PartySocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("closed");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomState | null>(null);
 
   useEffect(() => {
-    if (roomId.length === 0 || playerId.length === 0) {
+    if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {
       setErrorMessage("ルーム情報がありません。");
       return;
     }
@@ -23,6 +31,7 @@ function useWaitingRoomSocket({ playerId, roomId }: { playerId: string; roomId: 
     const socket = new PartySocket({
       host: getWorkerHost(),
       party: roomPartyName,
+      query: { token: connectionToken },
       room: roomId,
       id: playerId,
     });
@@ -55,7 +64,7 @@ function useWaitingRoomSocket({ playerId, roomId }: { playerId: string; roomId: 
       socket.close();
       socketRef.current = null;
     };
-  }, [playerId, roomId]);
+  }, [connectionToken, playerId, roomId]);
 
   function sendEvent(event: ClientEvent) {
     socketRef.current?.send(JSON.stringify(event));

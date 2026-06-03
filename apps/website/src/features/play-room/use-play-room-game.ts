@@ -60,9 +60,11 @@ const emptyPlayerView: PlayerGameView = {
 };
 
 function usePlayRoomGame({
+  connectionToken,
   playerId,
   roomId,
 }: {
+  connectionToken: string;
   cpuCount: number;
   playerCount: number;
   playerId: string;
@@ -139,7 +141,7 @@ function usePlayRoomGame({
   const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
-    if (roomId.length === 0 || playerId.length === 0) {
+    if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {
       setErrorMessage("ルーム情報がありません。");
       return;
     }
@@ -147,6 +149,7 @@ function usePlayRoomGame({
     const socket = new PartySocket({
       host: getWorkerHost(),
       party: roomPartyName,
+      query: { token: connectionToken },
       room: roomId,
       id: playerId,
     });
@@ -174,7 +177,7 @@ function usePlayRoomGame({
       socket.close();
       socketRef.current = null;
     };
-  }, [playerId, roomId]);
+  }, [connectionToken, playerId, roomId]);
 
   useEffect(() => {
     setSelectedCardIds((currentIds) =>
