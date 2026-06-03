@@ -1,6 +1,7 @@
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { JoinRoomResponseSchema } from "schema";
 import { createWorkerApp } from "./app.ts";
+import { createAuth } from "./auth/auth.ts";
 import { createInternalRoomRequest } from "./room-server/internal-request.ts";
 import { RoomServer } from "./room-server/server.ts";
 import { createRoomRepository } from "./rooms/repository.ts";
@@ -22,6 +23,13 @@ const app = createWorkerApp<Env>({
   },
   async getRoomHistory(env, roomId) {
     return createRoomRepository(env.DB).getRoomHistory(roomId);
+  },
+  async getSessionUser(env, request) {
+    const session = await createAuth(env).api.getSession({
+      headers: request.headers,
+    });
+
+    return session?.user ?? null;
   },
   async joinRoom(env, roomId, event) {
     const server = await getServerByName(env.RoomServer, roomId);

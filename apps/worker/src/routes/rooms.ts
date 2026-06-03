@@ -25,8 +25,13 @@ type RoomMetadata = {
   inviteCode: string;
 };
 
+type AuthenticatedUser = {
+  id: string;
+};
+
 type RoomsRouteOptions<Env extends WorkerBindings> = {
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
+  getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
     env: Env,
     roomId: string,
@@ -41,6 +46,7 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
 function createRoomsRoute<Env extends WorkerBindings>({
   findRoomByInviteCode,
   getRoomHistory,
+  getSessionUser,
   joinRoom,
   listMatchHistory,
   listRoomHistory,
@@ -71,6 +77,15 @@ function createRoomsRoute<Env extends WorkerBindings>({
       createClientEventValidator("createRoom", "createRoom event is required."),
       async (context) => {
         const env = context.env as Env;
+        const user = await getSessionUser(env, context.req.raw);
+
+        if (user === null) {
+          return context.json(
+            createErrorEvent("notAllowed", "Login is required to create rooms."),
+            401,
+          );
+        }
+
         const event = context.req.valid("json");
         const roomId = createRoomId();
         const inviteCode = createInviteCode(roomId);

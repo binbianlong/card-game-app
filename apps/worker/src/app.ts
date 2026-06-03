@@ -14,6 +14,7 @@ type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>
 function createWorkerApp<Env extends WorkerBindings>({
   findRoomByInviteCode,
   getRoomHistory,
+  getSessionUser,
   joinRoom,
   listMatchHistory,
   listRoomHistory,
@@ -46,6 +47,7 @@ function createWorkerApp<Env extends WorkerBindings>({
     createRoomsRoute({
       findRoomByInviteCode,
       getRoomHistory,
+      getSessionUser,
       joinRoom,
       listMatchHistory,
       listRoomHistory,
