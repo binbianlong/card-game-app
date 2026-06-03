@@ -1,6 +1,7 @@
 import { getServerByName, routePartykitRequest } from "partyserver";
 import { JoinRoomResponseSchema } from "schema";
 import { createWorkerApp } from "./app.ts";
+import { createInternalRoomRequest } from "./room-server/internal-request.ts";
 import { RoomServer } from "./room-server/server.ts";
 import { createRoomRepository } from "./rooms/repository.ts";
 
@@ -11,6 +12,7 @@ type Env = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   RoomServer: DurableObjectNamespace<RoomServer>;
+  ROOM_SERVER_SECRET: string;
   TRUSTED_ORIGINS?: string;
 };
 
@@ -25,10 +27,11 @@ const app = createWorkerApp<Env>({
     const server = await getServerByName(env.RoomServer, roomId);
 
     const response = await server.fetch(
-      new Request("https://room-server.internal/join", {
+      createInternalRoomRequest({
         body: JSON.stringify(event),
-        headers: { "content-type": "application/json" },
         method: "POST",
+        path: "/join",
+        secret: env.ROOM_SERVER_SECRET,
       }),
     );
 
@@ -48,10 +51,11 @@ const app = createWorkerApp<Env>({
   async saveRoom(env, roomId, room) {
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(
-      new Request("https://room-server.internal/state", {
+      createInternalRoomRequest({
         body: JSON.stringify(room),
-        headers: { "content-type": "application/json" },
         method: "PUT",
+        path: "/state",
+        secret: env.ROOM_SERVER_SECRET,
       }),
     );
 

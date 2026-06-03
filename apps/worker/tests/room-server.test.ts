@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createClientEvent } from "schema";
 import { validateConnectionEvent } from "../src/room-server/connection-event.ts";
+import {
+  createInternalRoomRequest,
+  validateInternalRoomRequest,
+} from "../src/room-server/internal-request.ts";
 
 describe("room server", () => {
   test("accepts events from the matching connection player", () => {
@@ -41,6 +45,42 @@ describe("room server", () => {
 
     expect(error).toMatchObject({
       code: "notAllowed",
+    });
+  });
+
+  test("accepts internal room requests with the configured secret", () => {
+    const request = createInternalRoomRequest({
+      body: JSON.stringify({ ok: true }),
+      method: "PUT",
+      path: "/state",
+      secret: "secret",
+    });
+
+    expect(validateInternalRoomRequest(request, "secret")).toEqual({ ok: true });
+  });
+
+  test("rejects internal room requests without the configured secret", () => {
+    const request = new Request("https://room-server.internal/state", {
+      body: JSON.stringify({ ok: true }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    expect(validateInternalRoomRequest(request, "secret")).toMatchObject({
+      ok: false,
+    });
+  });
+
+  test("rejects internal room requests when the secret is not configured", () => {
+    const request = createInternalRoomRequest({
+      body: JSON.stringify({ ok: true }),
+      method: "PUT",
+      path: "/state",
+      secret: "secret",
+    });
+
+    expect(validateInternalRoomRequest(request, undefined)).toMatchObject({
+      ok: false,
     });
   });
 });

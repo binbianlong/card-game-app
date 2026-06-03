@@ -10,10 +10,12 @@ import {
 } from "../rooms/state.ts";
 import { createRoomRepository } from "../rooms/repository.ts";
 import { validateConnectionEvent } from "./connection-event.ts";
+import { validateInternalRoomRequest } from "./internal-request.ts";
 
 type RoomServerEnv = {
   DB?: D1Database;
   RoomServer: DurableObjectNamespace<RoomServer>;
+  ROOM_SERVER_SECRET?: string;
 };
 
 const cpuTurnDelayMs = 900;
@@ -71,6 +73,17 @@ class RoomServer extends Server<RoomServerEnv> {
 
   async onRequest(request: Request) {
     const url = new URL(request.url);
+
+    const internalRequestValidation = validateInternalRoomRequest(
+      request,
+      this.env.ROOM_SERVER_SECRET,
+    );
+
+    if (!internalRequestValidation.ok) {
+      return Response.json(createErrorEvent("notAllowed", internalRequestValidation.message), {
+        status: 403,
+      });
+    }
 
     if (request.method === "GET" && url.pathname === "/state") {
       return Response.json(await this.getRoom());
