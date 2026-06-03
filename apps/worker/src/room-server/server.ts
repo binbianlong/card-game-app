@@ -36,7 +36,7 @@ class RoomServer extends Server<RoomServerEnv> {
     }
 
     const room = await this.getRoom();
-    connection.send(JSON.stringify(createRoomStateEvent(room)));
+    this.sendRoomState(connection, room);
     await this.scheduleCpuTurn(room);
   }
 
@@ -76,7 +76,7 @@ class RoomServer extends Server<RoomServerEnv> {
       return;
     }
 
-    this.broadcast(JSON.stringify(createRoomStateEvent(room)));
+    this.sendRoomStateToConnections(room);
     await this.scheduleCpuTurn(room);
   }
 
@@ -146,7 +146,7 @@ class RoomServer extends Server<RoomServerEnv> {
       const playerId = getJoinedPlayerId(storedRoom, nextRoom);
       const connectionToken = await this.setConnectionToken(playerId);
 
-      this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
+      this.sendRoomStateToConnections(nextRoom);
       await this.scheduleCpuTurn(nextRoom);
 
       return Response.json({
@@ -174,7 +174,7 @@ class RoomServer extends Server<RoomServerEnv> {
     await this.saveFinishedRoom(room, nextRoom);
 
     if (nextRoom !== room) {
-      this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
+      this.sendRoomStateToConnections(nextRoom);
     }
 
     await this.scheduleCpuTurn(nextRoom);
@@ -196,6 +196,16 @@ class RoomServer extends Server<RoomServerEnv> {
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
+  }
+
+  private sendRoomState(connection: Connection, room: RoomState) {
+    connection.send(JSON.stringify(createRoomStateEvent(room, connection.id)));
+  }
+
+  private sendRoomStateToConnections(room: RoomState) {
+    for (const connection of this.getConnections()) {
+      this.sendRoomState(connection, room);
+    }
   }
 
   private async setConnectionToken(playerId: string) {

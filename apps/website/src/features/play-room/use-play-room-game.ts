@@ -1,6 +1,5 @@
 import {
-  getAvailableActions,
-  getPlayerView,
+  getAvailableViewActions,
   type Card,
   type Play,
   type PlayerGameView,
@@ -9,7 +8,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import PartySocket from "partysocket";
 import { getWorkerHost } from "@/features/rooms/room-api";
-import { ServerEventSchema, createClientEvent, roomPartyName, type RoomState } from "schema";
+import { ServerEventSchema, createClientEvent, roomPartyName, type RoomClientState } from "schema";
 
 type PlayerMeta = {
   id: PlayerId;
@@ -71,15 +70,12 @@ function usePlayRoomGame({
   roomId: string;
 }) {
   const socketRef = useRef<PartySocket | null>(null);
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const [room, setRoom] = useState<RoomClientState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const gameState = room?.game ?? null;
   const viewerId = playerId;
-  const playerView = useMemo(
-    () => (gameState === null ? emptyPlayerView : getPlayerView(gameState, viewerId)),
-    [gameState, viewerId],
-  );
+  const playerView = gameState ?? emptyPlayerView;
   const playerMetas = useMemo(() => createPlayerMetas(room), [room]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
   const playerHand = viewer?.hand ?? [];
@@ -89,7 +85,7 @@ function usePlayRoomGame({
   const availableActions =
     gameState === null
       ? { isTurn: false, canPlaySelectedCards: false, canPass: false }
-      : getAvailableActions(gameState, viewerId, { selectedCardIds });
+      : getAvailableViewActions(gameState, { selectedCardIds });
   const opponents = useMemo(
     () =>
       playerView.players
@@ -123,7 +119,7 @@ function usePlayRoomGame({
 
     return gameState.rankings.map((rankedPlayerId, index): FinalResult => {
       const meta = getPlayerMeta(playerMetas, rankedPlayerId);
-      const initialHand = gameState.initialHands.find(
+      const initialHand = gameState.initialHands?.find(
         (candidate) => candidate.playerId === rankedPlayerId,
       );
       const finalPlayer = gameState.players.find((candidate) => candidate.id === rankedPlayerId);
@@ -245,7 +241,7 @@ function usePlayRoomGame({
   };
 }
 
-function createPlayerMetas(room: RoomState | null): readonly PlayerMeta[] {
+function createPlayerMetas(room: RoomClientState | null): readonly PlayerMeta[] {
   return (
     room?.participants.map((participant) => ({
       id: participant.id,

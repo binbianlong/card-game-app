@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { createClientEvent } from "schema";
+import { createClientEvent, type RoomState } from "schema";
+import { createRoomStateEvent } from "../src/app.ts";
 import {
   validateConnectionEvent,
   validateConnectionToken,
@@ -10,6 +11,23 @@ import {
 } from "../src/room-server/internal-request.ts";
 
 describe("room server", () => {
+  test("redacts other players' hands from websocket room state events", () => {
+    const event = createRoomStateEvent(createPlayingRoom(), "player-1");
+
+    expect(event.room.game?.players).toEqual([
+      expect.objectContaining({
+        id: "player-1",
+        hand: [{ id: "clubs-3", rank: "3", suit: "clubs" }],
+        handCount: 1,
+      }),
+      expect.objectContaining({
+        id: "player-2",
+        hand: null,
+        handCount: 1,
+      }),
+    ]);
+  });
+
   test("accepts events from the matching connection player", () => {
     const error = validateConnectionEvent(
       "player-1",
@@ -121,3 +139,79 @@ describe("room server", () => {
     });
   });
 });
+
+function createPlayingRoom(): RoomState {
+  return {
+    id: "room-1",
+    inviteCode: "ROOM",
+    playerCount: 3,
+    status: "playing",
+    hostPlayerId: "player-1",
+    participants: [
+      {
+        id: "player-1",
+        name: "Host",
+        kind: "host",
+        connected: true,
+        ready: true,
+      },
+      {
+        id: "player-2",
+        name: "Guest",
+        kind: "guest",
+        connected: true,
+        ready: true,
+      },
+    ],
+    rules: {
+      eightCut: true,
+      elevenBack: true,
+      revolution: true,
+      sequence: true,
+      suitLock: true,
+    },
+    game: {
+      matchId: "match-1",
+      phase: "playing",
+      rules: {
+        eightCut: true,
+        elevenBack: true,
+        revolution: true,
+        sequence: true,
+        suitLock: true,
+      },
+      players: [
+        {
+          id: "player-1",
+          connected: true,
+          hand: [{ id: "clubs-3", rank: "3", suit: "clubs" }],
+        },
+        {
+          id: "player-2",
+          connected: true,
+          hand: [{ id: "spades-4", rank: "4", suit: "spades" }],
+        },
+      ],
+      initialHands: [
+        {
+          playerId: "player-1",
+          cards: [{ id: "clubs-3", rank: "3", suit: "clubs" }],
+        },
+        {
+          playerId: "player-2",
+          cards: [{ id: "spades-4", rank: "4", suit: "spades" }],
+        },
+      ],
+      turnPlayerId: "player-1",
+      table: {
+        play: null,
+        playedBy: null,
+      },
+      passedPlayerIds: [],
+      elevenBack: false,
+      revolution: false,
+      suitLock: null,
+      rankings: [],
+    },
+  };
+}

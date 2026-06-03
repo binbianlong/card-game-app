@@ -1,7 +1,7 @@
 import PartySocket from "partysocket";
 import { useEffect, useRef, useState } from "react";
 import { getWorkerHost } from "@/features/rooms/room-api";
-import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomState } from "schema";
+import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomClientState } from "schema";
 
 type ConnectionStatus = "closed" | "connecting" | "open";
 
@@ -17,7 +17,7 @@ function useWaitingRoomSocket({
   const socketRef = useRef<PartySocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("closed");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const [room, setRoom] = useState<RoomClientState | null>(null);
 
   useEffect(() => {
     if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {

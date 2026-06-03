@@ -1,6 +1,14 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { RoomStateSchema, createServerEvent, type RoomState, type ServerErrorCode } from "schema";
+import { getPlayerView } from "game";
+import {
+  RoomClientStateSchema,
+  RoomStateSchema,
+  createServerEvent,
+  type RoomClientState,
+  type RoomState,
+  type ServerErrorCode,
+} from "schema";
 import { createAuth, type AuthEnv } from "./auth/auth.ts";
 import { getTrustedOrigin } from "./auth/origins.ts";
 import { createRoomsRoute, type RoomsRouteOptions } from "./routes/rooms.ts";
@@ -58,8 +66,8 @@ function createWorkerApp<Env extends WorkerBindings>({
   return app;
 }
 
-function createRoomStateEvent(room: RoomState) {
-  return createServerEvent.roomState(room);
+function createRoomStateEvent(room: RoomState, viewerId: string) {
+  return createServerEvent.roomState(createRoomClientState(room, viewerId));
 }
 
 function createErrorEvent(code: ServerErrorCode, message: string) {
@@ -68,6 +76,37 @@ function createErrorEvent(code: ServerErrorCode, message: string) {
 
 function parseRoomState(value: unknown) {
   return RoomStateSchema.parse(value);
+}
+
+function createRoomClientState(room: RoomState, viewerId: string): RoomClientState {
+  const gameView =
+    room.game === null
+      ? null
+      : {
+          ...getPlayerView(room.game, viewerId),
+          ...(room.game.phase === "finished"
+            ? {
+                initialHands: room.game.initialHands,
+                players: room.game.players.map((player) => {
+                  const rankingIndex = room.game?.rankings.indexOf(player.id) ?? -1;
+
+                  return {
+                    id: player.id,
+                    connected: player.connected,
+                    handCount: player.hand.length,
+                    hand: player.hand,
+                    finished: rankingIndex !== -1,
+                    rank: rankingIndex === -1 ? null : rankingIndex + 1,
+                  };
+                }),
+              }
+            : {}),
+        };
+
+  return RoomClientStateSchema.parse({
+    ...room,
+    game: gameView,
+  });
 }
 
 export { createErrorEvent, createRoomStateEvent, createWorkerApp, parseRoomState };

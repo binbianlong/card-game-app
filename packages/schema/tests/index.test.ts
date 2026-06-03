@@ -9,6 +9,7 @@ import {
   createClientEvent,
   createServerEvent,
   getRoomWebSocketPath,
+  type RoomClientState,
   type RoomState,
 } from "../src/index.ts";
 
@@ -36,6 +37,10 @@ const room: RoomState = {
     },
   ],
   rules,
+  game: null,
+};
+const roomClient: RoomClientState = {
+  ...room,
   game: null,
 };
 
@@ -151,9 +156,9 @@ describe("schema", () => {
   });
 
   test("creates typed server events", () => {
-    expect(createServerEvent.roomState(room)).toEqual({
+    expect(createServerEvent.roomState(roomClient)).toEqual({
       type: "roomState",
-      room,
+      room: roomClient,
     });
   });
 
