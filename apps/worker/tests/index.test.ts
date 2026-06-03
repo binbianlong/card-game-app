@@ -198,11 +198,50 @@ describe("worker", () => {
       ],
     });
   });
+
+  test("allows credentialed CORS from trusted origins", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history", {
+        headers: {
+          origin: "https://app.example",
+        },
+      }),
+      createTestEnv({
+        TRUSTED_ORIGINS: "https://app.example, https://admin.example",
+      }),
+    );
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+  });
+
+  test("does not reflect credentialed CORS from untrusted origins", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/history", {
+        headers: {
+          origin: "https://evil.example",
+        },
+      }),
+      createTestEnv({
+        TRUSTED_ORIGINS: "https://app.example",
+      }),
+    );
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+  });
 });
 
-function createTestEnv() {
+type TestEnv = {
+  DB: D1Database;
+  RoomServer: DurableObjectNamespace;
+  TRUSTED_ORIGINS?: string;
+};
+
+function createTestEnv(overrides: Partial<TestEnv> = {}): TestEnv {
   return {
     DB: {} as D1Database,
     RoomServer: {} as DurableObjectNamespace,
+    ...overrides,
   };
 }

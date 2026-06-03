@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RoomStateSchema, createServerEvent, type RoomState, type ServerErrorCode } from "schema";
 import { createAuth, type AuthEnv } from "./auth/auth.ts";
+import { getTrustedOrigin } from "./auth/origins.ts";
 import { createRoomsRoute, type RoomsRouteOptions } from "./routes/rooms.ts";
 
 type WorkerBindings = AuthEnv & {
@@ -26,7 +27,7 @@ function createWorkerApp<Env extends WorkerBindings>({
       allowHeaders: ["Content-Type", "Authorization"],
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,
-      origin: (origin) => origin,
+      origin: (origin, context) => getTrustedOrigin(origin, context.env.TRUSTED_ORIGINS),
     }),
   );
 
