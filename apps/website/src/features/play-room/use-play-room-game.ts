@@ -5,10 +5,9 @@ import {
   type PlayerGameView,
   type PlayerId,
 } from "game";
-import { useEffect, useMemo, useRef, useState } from "react";
-import PartySocket from "partysocket";
-import { createRoomConnectionTicket, getWorkerHost } from "@/features/rooms/room-api";
-import { ServerEventSchema, createClientEvent, roomPartyName, type RoomClientState } from "schema";
+import { useEffect, useMemo, useState } from "react";
+import { useRoomSocket } from "@/features/room-socket/use-room-socket";
+import { createClientEvent, type RoomClientState } from "schema";
 
 type PlayerMeta = {
   id: PlayerId;
@@ -69,9 +68,12 @@ function usePlayRoomGame({
   playerId: string;
   roomId: string;
 }) {
-  const socketRef = useRef<PartySocket | null>(null);
-  const [room, setRoom] = useState<RoomClientState | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { errorMessage, isReconnectRequired, room, sendEvent } = useRoomSocket({
+    connectionToken,
+    invalidMessage: "ゲーム状態を読み取れませんでした。",
+    playerId,
+    roomId,
+  });
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const gameState = room?.game ?? null;
   const viewerId = playerId;
@@ -137,60 +139,6 @@ function usePlayRoomGame({
   const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
-    if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {
-      setErrorMessage("ルーム情報がありません。");
-      return;
-    }
-
-    let closed = false;
-
-    void createRoomConnectionTicket({ connectionToken, playerId, roomId })
-      .then((ticket) => {
-        if (closed) {
-          return;
-        }
-
-        const socket = new PartySocket({
-          host: getWorkerHost(),
-          party: roomPartyName,
-          query: { ticket },
-          room: roomId,
-          id: playerId,
-        });
-        socketRef.current = socket;
-
-        socket.addEventListener("message", (event) => {
-          const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
-
-          if (!serverEvent.success) {
-            setErrorMessage("ゲーム状態を読み取れませんでした。");
-            return;
-          }
-
-          if (serverEvent.data.type === "error") {
-            setErrorMessage(serverEvent.data.message);
-            return;
-          }
-
-          setRoom(serverEvent.data.room);
-          setErrorMessage(null);
-        });
-        socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
-      })
-      .catch(() => {
-        if (!closed) {
-          setErrorMessage("リアルタイム接続に失敗しました。");
-        }
-      });
-
-    return () => {
-      closed = true;
-      socketRef.current?.close();
-      socketRef.current = null;
-    };
-  }, [connectionToken, playerId, roomId]);
-
-  useEffect(() => {
     setSelectedCardIds((currentIds) =>
       currentIds.filter((cardId) => playerHand.some((card) => card.id === cardId)),
     );
@@ -209,30 +157,28 @@ function usePlayRoomGame({
   }
 
   function playSelectedCards() {
-    socketRef.current?.send(
-      JSON.stringify(
-        createClientEvent.playCards({
-          roomId,
-          playerId,
-          cardIds: selectedCardIds,
-        }),
-      ),
+    sendEvent(
+      createClientEvent.playCards({
+        roomId,
+        playerId,
+        cardIds: selectedCardIds,
+      }),
     );
     setSelectedCardIds([]);
   }
 
   function passTurn() {
-    socketRef.current?.send(JSON.stringify(createClientEvent.pass({ roomId, playerId })));
+    sendEvent(createClientEvent.pass({ roomId, playerId }));
     setSelectedCardIds([]);
   }
 
   function startRematch() {
-    socketRef.current?.send(JSON.stringify(createClientEvent.rematch({ roomId, playerId })));
+    sendEvent(createClientEvent.rematch({ roomId, playerId }));
     setSelectedCardIds([]);
   }
 
   function leaveRoom() {
-    socketRef.current?.send(JSON.stringify(createClientEvent.leaveRoom({ roomId, playerId })));
+    sendEvent(createClientEvent.leaveRoom({ roomId, playerId }));
   }
 
   return {
@@ -241,6 +187,7 @@ function usePlayRoomGame({
     clearSelection,
     errorMessage,
     finalResults,
+    isReconnectRequired,
     leaveRoom,
     opponents,
     passTurn,
@@ -274,18 +221,6 @@ function getPlayerMeta(playerMetas: readonly PlayerMeta[], playerId: PlayerId): 
       name: playerId,
     }
   );
-}
-
-function parseMessage(message: unknown) {
-  if (typeof message !== "string") {
-    return null;
-  }
-
-  try {
-    return JSON.parse(message) as unknown;
-  } catch {
-    return null;
-  }
 }
 
 function describePlay(play: Play): string {
