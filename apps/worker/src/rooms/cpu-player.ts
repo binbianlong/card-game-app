@@ -68,7 +68,7 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
   }
 
   if (state.table.play === null) {
-    return player.hand[0] === undefined ? null : [player.hand[0].id];
+    return findOpeningCardIds(state, playerId);
   }
 
   const cardCount = state.table.play?.cards.length ?? 1;
@@ -83,6 +83,28 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
   }
 
   return null;
+}
+
+function findOpeningCardIds(state: GameState, playerId: PlayerId): readonly string[] | null {
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  const weakestCard = player?.hand[0];
+
+  if (player === undefined || weakestCard === undefined) {
+    return null;
+  }
+
+  const weakestCardIds = player.hand
+    .filter((card) => card.rank === weakestCard.rank)
+    .map((card) => card.id);
+
+  if (
+    weakestCardIds.length >= 2 &&
+    getAvailableActions(state, playerId, { selectedCardIds: weakestCardIds }).canPlaySelectedCards
+  ) {
+    return weakestCardIds;
+  }
+
+  return [weakestCard.id];
 }
 
 function* iterateCardIdCombinations(

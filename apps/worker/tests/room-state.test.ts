@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { getAvailableActions } from "game";
-import { createClientEvent, type RoomState } from "schema";
+import { createGameState, getAvailableActions, type Card, type Rank, type Suit } from "game";
+import { GameStateSchema, createClientEvent, type RoomState } from "schema";
 import {
   RoomStateError,
   applyNextCpuTurn,
@@ -211,6 +211,40 @@ describe("room state", () => {
     );
   });
 
+  test("plays the weakest card before a stronger same-rank set on an opening cpu turn", () => {
+    const room = createCpuOpeningRoom([
+      card("3", "clubs"),
+      card("5", "clubs"),
+      card("5", "hearts"),
+    ]);
+    const nextGame = expectGame(applyNextCpuTurn(room));
+
+    expect(nextGame.table.play).toMatchObject({
+      kind: "single",
+      rank: "3",
+    });
+    expect(nextGame.table.play?.cards.map((playedCard) => playedCard.id)).toEqual(["clubs-3"]);
+  });
+
+  test("plays same-rank weakest cards together on an opening cpu turn", () => {
+    const room = createCpuOpeningRoom([
+      card("3", "clubs"),
+      card("3", "hearts"),
+      card("5", "clubs"),
+    ]);
+    const nextGame = expectGame(applyNextCpuTurn(room));
+
+    expect(nextGame.table.play).toMatchObject({
+      kind: "set",
+      count: 2,
+      rank: "3",
+    });
+    expect(nextGame.table.play?.cards.map((playedCard) => playedCard.id)).toEqual([
+      "clubs-3",
+      "hearts-3",
+    ]);
+  });
+
   test("stores game actions in room state", () => {
     const room = applyRoomClientEvent(
       readyAllHumanParticipants(createPlayableRoom()),
@@ -392,6 +426,33 @@ function createCpuTurnRoom() {
   throw new Error("Expected CPU turn.");
 }
 
+function createCpuOpeningRoom(cpuHand: readonly Card[]): RoomState {
+  return {
+    id: "room-1",
+    inviteCode: "ROOM",
+    playerCount: 3,
+    status: "playing",
+    hostPlayerId: "player-1",
+    participants: [
+      { id: "player-1", name: "Host", kind: "host", connected: true, ready: true },
+      { id: "cpu-1", name: "CPU 1", kind: "cpu", connected: true, ready: true },
+      { id: "player-2", name: "Guest", kind: "guest", connected: true, ready: true },
+    ],
+    rules,
+    game: GameStateSchema.parse(
+      createGameState(
+        [
+          { id: "player-1", hand: [card("4", "clubs")] },
+          { id: "cpu-1", hand: cpuHand },
+          { id: "player-2", hand: [card("6", "clubs")] },
+        ],
+        "cpu-1",
+        { matchId: "match-1", rules },
+      ),
+    ),
+  };
+}
+
 function createPlayableRoom() {
   return ["Guest 1", "Guest 2"].reduce(
     (room, playerName) =>
@@ -421,6 +482,14 @@ function readyAllHumanParticipants(room: RoomState) {
         ),
       room,
     );
+}
+
+function card(rank: Rank, suit: Suit = "spades"): Card {
+  return {
+    id: `${suit}-${rank}`,
+    rank,
+    suit,
+  };
 }
 
 function expectGame(room: RoomState) {
