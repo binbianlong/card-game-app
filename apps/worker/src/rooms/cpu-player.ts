@@ -7,8 +7,12 @@ import {
 } from "game";
 import { GameStateSchema, clientEventTypes, type RoomState } from "schema";
 
-function applyNextCpuTurn(room: RoomState): RoomState {
-  if (!isCpuTurn(room) || room.game === null) {
+type CpuTurnOptions = {
+  cpuControlledPlayerIds?: readonly PlayerId[];
+};
+
+function applyNextCpuTurn(room: RoomState, options: CpuTurnOptions = {}): RoomState {
+  if (!isCpuTurn(room, options) || room.game === null) {
     return room;
   }
 
@@ -27,7 +31,7 @@ function applyNextCpuTurn(room: RoomState): RoomState {
   };
 }
 
-function isCpuTurn(room: RoomState) {
+function isCpuTurn(room: RoomState, options: CpuTurnOptions = {}) {
   if (room.status !== "playing" || room.game === null || room.game.phase !== "playing") {
     return false;
   }
@@ -36,7 +40,10 @@ function isCpuTurn(room: RoomState) {
     (candidate) => candidate.id === room.game?.turnPlayerId,
   );
 
-  return participant?.kind === "cpu";
+  return (
+    participant?.kind === "cpu" ||
+    options.cpuControlledPlayerIds?.includes(room.game.turnPlayerId) === true
+  );
 }
 
 function createCpuAction(state: GameState, playerId: PlayerId): GameAction | null {
@@ -132,3 +139,4 @@ function* iterateCardIdCombinations(
 }
 
 export { applyNextCpuTurn, isCpuTurn };
+export type { CpuTurnOptions };

@@ -4,6 +4,7 @@ import { GameStateSchema, createClientEvent, type RoomState } from "schema";
 import {
   RoomStateError,
   applyNextCpuTurn,
+  applyRoomConnectionChange,
   applyRoomClientEvent,
   createInviteCode,
   createWaitingRoom,
@@ -245,6 +246,36 @@ describe("room state", () => {
     ]);
   });
 
+  test("keeps disconnected human turns unchanged before cpu takeover", () => {
+    const room = applyRoomConnectionChange(createHumanOpeningRoom(), "player-1", false);
+
+    expect(applyNextCpuTurn(room)).toEqual(room);
+  });
+
+  test("applies a cpu action for a disconnected human after takeover", () => {
+    const room = applyRoomConnectionChange(createHumanOpeningRoom(), "player-1", false);
+    const nextGame = expectGame(applyNextCpuTurn(room, { cpuControlledPlayerIds: ["player-1"] }));
+
+    expect(nextGame.table.play).toMatchObject({
+      kind: "set",
+      count: 2,
+      rank: "3",
+    });
+    expect(nextGame.table.playedBy).toBe("player-1");
+  });
+
+  test("restores human control when a disconnected player reconnects", () => {
+    const disconnectedRoom = applyRoomConnectionChange(createHumanOpeningRoom(), "player-1", false);
+    const reconnectedRoom = applyRoomConnectionChange(disconnectedRoom, "player-1", true);
+
+    expect(
+      reconnectedRoom.participants.find((participant) => participant.id === "player-1"),
+    ).toMatchObject({ connected: true, kind: "host" });
+    expect(reconnectedRoom.game?.players.find((player) => player.id === "player-1")).toMatchObject({
+      connected: true,
+    });
+  });
+
   test("stores game actions in room state", () => {
     const room = applyRoomClientEvent(
       readyAllHumanParticipants(createPlayableRoom()),
@@ -447,6 +478,33 @@ function createCpuOpeningRoom(cpuHand: readonly Card[]): RoomState {
           { id: "player-2", hand: [card("6", "clubs")] },
         ],
         "cpu-1",
+        { matchId: "match-1", rules },
+      ),
+    ),
+  };
+}
+
+function createHumanOpeningRoom(): RoomState {
+  return {
+    id: "room-1",
+    inviteCode: "ROOM",
+    playerCount: 3,
+    status: "playing",
+    hostPlayerId: "player-1",
+    participants: [
+      { id: "player-1", name: "Host", kind: "host", connected: true, ready: true },
+      { id: "player-2", name: "Guest", kind: "guest", connected: true, ready: true },
+      { id: "cpu-1", name: "CPU 1", kind: "cpu", connected: true, ready: true },
+    ],
+    rules,
+    game: GameStateSchema.parse(
+      createGameState(
+        [
+          { id: "player-1", hand: [card("3", "clubs"), card("3", "hearts")] },
+          { id: "player-2", hand: [card("4", "clubs")] },
+          { id: "cpu-1", hand: [card("5", "clubs")] },
+        ],
+        "player-1",
         { matchId: "match-1", rules },
       ),
     ),
