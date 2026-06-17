@@ -16,6 +16,17 @@ type SaveRoomMetadataOptions = {
   playerUserIds?: Record<string, string>;
 };
 
+type RoomHistoryRoomRow = {
+  id: string;
+  playerCount: number;
+  status: RoomHistoryItem["status"];
+  createdAt: Date;
+};
+
+type FinishedMatchSummaryRow = {
+  finishedAt: Date | null;
+};
+
 function createRoomRepository(database: D1Database) {
   const db = drizzle(database);
 
@@ -128,28 +139,10 @@ function createRoomRepository(database: D1Database) {
         .orderBy(desc(rooms.createdAt))
         .limit(limit);
 
-      return roomRows.map((room): RoomHistoryItem => {
+      return roomRows.map((room) => {
         const roomMatches = matchRows.filter((match) => match.roomId === room.id);
-        const latestFinishedAt = roomMatches.reduce<Date | null>((latest, match) => {
-          if (match.finishedAt === null) {
-            return latest;
-          }
 
-          if (latest === null || match.finishedAt.getTime() > latest.getTime()) {
-            return match.finishedAt;
-          }
-
-          return latest;
-        }, null);
-
-        return {
-          id: room.id,
-          playerCount: room.playerCount,
-          status: room.status,
-          createdAt: room.createdAt.getTime(),
-          matchCount: roomMatches.length,
-          latestFinishedAt: latestFinishedAt?.getTime() ?? null,
-        };
+        return createRoomHistoryItem(room, roomMatches);
       });
     },
 
@@ -175,26 +168,8 @@ function createRoomRepository(database: D1Database) {
         })
         .from(matches)
         .where(and(eq(matches.roomId, room.id), eq(matches.status, "finished")));
-      const latestFinishedAt = matchRows.reduce<Date | null>((latest, match) => {
-        if (match.finishedAt === null) {
-          return latest;
-        }
 
-        if (latest === null || match.finishedAt.getTime() > latest.getTime()) {
-          return match.finishedAt;
-        }
-
-        return latest;
-      }, null);
-
-      return {
-        id: room.id,
-        playerCount: room.playerCount,
-        status: room.status,
-        createdAt: room.createdAt.getTime(),
-        matchCount: matchRows.length,
-        latestFinishedAt: latestFinishedAt?.getTime() ?? null,
-      };
+      return createRoomHistoryItem(room, matchRows);
     },
 
     async listMatchHistory(
@@ -373,6 +348,36 @@ function parseRules(value: string): GameRuleSettings {
 
 function parseCards(value: string): Card[] {
   return CardSchema.array().parse(JSON.parse(value));
+}
+
+function createRoomHistoryItem(
+  room: RoomHistoryRoomRow,
+  matchRows: readonly FinishedMatchSummaryRow[],
+): RoomHistoryItem {
+  const latestFinishedAt = getLatestFinishedAt(matchRows);
+
+  return {
+    id: room.id,
+    playerCount: room.playerCount,
+    status: room.status,
+    createdAt: room.createdAt.getTime(),
+    matchCount: matchRows.length,
+    latestFinishedAt: latestFinishedAt?.getTime() ?? null,
+  };
+}
+
+function getLatestFinishedAt(matchRows: readonly FinishedMatchSummaryRow[]) {
+  return matchRows.reduce<Date | null>((latest, match) => {
+    if (match.finishedAt === null) {
+      return latest;
+    }
+
+    if (latest === null || match.finishedAt.getTime() > latest.getTime()) {
+      return match.finishedAt;
+    }
+
+    return latest;
+  }, null);
 }
 
 function unique<T>(values: readonly T[]): T[] {
