@@ -1,6 +1,12 @@
 import { getServerByName, routePartykitRequest } from "partyserver";
-import { JoinRoomResponseSchema } from "schema";
+import {
+  CreateConnectionTicketResponseSchema,
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
+} from "schema";
 import { createWorkerApp } from "./app.ts";
+import { createAuth } from "./auth/auth.ts";
+import { createInternalRoomRequest } from "./room-server/internal-request.ts";
 import { RoomServer } from "./room-server/server.ts";
 import { createRoomRepository } from "./rooms/repository.ts";
 
@@ -11,57 +17,92 @@ type Env = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   RoomServer: DurableObjectNamespace<RoomServer>;
+  ROOM_SERVER_SECRET: string;
   TRUSTED_ORIGINS?: string;
 };
 
 const app = createWorkerApp<Env>({
+  async createConnectionTicket(env, roomId, request) {
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify(request),
+        method: "POST",
+        path: "/ticket",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = CreateConnectionTicketResponseSchema.parse(await response.json());
+
+    return data.ticket;
+  },
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
   },
-  async getRoomHistory(env, roomId) {
-    return createRoomRepository(env.DB).getRoomHistory(roomId);
+  async getRoomHistory(env, roomId, userId) {
+    return createRoomRepository(env.DB).getRoomHistory(roomId, userId);
   },
-  async joinRoom(env, roomId, event) {
+  async getSessionUser(env, request) {
+    const session = await createAuth(env).api.getSession({
+      headers: request.headers,
+    });
+
+    return session?.user ?? null;
+  },
+  async joinRoom(env, roomId, event, user) {
     const server = await getServerByName(env.RoomServer, roomId);
 
     const response = await server.fetch(
-      new Request("https://room-server.internal/join", {
+      createInternalRoomRequest({
         body: JSON.stringify(event),
-        headers: { "content-type": "application/json" },
         method: "POST",
+        path: "/join",
+        secret: env.ROOM_SERVER_SECRET,
       }),
     );
 
     if (response.ok) {
       const data = JoinRoomResponseSchema.parse(await response.clone().json());
-      await createRoomRepository(env.DB).saveRoomMetadata(data.room);
+      await createRoomRepository(env.DB).saveRoomMetadata(data.room, {
+        playerUserIds: user === null ? {} : { [data.playerId]: user.id },
+      });
     }
 
     return response;
   },
-  async listMatchHistory(env, roomId) {
-    return createRoomRepository(env.DB).listMatchHistory(roomId);
+  async listMatchHistory(env, roomId, userId) {
+    return createRoomRepository(env.DB).listMatchHistory(roomId, userId);
   },
-  async listRoomHistory(env) {
-    return createRoomRepository(env.DB).listRoomHistory();
+  async listRoomHistory(env, userId) {
+    return createRoomRepository(env.DB).listRoomHistory(userId);
   },
-  async saveRoom(env, roomId, room) {
+  async saveRoom(env, roomId, room, userId) {
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(
-      new Request("https://room-server.internal/state", {
+      createInternalRoomRequest({
         body: JSON.stringify(room),
-        headers: { "content-type": "application/json" },
         method: "PUT",
+        path: "/state",
+        secret: env.ROOM_SERVER_SECRET,
       }),
     );
 
     if (!response.ok) {
-      return false;
+      return null;
     }
 
-    await createRoomRepository(env.DB).saveRoomMetadata(room);
+    const data = CreateRoomResponseSchema.parse(await response.clone().json());
+    await createRoomRepository(env.DB).saveRoomMetadata(room, {
+      hostUserId: userId,
+      playerUserIds: { [room.hostPlayerId]: userId },
+    });
 
-    return true;
+    return data.connectionToken;
   },
 });
 

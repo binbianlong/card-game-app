@@ -2,6 +2,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
 import * as authSchema from "db";
 import { drizzle } from "drizzle-orm/d1";
+import { parseTrustedOrigins } from "./origins.ts";
 
 type AuthEnv = {
   BETTER_AUTH_SECRET?: string;
@@ -43,17 +44,6 @@ function createSocialProviders(env: AuthEnv) {
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   };
-}
-
-function parseTrustedOrigins(value: string | undefined) {
-  if (value === undefined || value.length === 0) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
 }
 
 export { createAuth };

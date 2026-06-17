@@ -1,6 +1,5 @@
 import {
-  getAvailableActions,
-  getPlayerView,
+  getAvailableViewActions,
   type Card,
   type Play,
   type PlayerGameView,
@@ -8,8 +7,8 @@ import {
 } from "game";
 import { useEffect, useMemo, useRef, useState } from "react";
 import PartySocket from "partysocket";
-import { getWorkerHost } from "@/features/rooms/room-api";
-import { ServerEventSchema, createClientEvent, roomPartyName, type RoomState } from "schema";
+import { createRoomConnectionTicket, getWorkerHost } from "@/features/rooms/room-api";
+import { ServerEventSchema, createClientEvent, roomPartyName, type RoomClientState } from "schema";
 
 type PlayerMeta = {
   id: PlayerId;
@@ -60,24 +59,23 @@ const emptyPlayerView: PlayerGameView = {
 };
 
 function usePlayRoomGame({
+  connectionToken,
   playerId,
   roomId,
 }: {
+  connectionToken: string;
   cpuCount: number;
   playerCount: number;
   playerId: string;
   roomId: string;
 }) {
   const socketRef = useRef<PartySocket | null>(null);
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const [room, setRoom] = useState<RoomClientState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const gameState = room?.game ?? null;
   const viewerId = playerId;
-  const playerView = useMemo(
-    () => (gameState === null ? emptyPlayerView : getPlayerView(gameState, viewerId)),
-    [gameState, viewerId],
-  );
+  const playerView = gameState ?? emptyPlayerView;
   const playerMetas = useMemo(() => createPlayerMetas(room), [room]);
   const viewer = playerView.players.find((player) => player.id === viewerId);
   const playerHand = viewer?.hand ?? [];
@@ -87,7 +85,7 @@ function usePlayRoomGame({
   const availableActions =
     gameState === null
       ? { isTurn: false, canPlaySelectedCards: false, canPass: false }
-      : getAvailableActions(gameState, viewerId, { selectedCardIds });
+      : getAvailableViewActions(gameState, { selectedCardIds });
   const opponents = useMemo(
     () =>
       playerView.players
@@ -121,7 +119,7 @@ function usePlayRoomGame({
 
     return gameState.rankings.map((rankedPlayerId, index): FinalResult => {
       const meta = getPlayerMeta(playerMetas, rankedPlayerId);
-      const initialHand = gameState.initialHands.find(
+      const initialHand = gameState.initialHands?.find(
         (candidate) => candidate.playerId === rankedPlayerId,
       );
       const finalPlayer = gameState.players.find((candidate) => candidate.id === rankedPlayerId);
@@ -139,42 +137,58 @@ function usePlayRoomGame({
   const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
-    if (roomId.length === 0 || playerId.length === 0) {
+    if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {
       setErrorMessage("ルーム情報がありません。");
       return;
     }
 
-    const socket = new PartySocket({
-      host: getWorkerHost(),
-      party: roomPartyName,
-      room: roomId,
-      id: playerId,
-    });
-    socketRef.current = socket;
+    let closed = false;
 
-    socket.addEventListener("message", (event) => {
-      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+    void createRoomConnectionTicket({ connectionToken, playerId, roomId })
+      .then((ticket) => {
+        if (closed) {
+          return;
+        }
 
-      if (!serverEvent.success) {
-        setErrorMessage("ゲーム状態を読み取れませんでした。");
-        return;
-      }
+        const socket = new PartySocket({
+          host: getWorkerHost(),
+          party: roomPartyName,
+          query: { ticket },
+          room: roomId,
+          id: playerId,
+        });
+        socketRef.current = socket;
 
-      if (serverEvent.data.type === "error") {
-        setErrorMessage(serverEvent.data.message);
-        return;
-      }
+        socket.addEventListener("message", (event) => {
+          const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
 
-      setRoom(serverEvent.data.room);
-      setErrorMessage(null);
-    });
-    socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
+          if (!serverEvent.success) {
+            setErrorMessage("ゲーム状態を読み取れませんでした。");
+            return;
+          }
+
+          if (serverEvent.data.type === "error") {
+            setErrorMessage(serverEvent.data.message);
+            return;
+          }
+
+          setRoom(serverEvent.data.room);
+          setErrorMessage(null);
+        });
+        socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
+      })
+      .catch(() => {
+        if (!closed) {
+          setErrorMessage("リアルタイム接続に失敗しました。");
+        }
+      });
 
     return () => {
-      socket.close();
+      closed = true;
+      socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [playerId, roomId]);
+  }, [connectionToken, playerId, roomId]);
 
   useEffect(() => {
     setSelectedCardIds((currentIds) =>
@@ -242,7 +256,7 @@ function usePlayRoomGame({
   };
 }
 
-function createPlayerMetas(room: RoomState | null): readonly PlayerMeta[] {
+function createPlayerMetas(room: RoomClientState | null): readonly PlayerMeta[] {
   return (
     room?.participants.map((participant) => ({
       id: participant.id,

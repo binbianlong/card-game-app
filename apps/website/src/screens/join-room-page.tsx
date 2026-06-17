@@ -4,14 +4,19 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { authClient } from "@/features/auth/auth-client";
+import { LoginButton } from "@/features/auth/login-button";
 import { getStoredNickname } from "@/features/auth/nickname";
+import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
 import { joinRoom as joinRoomRequest } from "@/features/rooms/room-api";
 
 function JoinRoomPage() {
   const navigate = useNavigate();
+  const session = authClient.useSession();
   const [inviteCode, setInviteCode] = useState("");
   const [playerName, setPlayerName] = useState(() => getStoredNickname() ?? "");
   const [status, setStatus] = useState<"idle" | "joining" | "error">("idle");
+  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   const normalizedInviteCode = useMemo(
     () => inviteCode.trim().replace(/\s|-/g, "").toUpperCase(),
@@ -30,6 +35,11 @@ function JoinRoomPage() {
       const data = await joinRoomRequest({
         inviteCode: normalizedInviteCode,
         playerName: playerName.trim(),
+      });
+      saveRoomConnectionToken({
+        connectionToken: data.connectionToken,
+        playerId: data.playerId,
+        roomId: data.room.id,
       });
 
       await navigate({
@@ -109,23 +119,36 @@ function JoinRoomPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-primary/25 bg-primary/5 shadow-none">
-          <CardContent className="grid gap-3 px-4 py-4">
-            <Button
-              type="submit"
-              size="lg"
-              className="h-12 w-full text-base font-bold"
-              disabled={!canSubmit}
-            >
-              {status === "joining" ? "参加中" : "参加する"}
-            </Button>
-            {status === "error" ? (
+        {isLoggedOut ? (
+          <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+            <CardContent className="grid gap-3 px-4 py-4">
               <p className="text-center text-[13px] leading-5 font-bold text-destructive">
-                ルームに参加できませんでした。
+                未ログインだと、再参加ができません。
               </p>
-            ) : null}
-          </CardContent>
-        </Card>
+              <LoginButton
+                className="h-12 w-full text-base font-bold"
+                isPending={session.isPending}
+                size="lg"
+              />
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <div className="grid gap-3">
+          <Button
+            type="submit"
+            size="lg"
+            className="h-12 w-full text-base font-bold"
+            disabled={!canSubmit}
+          >
+            {status === "joining" ? "参加中" : "参加する"}
+          </Button>
+          {status === "error" ? (
+            <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+              ルームに参加できませんでした。
+            </p>
+          ) : null}
+        </div>
       </form>
     </main>
   );

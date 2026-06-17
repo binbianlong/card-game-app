@@ -1,7 +1,8 @@
-import { LogIn, LogOut, Settings, UserRound } from "lucide-react";
+import { LogOut, Settings, UserRound } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "./auth-client";
+import { LoginButton } from "./login-button";
 import { useNickname } from "./nickname";
 
 function UserSettingsButton() {
@@ -90,21 +91,7 @@ function UserSettingsButton() {
 
           <div className="mt-3 border-t pt-3">
             {session.data === null || session.data === undefined ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled={session.isPending}
-                onClick={() => {
-                  void authClient.signIn.social({
-                    provider: "google",
-                  });
-                }}
-              >
-                <LogIn className="size-4" aria-hidden="true" />
-                {session.isPending ? "確認中" : "Googleでログイン"}
-              </Button>
+              <LoginButton className="w-full" isPending={session.isPending} />
             ) : (
               <Button
                 type="button"

@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RoomStateSchema, createServerEvent, type RoomState, type ServerErrorCode } from "schema";
 import { createAuth, type AuthEnv } from "./auth/auth.ts";
+import { getTrustedOrigin } from "./auth/origins.ts";
+import { createRoomClientState } from "./room-server/client-state.ts";
 import { createRoomsRoute, type RoomsRouteOptions } from "./routes/rooms.ts";
 
 type WorkerBindings = AuthEnv & {
@@ -11,8 +13,10 @@ type WorkerBindings = AuthEnv & {
 type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>;
 
 function createWorkerApp<Env extends WorkerBindings>({
+  createConnectionTicket,
   findRoomByInviteCode,
   getRoomHistory,
+  getSessionUser,
   joinRoom,
   listMatchHistory,
   listRoomHistory,
@@ -26,7 +30,7 @@ function createWorkerApp<Env extends WorkerBindings>({
       allowHeaders: ["Content-Type", "Authorization"],
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,
-      origin: (origin) => origin,
+      origin: (origin, context) => getTrustedOrigin(origin, context.env.TRUSTED_ORIGINS),
     }),
   );
 
@@ -43,8 +47,10 @@ function createWorkerApp<Env extends WorkerBindings>({
   app.route(
     "/api/rooms",
     createRoomsRoute({
+      createConnectionTicket,
       findRoomByInviteCode,
       getRoomHistory,
+      getSessionUser,
       joinRoom,
       listMatchHistory,
       listRoomHistory,
@@ -55,8 +61,8 @@ function createWorkerApp<Env extends WorkerBindings>({
   return app;
 }
 
-function createRoomStateEvent(room: RoomState) {
-  return createServerEvent.roomState(room);
+function createRoomStateEvent(room: RoomState, viewerId: string) {
+  return createServerEvent.roomState(createRoomClientState(room, viewerId));
 }
 
 function createErrorEvent(code: ServerErrorCode, message: string) {

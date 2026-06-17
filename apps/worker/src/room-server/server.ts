@@ -1,6 +1,6 @@
-import { Server, type Connection } from "partyserver";
-import { ClientEventSchema, getRoomWebSocketPath, type ClientEvent, type RoomState } from "schema";
-import { createErrorEvent, createRoomStateEvent, parseRoomState } from "../app.ts";
+import { Server, type Connection, type ConnectionContext } from "partyserver";
+import { ClientEventSchema, type ClientEvent, type RoomState } from "schema";
+import { createErrorEvent, createRoomStateEvent } from "../app.ts";
 import {
   RoomStateError,
   applyNextCpuTurn,
@@ -9,10 +9,25 @@ import {
   isCpuTurn,
 } from "../rooms/state.ts";
 import { createRoomRepository } from "../rooms/repository.ts";
+import { validateConnectionEvent } from "./connection-event.ts";
+import {
+  consumeConnectionTicket,
+  setConnectionTicket as createConnectionTicket,
+} from "./connection-ticket.ts";
+import {
+  setConnectionToken as createConnectionToken,
+  validateStoredConnectionToken,
+} from "./connection-token.ts";
+import { handleInternalRoomRequest } from "./internal-room-handler.ts";
 
 type RoomServerEnv = {
   DB?: D1Database;
   RoomServer: DurableObjectNamespace<RoomServer>;
+  ROOM_SERVER_SECRET?: string;
+};
+
+type RoomConnectionState = {
+  connectionToken: string;
 };
 
 const cpuTurnDelayMs = 900;
@@ -22,13 +37,39 @@ class RoomServer extends Server<RoomServerEnv> {
     hibernate: true,
   };
 
-  async onConnect(connection: Connection) {
+  async onConnect(connection: Connection<RoomConnectionState>, context: ConnectionContext) {
+    const ticketResult = await this.consumeConnectionTicket(connection.id, context.request);
+
+    if (!ticketResult.ok) {
+      connection.send(
+        JSON.stringify(createErrorEvent(ticketResult.error.code, ticketResult.error.message)),
+      );
+      connection.close(1008, ticketResult.error.message);
+      return;
+    }
+
+    connection.setState({ connectionToken: ticketResult.connectionToken });
+
     const room = await this.getRoom();
-    connection.send(JSON.stringify(createRoomStateEvent(room)));
+    this.sendRoomState(connection, room);
     await this.scheduleCpuTurn(room);
   }
 
-  async onMessage(connection: Connection, message: string | ArrayBuffer | ArrayBufferView) {
+  async onMessage(
+    connection: Connection<RoomConnectionState>,
+    message: string | ArrayBuffer | ArrayBufferView,
+  ) {
+    const tokenError = await this.validateConnectionToken(
+      connection.id,
+      connection.state?.connectionToken ?? null,
+    );
+
+    if (tokenError !== null) {
+      connection.send(JSON.stringify(createErrorEvent(tokenError.code, tokenError.message)));
+      connection.close(1008, tokenError.message);
+      return;
+    }
+
     if (typeof message !== "string") {
       connection.send(JSON.stringify(createErrorEvent("invalidEvent", "Text messages only.")));
       return;
@@ -39,6 +80,15 @@ class RoomServer extends Server<RoomServerEnv> {
 
     if (!event.success) {
       connection.send(JSON.stringify(createErrorEvent("invalidEvent", "Invalid client event.")));
+      return;
+    }
+
+    const connectionEventError = validateConnectionEvent(connection.id, event.data);
+
+    if (connectionEventError !== null) {
+      connection.send(
+        JSON.stringify(createErrorEvent(connectionEventError.code, connectionEventError.message)),
+      );
       return;
     }
 
@@ -55,70 +105,27 @@ class RoomServer extends Server<RoomServerEnv> {
       return;
     }
 
-    this.broadcast(JSON.stringify(createRoomStateEvent(room)));
+    this.sendRoomStateToConnections(room);
     await this.scheduleCpuTurn(room);
   }
 
   async onRequest(request: Request) {
-    const url = new URL(request.url);
-
-    if (request.method === "GET" && url.pathname === "/state") {
-      return Response.json(await this.getRoom());
-    }
-
-    if (request.method === "PUT" && url.pathname === "/state") {
-      const body = await request.json().catch(() => null);
-      const room = parseRoomState(body);
-
-      await this.setRoom(room);
-      await this.scheduleCpuTurn(room);
-
-      return Response.json(room);
-    }
-
-    if (request.method === "POST" && url.pathname === "/join") {
-      const storedRoom = await this.ctx.storage.get<RoomState>("room");
-
-      if (storedRoom === undefined) {
-        return Response.json(createErrorEvent("roomNotFound", "Room was not found."), {
-          status: 404,
-        });
-      }
-
-      const body = await request.json().catch(() => null);
-      const event = ClientEventSchema.safeParse(body);
-
-      if (!event.success || event.data.type !== "joinRoom") {
-        return Response.json(createErrorEvent("invalidEvent", "joinRoom event is required."), {
-          status: 400,
-        });
-      }
-
-      const nextRoom = await this.applyClientEvent(event.data).catch((error: unknown) => {
-        if (error instanceof RoomStateError) {
-          return Response.json(createErrorEvent(error.code, error.message), { status: 400 });
-        }
-
-        throw error;
-      });
-
-      if (nextRoom instanceof Response) {
-        return nextRoom;
-      }
-
-      const playerId = getJoinedPlayerId(storedRoom, nextRoom);
-
-      this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
-      await this.scheduleCpuTurn(nextRoom);
-
-      return Response.json({
-        playerId,
-        room: nextRoom,
-        websocketPath: getRoomWebSocketPath(nextRoom.id),
-      });
-    }
-
-    return new Response("Not Found", { status: 404 });
+    return handleInternalRoomRequest({
+      handler: {
+        applyClientEvent: (event) => this.applyClientEvent(event),
+        getRoom: () => this.getRoom(),
+        getStoredRoom: () => this.getStoredRoom(),
+        scheduleCpuTurn: (room) => this.scheduleCpuTurn(room),
+        sendRoomStateToConnections: (room) => this.sendRoomStateToConnections(room),
+        setConnectionTicket: (ticketRequest) => this.setConnectionTicket(ticketRequest),
+        setConnectionToken: (playerId) => this.setConnectionToken(playerId),
+        setRoom: (room) => this.setRoom(room),
+        validateConnectionToken: (playerId, requestToken) =>
+          this.validateConnectionToken(playerId, requestToken),
+      },
+      request,
+      secret: this.env.ROOM_SERVER_SECRET,
+    });
   }
 
   private async applyClientEvent(event: ClientEvent) {
@@ -135,14 +142,14 @@ class RoomServer extends Server<RoomServerEnv> {
     await this.saveFinishedRoom(room, nextRoom);
 
     if (nextRoom !== room) {
-      this.broadcast(JSON.stringify(createRoomStateEvent(nextRoom)));
+      this.sendRoomStateToConnections(nextRoom);
     }
 
     await this.scheduleCpuTurn(nextRoom);
   }
 
   private async getRoom() {
-    const storedRoom = await this.ctx.storage.get<RoomState>("room");
+    const storedRoom = await this.getStoredRoom();
 
     if (storedRoom !== undefined) {
       return storedRoom;
@@ -154,9 +161,72 @@ class RoomServer extends Server<RoomServerEnv> {
     return room;
   }
 
+  private async getStoredRoom() {
+    return this.ctx.storage.get<RoomState>("room");
+  }
+
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
+  }
+
+  private sendRoomState(connection: Connection, room: RoomState) {
+    connection.send(JSON.stringify(createRoomStateEvent(room, connection.id)));
+  }
+
+  private sendRoomStateToConnections(room: RoomState) {
+    for (const connection of this.getConnections()) {
+      this.sendRoomState(connection, room);
+    }
+  }
+
+  private async setConnectionToken(playerId: string) {
+    const connectionToken = await createConnectionToken(this.ctx.storage, playerId);
+
+    this.closeStalePlayerConnections(playerId, connectionToken);
+
+    return connectionToken;
+  }
+
+  private async setConnectionTicket({
+    connectionToken,
+    playerId,
+  }: {
+    connectionToken: string;
+    playerId: string;
+  }) {
+    return createConnectionTicket(this.ctx.storage, { connectionToken, playerId });
+  }
+
+  private async consumeConnectionTicket(playerId: string, request: Request) {
+    return consumeConnectionTicket({
+      playerId,
+      request,
+      storage: this.ctx.storage,
+      validateConnectionToken: (ticketPlayerId, requestToken) =>
+        this.validateConnectionToken(ticketPlayerId, requestToken),
+    });
+  }
+
+  private async validateConnectionToken(playerId: string, requestToken: string | null) {
+    return validateStoredConnectionToken({
+      playerId,
+      requestToken,
+      room: await this.getRoom(),
+      storage: this.ctx.storage,
+    });
+  }
+
+  private closeStalePlayerConnections(playerId: string, activeConnectionToken: string) {
+    for (const connection of this.getConnections<RoomConnectionState>(playerId)) {
+      if (connection.state?.connectionToken === activeConnectionToken) {
+        continue;
+      }
+
+      const error = createErrorEvent("notAllowed", "Connection token has been rotated.");
+      connection.send(JSON.stringify(error));
+      connection.close(1008, error.message);
+    }
   }
 
   private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
@@ -199,19 +269,6 @@ function parseMessage(message: string) {
   } catch {
     return null;
   }
-}
-
-function getJoinedPlayerId(previousRoom: RoomState, nextRoom: RoomState) {
-  const previousPlayerIds = new Set(previousRoom.participants.map((participant) => participant.id));
-  const joinedParticipant = nextRoom.participants.find(
-    (participant) => !previousPlayerIds.has(participant.id),
-  );
-
-  if (joinedParticipant === undefined) {
-    throw new RoomStateError("notAllowed", "Player did not join this room.");
-  }
-
-  return joinedParticipant.id;
 }
 
 export { RoomServer };

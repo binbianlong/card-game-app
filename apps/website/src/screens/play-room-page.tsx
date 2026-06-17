@@ -12,6 +12,8 @@ import {
   TableArea,
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
+import { getRoomConnectionToken } from "@/features/rooms/connection-token";
+import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function PlayRoomPage() {
   const navigate = useNavigate();
@@ -20,6 +22,11 @@ function PlayRoomPage() {
   const cpuCount = search.cpu;
   const roomId = search.roomId ?? "";
   const playerId = search.playerId ?? "";
+  const connectionToken =
+    roomId.length === 0 || playerId.length === 0
+      ? ""
+      : getRoomConnectionToken({ playerId, roomId });
+  const hasConnectionToken = connectionToken.length > 0;
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const localRules = useMemo(
     () => ({
@@ -49,7 +56,7 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
-  } = usePlayRoomGame({ cpuCount, playerCount, playerId, roomId });
+  } = usePlayRoomGame({ connectionToken, cpuCount, playerCount, playerId, roomId });
 
   function exitRoom() {
     leaveRoom();
@@ -84,13 +91,15 @@ function PlayRoomPage() {
         <ActiveLocalRulesModal rules={localRules} onClose={() => setIsRulesOpen(false)} />
       ) : null}
 
-      {errorMessage !== null ? (
+      {hasConnectionToken && errorMessage !== null ? (
         <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
           {errorMessage}
         </div>
       ) : null}
 
-      {playerView.phase === "finished" ? (
+      {!hasConnectionToken ? (
+        <ReconnectRequiredPage />
+      ) : playerView.phase === "finished" ? (
         <FinishedGameResults
           canStartRematch={canStartRematch}
           finalResults={finalResults}

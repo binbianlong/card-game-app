@@ -1,6 +1,9 @@
 import { Hono } from "hono";
+import { validator } from "hono/validator";
 import {
   ClientEventSchema,
+  CreateConnectionTicketRequestSchema,
+  CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
   RoomHistoryResponseSchema,
@@ -16,7 +19,7 @@ import {
 import { createInviteCode, createWaitingRoom } from "../rooms/state.ts";
 
 type WorkerBindings = {
-  RoomServer: DurableObjectNamespace;
+  RoomServer: unknown;
 };
 
 type RoomMetadata = {
@@ -24,105 +27,192 @@ type RoomMetadata = {
   inviteCode: string;
 };
 
+type AuthenticatedUser = {
+  id: string;
+};
+
 type RoomsRouteOptions<Env extends WorkerBindings> = {
+  createConnectionTicket: (
+    env: Env,
+    roomId: string,
+    request: {
+      connectionToken: string;
+      playerId: string;
+    },
+  ) => Promise<string | null>;
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
+  getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
     env: Env,
     roomId: string,
     event: Extract<ClientEvent, { type: "joinRoom" }>,
+    user: AuthenticatedUser | null,
   ) => Promise<Response>;
-  getRoomHistory: (env: Env, roomId: string) => Promise<RoomHistoryItem | null>;
-  listMatchHistory: (env: Env, roomId: string) => Promise<readonly MatchHistoryItem[]>;
-  listRoomHistory: (env: Env) => Promise<readonly RoomHistoryItem[]>;
-  saveRoom: (env: Env, roomId: string, room: RoomState) => Promise<boolean>;
+  getRoomHistory: (env: Env, roomId: string, userId: string) => Promise<RoomHistoryItem | null>;
+  listMatchHistory: (
+    env: Env,
+    roomId: string,
+    userId: string,
+  ) => Promise<readonly MatchHistoryItem[]>;
+  listRoomHistory: (env: Env, userId: string) => Promise<readonly RoomHistoryItem[]>;
+  saveRoom: (env: Env, roomId: string, room: RoomState, userId: string) => Promise<string | null>;
 };
 
 function createRoomsRoute<Env extends WorkerBindings>({
+  createConnectionTicket,
   findRoomByInviteCode,
   getRoomHistory,
+  getSessionUser,
   joinRoom,
   listMatchHistory,
   listRoomHistory,
   saveRoom,
 }: RoomsRouteOptions<Env>) {
-  const route = new Hono<{ Bindings: Env }>();
+  const route = new Hono<{ Bindings: Env }>()
+    .get("/history", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
 
-  route.get("/history", async (context) => {
-    const rooms = await listRoomHistory(context.env);
+      if (user === null) {
+        return context.json(createLoginRequiredError("view match history"), 401);
+      }
 
-    return context.json(RoomHistoryResponseSchema.parse({ rooms }));
-  });
+      const rooms = await listRoomHistory(env, user.id);
 
-  route.get("/history/:inviteCode", async (context) => {
-    const inviteCode = context.req.param("inviteCode");
-    const room = await getRoomHistory(context.env, inviteCode);
+      return context.json(RoomHistoryResponseSchema.parse({ rooms }));
+    })
 
-    if (room === null) {
-      return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
-    }
+    .get("/history/:roomKey", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
 
-    const matches = await listMatchHistory(context.env, room.id);
+      if (user === null) {
+        return context.json(createLoginRequiredError("view match history"), 401);
+      }
 
-    return context.json(RoomMatchHistoryResponseSchema.parse({ room, matches }));
-  });
+      const roomKey = context.req.param("roomKey");
+      const room = await getRoomHistory(env, roomKey, user.id);
 
-  route.post("/", async (context) => {
-    const body = await context.req.json().catch(() => null);
-    const event = ClientEventSchema.safeParse(body);
+      if (room === null) {
+        return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+      }
 
-    if (!event.success || event.data.type !== "createRoom") {
-      return context.json(createErrorEvent("invalidEvent", "createRoom event is required."), 400);
-    }
+      const matches = await listMatchHistory(env, room.id, user.id);
 
-    const roomId = createRoomId();
-    const inviteCode = createInviteCode(roomId);
-    const room = createWaitingRoom(event.data, roomId, inviteCode);
-    const saved = await saveRoom(context.env, roomId, room);
+      return context.json(RoomMatchHistoryResponseSchema.parse({ room, matches }));
+    })
 
-    if (!saved) {
-      return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
-    }
+    .post(
+      "/",
+      createClientEventValidator("createRoom", "createRoom event is required."),
+      async (context) => {
+        const env = context.env as Env;
+        const user = await getSessionUser(env, context.req.raw);
 
-    return context.json(
-      CreateRoomResponseSchema.parse({
-        room,
-        websocketPath: getRoomWebSocketPath(roomId),
-      }),
-    );
-  });
+        if (user === null) {
+          return context.json(createLoginRequiredError("create rooms"), 401);
+        }
 
-  route.post("/join", async (context) => {
-    const body = await context.req.json().catch(() => null);
-    const event = ClientEventSchema.safeParse(body);
+        const event = context.req.valid("json");
+        const roomId = createRoomId();
+        const inviteCode = createInviteCode(roomId);
+        const room = createWaitingRoom(event, roomId, inviteCode);
+        const connectionToken = await saveRoom(env, roomId, room, user.id);
 
-    if (!event.success || event.data.type !== "joinRoom") {
-      return context.json(createErrorEvent("invalidEvent", "joinRoom event is required."), 400);
-    }
+        if (connectionToken === null) {
+          return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
+        }
 
-    const inviteCode = normalizeInviteCode(event.data.roomId);
-    const roomMetadata = await findRoomByInviteCode(context.env, inviteCode);
+        return context.json(
+          CreateRoomResponseSchema.parse({
+            connectionToken,
+            room,
+            websocketPath: getRoomWebSocketPath(roomId),
+          }),
+        );
+      },
+    )
 
-    if (roomMetadata === null) {
-      return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
-    }
+    .post(
+      "/join",
+      createClientEventValidator("joinRoom", "joinRoom event is required."),
+      async (context) => {
+        const env = context.env as Env;
+        const user = await getSessionUser(env, context.req.raw);
+        const event = context.req.valid("json");
+        const inviteCode = normalizeInviteCode(event.roomId);
+        const roomMetadata = await findRoomByInviteCode(env, inviteCode);
 
-    const response = await joinRoom(context.env, roomMetadata.id, {
-      ...event.data,
-      roomId: roomMetadata.id,
+        if (roomMetadata === null) {
+          return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+        }
+
+        const response = await joinRoom(
+          env,
+          roomMetadata.id,
+          {
+            ...event,
+            roomId: roomMetadata.id,
+          },
+          user,
+        );
+
+        if (!response.ok) {
+          return response;
+        }
+
+        return context.json(JoinRoomResponseSchema.parse(await response.json()));
+      },
+    )
+
+    .post("/:roomId/ticket", createConnectionTicketRequestValidator(), async (context) => {
+      const request = context.req.valid("json");
+      const env = context.env as Env;
+      const ticket = await createConnectionTicket(env, context.req.param("roomId"), request);
+
+      if (ticket === null) {
+        return context.json(createErrorEvent("notAllowed", "Connection token is invalid."), 403);
+      }
+
+      return context.json(CreateConnectionTicketResponseSchema.parse({ ticket }));
     });
-
-    if (!response.ok) {
-      return response;
-    }
-
-    return context.json(JoinRoomResponseSchema.parse(await response.json()));
-  });
 
   return route;
 }
 
+function createClientEventValidator<Type extends ClientEvent["type"]>(type: Type, message: string) {
+  return validator("json", (body, context) => {
+    const event = ClientEventSchema.safeParse(body);
+
+    if (!event.success || event.data.type !== type) {
+      return context.json(createErrorEvent("invalidEvent", message), 400);
+    }
+
+    return event.data as Extract<ClientEvent, { type: Type }>;
+  });
+}
+
+function createConnectionTicketRequestValidator() {
+  return validator("json", (body, context) => {
+    const request = CreateConnectionTicketRequestSchema.safeParse(body);
+
+    if (!request.success) {
+      return context.json(
+        createErrorEvent("invalidEvent", "Connection ticket request is required."),
+        400,
+      );
+    }
+
+    return request.data;
+  });
+}
+
 function createErrorEvent(code: ServerErrorCode, message: string) {
   return createServerEvent.error(code, message);
+}
+
+function createLoginRequiredError(action: string) {
+  return createErrorEvent("notAllowed", `Login is required to ${action}.`);
 }
 
 function createRoomId() {
@@ -135,3 +225,4 @@ function normalizeInviteCode(inviteCode: string) {
 
 export { createRoomsRoute };
 export type { RoomMetadata, RoomsRouteOptions };
+export type RoomsRoute = ReturnType<typeof createRoomsRoute<WorkerBindings>>;

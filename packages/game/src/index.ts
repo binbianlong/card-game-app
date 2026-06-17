@@ -1,5 +1,10 @@
 export { analyzePlay, canPlayOn, compareRanks } from "./rules.ts";
-export { canPass, canPlaySelectedCards, getAvailableActions } from "./actions.ts";
+export {
+  canPass,
+  canPlaySelectedCards,
+  getAvailableActions,
+  getAvailableViewActions,
+} from "./actions.ts";
 export { createDeck, createNewGame, dealCards, shuffleCards } from "./setup.ts";
 export { applyGameAction, createGameState } from "./state.ts";
 export { getPlayerView } from "./view.ts";

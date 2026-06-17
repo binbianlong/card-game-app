@@ -119,6 +119,34 @@ export const GameStateSchema = z.object({
   rankings: z.array(z.string().min(1)),
 });
 
+export const PlayerViewStateSchema = z.object({
+  id: z.string().min(1),
+  connected: z.boolean(),
+  handCount: z.number().int().nonnegative(),
+  hand: z.array(CardSchema).nullable(),
+  finished: z.boolean(),
+  rank: z.number().int().positive().nullable(),
+});
+
+export const PlayerGameViewSchema = z.object({
+  matchId: z.string().min(1),
+  phase: z.enum(["playing", "finished"]),
+  rules: GameRuleSettingsSchema,
+  viewerId: z.string().min(1),
+  players: z.array(PlayerViewStateSchema),
+  initialHands: z.array(InitialHandSnapshotSchema).optional(),
+  turnPlayerId: z.string().min(1),
+  table: z.object({
+    play: PlaySchema.nullable(),
+    playedBy: z.string().min(1).nullable(),
+  }),
+  passedPlayerIds: z.array(z.string().min(1)),
+  elevenBack: z.boolean(),
+  revolution: z.boolean(),
+  suitLock: z.array(SuitSchema).nullable(),
+  rankings: z.array(z.string().min(1)),
+});
+
 export const RoomParticipantSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -138,15 +166,30 @@ export const RoomStateSchema = z.object({
   game: GameStateSchema.nullable(),
 });
 
+export const RoomClientStateSchema = RoomStateSchema.extend({
+  game: PlayerGameViewSchema.nullable(),
+});
+
 export const CreateRoomResponseSchema = z.object({
+  connectionToken: z.string().min(1),
   room: RoomStateSchema,
   websocketPath: z.string().min(1),
 });
 
 export const JoinRoomResponseSchema = z.object({
+  connectionToken: z.string().min(1),
   playerId: z.string().min(1),
   room: RoomStateSchema,
   websocketPath: z.string().min(1),
+});
+
+export const CreateConnectionTicketRequestSchema = z.object({
+  connectionToken: z.string().min(1),
+  playerId: z.string().min(1),
+});
+
+export const CreateConnectionTicketResponseSchema = z.object({
+  ticket: z.string().min(1),
 });
 
 export const MatchHistoryPlayerSchema = z.object({
@@ -161,7 +204,6 @@ export const MatchHistoryPlayerSchema = z.object({
 export const MatchHistoryItemSchema = z.object({
   id: z.string().min(1),
   roomId: z.string().min(1),
-  inviteCode: z.string().min(1),
   playerCount: z.number().int().min(3).max(6),
   status: z.enum(["playing", "finished"]),
   startedAt: z.number().int(),
@@ -176,7 +218,6 @@ export const MatchHistoryResponseSchema = z.object({
 
 export const RoomHistoryItemSchema = z.object({
   id: z.string().min(1),
-  inviteCode: z.string().min(1),
   playerCount: z.number().int().min(3).max(6),
   status: z.enum(["waiting", "playing", "finished"]),
   createdAt: z.number().int(),
@@ -249,23 +290,23 @@ export const ServerErrorCodeSchema = z.enum([
 export const ServerEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal(serverEventTypes.roomState),
-    room: RoomStateSchema,
+    room: RoomClientStateSchema,
   }),
   z.object({
     type: z.literal(serverEventTypes.playerJoined),
-    room: RoomStateSchema,
+    room: RoomClientStateSchema,
   }),
   z.object({
     type: z.literal(serverEventTypes.playerLeft),
-    room: RoomStateSchema,
+    room: RoomClientStateSchema,
   }),
   z.object({
     type: z.literal(serverEventTypes.gameStarted),
-    room: RoomStateSchema,
+    room: RoomClientStateSchema,
   }),
   z.object({
     type: z.literal(serverEventTypes.actionApplied),
-    room: RoomStateSchema,
+    room: RoomClientStateSchema,
   }),
   z.object({
     type: z.literal(serverEventTypes.error),
@@ -353,31 +394,31 @@ export const createClientEvent = {
 };
 
 export const createServerEvent = {
-  roomState(room: RoomState): ServerEventByType<typeof serverEventTypes.roomState> {
+  roomState(room: RoomClientState): ServerEventByType<typeof serverEventTypes.roomState> {
     return ServerEventSchema.parse({
       type: serverEventTypes.roomState,
       room,
     }) as ServerEventByType<typeof serverEventTypes.roomState>;
   },
-  playerJoined(room: RoomState): ServerEventByType<typeof serverEventTypes.playerJoined> {
+  playerJoined(room: RoomClientState): ServerEventByType<typeof serverEventTypes.playerJoined> {
     return ServerEventSchema.parse({
       type: serverEventTypes.playerJoined,
       room,
     }) as ServerEventByType<typeof serverEventTypes.playerJoined>;
   },
-  playerLeft(room: RoomState): ServerEventByType<typeof serverEventTypes.playerLeft> {
+  playerLeft(room: RoomClientState): ServerEventByType<typeof serverEventTypes.playerLeft> {
     return ServerEventSchema.parse({
       type: serverEventTypes.playerLeft,
       room,
     }) as ServerEventByType<typeof serverEventTypes.playerLeft>;
   },
-  gameStarted(room: RoomState): ServerEventByType<typeof serverEventTypes.gameStarted> {
+  gameStarted(room: RoomClientState): ServerEventByType<typeof serverEventTypes.gameStarted> {
     return ServerEventSchema.parse({
       type: serverEventTypes.gameStarted,
       room,
     }) as ServerEventByType<typeof serverEventTypes.gameStarted>;
   },
-  actionApplied(room: RoomState): ServerEventByType<typeof serverEventTypes.actionApplied> {
+  actionApplied(room: RoomClientState): ServerEventByType<typeof serverEventTypes.actionApplied> {
     return ServerEventSchema.parse({
       type: serverEventTypes.actionApplied,
       room,
@@ -404,10 +445,15 @@ export type GameRuleSettings = z.infer<typeof GameRuleSettingsSchema>;
 export type PlayerState = z.infer<typeof PlayerStateSchema>;
 export type InitialHandSnapshot = z.infer<typeof InitialHandSnapshotSchema>;
 export type GameState = z.infer<typeof GameStateSchema>;
+export type PlayerViewState = z.infer<typeof PlayerViewStateSchema>;
+export type PlayerGameView = z.infer<typeof PlayerGameViewSchema>;
 export type RoomParticipant = z.infer<typeof RoomParticipantSchema>;
 export type RoomState = z.infer<typeof RoomStateSchema>;
+export type RoomClientState = z.infer<typeof RoomClientStateSchema>;
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
+export type CreateConnectionTicketRequest = z.infer<typeof CreateConnectionTicketRequestSchema>;
+export type CreateConnectionTicketResponse = z.infer<typeof CreateConnectionTicketResponseSchema>;
 export type MatchHistoryItem = z.infer<typeof MatchHistoryItemSchema>;
 export type MatchHistoryPlayer = z.infer<typeof MatchHistoryPlayerSchema>;
 export type MatchHistoryResponse = z.infer<typeof MatchHistoryResponseSchema>;

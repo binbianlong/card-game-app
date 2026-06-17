@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { localRuleOptions, type LocalRuleKey } from "@/features/local-rules/local-rule-options";
 import type { ConnectionStatus } from "@/features/waiting-room/use-waiting-room-socket";
-import type { GameRuleSettings, RoomParticipant, RoomState } from "schema";
+import type { GameRuleSettings, RoomClientState, RoomParticipant } from "schema";
 
 type WaitingRoomViewProps = {
   connectionStatus: ConnectionStatus;
@@ -26,7 +26,7 @@ type WaitingRoomViewProps = {
   onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   playerCount: number;
   playerId: string;
-  room: RoomState | null;
+  room: RoomClientState | null;
 };
 
 function WaitingRoomView({
@@ -147,7 +147,7 @@ function WaitingRoomView({
   );
 }
 
-function InviteCodePanel({ room }: { room: RoomState | null }) {
+function InviteCodePanel({ room }: { room: RoomClientState | null }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg bg-card p-3 shadow-xs">
       <div className="min-w-0">

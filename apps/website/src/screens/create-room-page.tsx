@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNickname } from "@/features/auth/nickname";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
+import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
 import { createRoom as createRoomRequest } from "@/features/rooms/room-api";
 
 const minPlayers = 3;
@@ -50,6 +51,11 @@ function CreateRoomPage() {
         playerCount,
         cpuCount,
         rules: defaultLocalRuleSettings,
+      });
+      saveRoomConnectionToken({
+        connectionToken: data.connectionToken,
+        playerId: data.room.hostPlayerId,
+        roomId: data.room.id,
       });
 
       await navigate({

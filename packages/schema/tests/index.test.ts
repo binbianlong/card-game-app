@@ -1,12 +1,17 @@
 import { describe, expect, test } from "vite-plus/test";
 import {
   ClientEventSchema,
+  CreateConnectionTicketRequestSchema,
+  CreateConnectionTicketResponseSchema,
+  CreateRoomResponseSchema,
+  JoinRoomResponseSchema,
   RoomStateSchema,
   ServerEventSchema,
   clientEventTypes,
   createClientEvent,
   createServerEvent,
   getRoomWebSocketPath,
+  type RoomClientState,
   type RoomState,
 } from "../src/index.ts";
 
@@ -34,6 +39,10 @@ const room: RoomState = {
     },
   ],
   rules,
+  game: null,
+};
+const roomClient: RoomClientState = {
+  ...room,
   game: null,
 };
 
@@ -67,6 +76,54 @@ describe("schema", () => {
 
   test("parses room state", () => {
     expect(RoomStateSchema.parse(room)).toEqual(room);
+  });
+
+  test("parses room API responses with connection tokens", () => {
+    expect(
+      CreateRoomResponseSchema.parse({
+        connectionToken: "host-token",
+        room,
+        websocketPath: "/parties/room-server/room-1",
+      }),
+    ).toEqual({
+      connectionToken: "host-token",
+      room,
+      websocketPath: "/parties/room-server/room-1",
+    });
+
+    expect(
+      JoinRoomResponseSchema.parse({
+        connectionToken: "guest-token",
+        playerId: "player-2",
+        room,
+        websocketPath: "/parties/room-server/room-1",
+      }),
+    ).toEqual({
+      connectionToken: "guest-token",
+      playerId: "player-2",
+      room,
+      websocketPath: "/parties/room-server/room-1",
+    });
+  });
+
+  test("parses connection ticket requests and responses", () => {
+    expect(
+      CreateConnectionTicketRequestSchema.parse({
+        connectionToken: "host-token",
+        playerId: "player-1",
+      }),
+    ).toEqual({
+      connectionToken: "host-token",
+      playerId: "player-1",
+    });
+
+    expect(
+      CreateConnectionTicketResponseSchema.parse({
+        ticket: "ticket-1",
+      }),
+    ).toEqual({
+      ticket: "ticket-1",
+    });
   });
 
   test("parses server events", () => {
@@ -121,9 +178,9 @@ describe("schema", () => {
   });
 
   test("creates typed server events", () => {
-    expect(createServerEvent.roomState(room)).toEqual({
+    expect(createServerEvent.roomState(roomClient)).toEqual({
       type: "roomState",
-      room,
+      room: roomClient,
     });
   });
 

@@ -1,61 +1,85 @@
 import PartySocket from "partysocket";
 import { useEffect, useRef, useState } from "react";
-import { getWorkerHost } from "@/features/rooms/room-api";
-import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomState } from "schema";
+import { createRoomConnectionTicket, getWorkerHost } from "@/features/rooms/room-api";
+import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomClientState } from "schema";
 
 type ConnectionStatus = "closed" | "connecting" | "open";
 
-function useWaitingRoomSocket({ playerId, roomId }: { playerId: string; roomId: string }) {
+function useWaitingRoomSocket({
+  connectionToken,
+  playerId,
+  roomId,
+}: {
+  connectionToken: string;
+  playerId: string;
+  roomId: string;
+}) {
   const socketRef = useRef<PartySocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("closed");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [room, setRoom] = useState<RoomState | null>(null);
+  const [room, setRoom] = useState<RoomClientState | null>(null);
 
   useEffect(() => {
-    if (roomId.length === 0 || playerId.length === 0) {
+    if (roomId.length === 0 || playerId.length === 0 || connectionToken.length === 0) {
       setErrorMessage("ルーム情報がありません。");
       return;
     }
 
     setConnectionStatus("connecting");
     setErrorMessage(null);
+    let closed = false;
 
-    const socket = new PartySocket({
-      host: getWorkerHost(),
-      party: roomPartyName,
-      room: roomId,
-      id: playerId,
-    });
-    socketRef.current = socket;
+    void createRoomConnectionTicket({ connectionToken, playerId, roomId })
+      .then((ticket) => {
+        if (closed) {
+          return;
+        }
 
-    socket.addEventListener("open", () => setConnectionStatus("open"));
-    socket.addEventListener("close", () => setConnectionStatus("closed"));
-    socket.addEventListener("error", () => {
-      setConnectionStatus("closed");
-      setErrorMessage("リアルタイム接続に失敗しました。");
-    });
-    socket.addEventListener("message", (event) => {
-      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+        const socket = new PartySocket({
+          host: getWorkerHost(),
+          party: roomPartyName,
+          query: { ticket },
+          room: roomId,
+          id: playerId,
+        });
+        socketRef.current = socket;
 
-      if (!serverEvent.success) {
-        setErrorMessage("ルーム状態を読み取れませんでした。");
-        return;
-      }
+        socket.addEventListener("open", () => setConnectionStatus("open"));
+        socket.addEventListener("close", () => setConnectionStatus("closed"));
+        socket.addEventListener("error", () => {
+          setConnectionStatus("closed");
+          setErrorMessage("リアルタイム接続に失敗しました。");
+        });
+        socket.addEventListener("message", (event) => {
+          const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
 
-      if (serverEvent.data.type === "error") {
-        setErrorMessage(serverEvent.data.message);
-        return;
-      }
+          if (!serverEvent.success) {
+            setErrorMessage("ルーム状態を読み取れませんでした。");
+            return;
+          }
 
-      setRoom(serverEvent.data.room);
-      setErrorMessage(null);
-    });
+          if (serverEvent.data.type === "error") {
+            setErrorMessage(serverEvent.data.message);
+            return;
+          }
+
+          setRoom(serverEvent.data.room);
+          setErrorMessage(null);
+        });
+      })
+      .catch(() => {
+        if (!closed) {
+          setConnectionStatus("closed");
+          setErrorMessage("リアルタイム接続に失敗しました。");
+        }
+      });
 
     return () => {
-      socket.close();
+      closed = true;
+      socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [playerId, roomId]);
+  }, [connectionToken, playerId, roomId]);
 
   function sendEvent(event: ClientEvent) {
     socketRef.current?.send(JSON.stringify(event));
