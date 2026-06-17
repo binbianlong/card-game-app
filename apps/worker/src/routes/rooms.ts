@@ -74,13 +74,10 @@ function createRoomsRoute<Env extends WorkerBindings>({
       const user = await getSessionUser(env, context.req.raw);
 
       if (user === null) {
-        return context.json(
-          createErrorEvent("notAllowed", "Login is required to view match history."),
-          401,
-        );
+        return context.json(createLoginRequiredError("view match history"), 401);
       }
 
-      const rooms = await listRoomHistory(context.env, user.id);
+      const rooms = await listRoomHistory(env, user.id);
 
       return context.json(RoomHistoryResponseSchema.parse({ rooms }));
     })
@@ -90,20 +87,17 @@ function createRoomsRoute<Env extends WorkerBindings>({
       const user = await getSessionUser(env, context.req.raw);
 
       if (user === null) {
-        return context.json(
-          createErrorEvent("notAllowed", "Login is required to view match history."),
-          401,
-        );
+        return context.json(createLoginRequiredError("view match history"), 401);
       }
 
       const roomKey = context.req.param("roomKey");
-      const room = await getRoomHistory(context.env, roomKey, user.id);
+      const room = await getRoomHistory(env, roomKey, user.id);
 
       if (room === null) {
         return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
       }
 
-      const matches = await listMatchHistory(context.env, room.id, user.id);
+      const matches = await listMatchHistory(env, room.id, user.id);
 
       return context.json(RoomMatchHistoryResponseSchema.parse({ room, matches }));
     })
@@ -116,10 +110,7 @@ function createRoomsRoute<Env extends WorkerBindings>({
         const user = await getSessionUser(env, context.req.raw);
 
         if (user === null) {
-          return context.json(
-            createErrorEvent("notAllowed", "Login is required to create rooms."),
-            401,
-          );
+          return context.json(createLoginRequiredError("create rooms"), 401);
         }
 
         const event = context.req.valid("json");
@@ -218,6 +209,10 @@ function createConnectionTicketRequestValidator() {
 
 function createErrorEvent(code: ServerErrorCode, message: string) {
   return createServerEvent.error(code, message);
+}
+
+function createLoginRequiredError(action: string) {
+  return createErrorEvent("notAllowed", `Login is required to ${action}.`);
 }
 
 function createRoomId() {
