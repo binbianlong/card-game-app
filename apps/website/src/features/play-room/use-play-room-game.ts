@@ -142,51 +142,40 @@ function usePlayRoomGame({
       return;
     }
 
-    let closed = false;
+    const socket = new PartySocket({
+      host: getWorkerHost(),
+      party: roomPartyName,
+      query: async () => ({
+        ticket: await createRoomConnectionTicket({ connectionToken, playerId, roomId }),
+      }),
+      room: roomId,
+      id: playerId,
+    });
+    socketRef.current = socket;
 
-    void createRoomConnectionTicket({ connectionToken, playerId, roomId })
-      .then((ticket) => {
-        if (closed) {
-          return;
-        }
+    socket.addEventListener("message", (event) => {
+      const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
 
-        const socket = new PartySocket({
-          host: getWorkerHost(),
-          party: roomPartyName,
-          query: { ticket },
-          room: roomId,
-          id: playerId,
-        });
-        socketRef.current = socket;
+      if (!serverEvent.success) {
+        setErrorMessage("ゲーム状態を読み取れませんでした。");
+        return;
+      }
 
-        socket.addEventListener("message", (event) => {
-          const serverEvent = ServerEventSchema.safeParse(parseMessage(event.data));
+      if (serverEvent.data.type === "error") {
+        setErrorMessage(serverEvent.data.message);
+        return;
+      }
 
-          if (!serverEvent.success) {
-            setErrorMessage("ゲーム状態を読み取れませんでした。");
-            return;
-          }
-
-          if (serverEvent.data.type === "error") {
-            setErrorMessage(serverEvent.data.message);
-            return;
-          }
-
-          setRoom(serverEvent.data.room);
-          setErrorMessage(null);
-        });
-        socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
-      })
-      .catch(() => {
-        if (!closed) {
-          setErrorMessage("リアルタイム接続に失敗しました。");
-        }
-      });
+      setRoom(serverEvent.data.room);
+      setErrorMessage(null);
+    });
+    socket.addEventListener("error", () => setErrorMessage("リアルタイム接続に失敗しました。"));
 
     return () => {
-      closed = true;
-      socketRef.current?.close();
-      socketRef.current = null;
+      socket.close();
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
     };
   }, [connectionToken, playerId, roomId]);
 
