@@ -10,6 +10,7 @@ import { getRoomConnectionToken } from "@/features/rooms/connection-token";
 import { useWaitingRoomSocket } from "@/features/waiting-room/use-waiting-room-socket";
 import { WaitingRoomView } from "@/features/waiting-room/waiting-room-view";
 import { createClientEvent } from "schema";
+import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function WaitingRoomPage() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ function WaitingRoomPage() {
     roomId.length === 0 || playerId.length === 0
       ? ""
       : getRoomConnectionToken({ playerId, roomId });
+  const hasConnectionToken = connectionToken.length > 0;
   const { connectionStatus, errorMessage, room, sendEvent } = useWaitingRoomSocket({
     connectionToken,
     playerId,
@@ -105,19 +107,23 @@ function WaitingRoomPage() {
         </p>
       </section>
 
-      <WaitingRoomView
-        connectionStatus={connectionStatus}
-        errorMessage={errorMessage}
-        isConnected={isConnected}
-        isReadyToStart={isReadyToStart}
-        localRules={localRules}
-        onReady={setReady}
-        onStartGame={startGame}
-        onToggleLocalRule={toggleLocalRule}
-        playerCount={playerCount}
-        playerId={playerId}
-        room={room}
-      />
+      {hasConnectionToken ? (
+        <WaitingRoomView
+          connectionStatus={connectionStatus}
+          errorMessage={errorMessage}
+          isConnected={isConnected}
+          isReadyToStart={isReadyToStart}
+          localRules={localRules}
+          onReady={setReady}
+          onStartGame={startGame}
+          onToggleLocalRule={toggleLocalRule}
+          playerCount={playerCount}
+          playerId={playerId}
+          room={room}
+        />
+      ) : (
+        <ReconnectRequiredPage />
+      )}
     </main>
   );
 }
