@@ -5,6 +5,7 @@ import {
   RoomStateError,
   applyNextCpuTurn,
   applyRoomClientEvent,
+  applyRoomConnectionChange,
   createFallbackRoom,
   isCpuTurn,
 } from "../rooms/state.ts";
@@ -18,6 +19,10 @@ import {
   setConnectionToken as createConnectionToken,
   validateStoredConnectionToken,
 } from "./connection-token.ts";
+import {
+  getDisconnectedPlayerCpuAlarmTime,
+  isDisconnectedPlayerCpuControlled,
+} from "./disconnected-player.ts";
 import { handleInternalRoomRequest } from "./internal-room-handler.ts";
 
 type RoomServerEnv = {
@@ -50,8 +55,23 @@ class RoomServer extends Server<RoomServerEnv> {
 
     connection.setState({ connectionToken: ticketResult.connectionToken });
 
-    const room = await this.getRoom();
+    const room = await this.markPlayerConnected(connection.id);
     this.sendRoomState(connection, room);
+    this.sendRoomStateToConnections(room);
+    await this.scheduleCpuTurn(room);
+  }
+
+  async onClose(connection: Connection<RoomConnectionState>) {
+    if (connection.state?.connectionToken === undefined) {
+      return;
+    }
+
+    if (this.hasActivePlayerConnection(connection.id, connection)) {
+      return;
+    }
+
+    const room = await this.markPlayerDisconnected(connection.id);
+    this.sendRoomStateToConnections(room);
     await this.scheduleCpuTurn(room);
   }
 
@@ -138,7 +158,8 @@ class RoomServer extends Server<RoomServerEnv> {
 
   async onAlarm() {
     const room = await this.getRoom();
-    const nextRoom = await this.setRoom(applyNextCpuTurn(room));
+    const cpuControlledPlayerIds = await this.getCpuControlledPlayerIds(room);
+    const nextRoom = await this.setRoom(applyNextCpuTurn(room, { cpuControlledPlayerIds }));
     await this.saveFinishedRoom(room, nextRoom);
 
     if (nextRoom !== room) {
@@ -168,6 +189,20 @@ class RoomServer extends Server<RoomServerEnv> {
   private async setRoom(room: RoomState) {
     await this.ctx.storage.put("room", room);
     return room;
+  }
+
+  private async markPlayerConnected(playerId: string) {
+    await this.clearPlayerDisconnectedAt(playerId);
+
+    const room = await this.getRoom();
+    return this.setRoom(applyRoomConnectionChange(room, playerId, true));
+  }
+
+  private async markPlayerDisconnected(playerId: string) {
+    await this.setPlayerDisconnectedAt(playerId, Date.now());
+
+    const room = await this.getRoom();
+    return this.setRoom(applyRoomConnectionChange(room, playerId, false));
   }
 
   private sendRoomState(connection: Connection, room: RoomState) {
@@ -229,6 +264,19 @@ class RoomServer extends Server<RoomServerEnv> {
     }
   }
 
+  private hasActivePlayerConnection(
+    playerId: string,
+    closedConnection: Connection<RoomConnectionState>,
+  ) {
+    for (const connection of this.getConnections<RoomConnectionState>(playerId)) {
+      if (connection !== closedConnection) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
     if (!shouldSaveFinishedRoom(previousRoom, nextRoom)) {
       return;
@@ -246,12 +294,57 @@ class RoomServer extends Server<RoomServerEnv> {
   }
 
   private async scheduleCpuTurn(room: RoomState) {
-    if (isCpuTurn(room)) {
+    const now = Date.now();
+    const cpuControlledPlayerIds = await this.getCpuControlledPlayerIds(room, now);
+
+    if (isCpuTurn(room, { cpuControlledPlayerIds })) {
       await this.ctx.storage.setAlarm(Date.now() + cpuTurnDelayMs);
       return;
     }
 
+    if (room.status === "playing" && room.game?.phase === "playing") {
+      const disconnectedAt = await this.getPlayerDisconnectedAt(room.game.turnPlayerId);
+
+      if (disconnectedAt !== undefined) {
+        await this.ctx.storage.setAlarm(getDisconnectedPlayerCpuAlarmTime(disconnectedAt));
+        return;
+      }
+    }
+
     await this.ctx.storage.deleteAlarm();
+  }
+
+  private async getCpuControlledPlayerIds(room: RoomState, now = Date.now()) {
+    const playerIds: string[] = [];
+
+    for (const participant of room.participants) {
+      if (participant.kind === "cpu") {
+        continue;
+      }
+
+      const disconnectedAt = await this.getPlayerDisconnectedAt(participant.id);
+
+      if (
+        disconnectedAt !== undefined &&
+        isDisconnectedPlayerCpuControlled({ disconnectedAt, now })
+      ) {
+        playerIds.push(participant.id);
+      }
+    }
+
+    return playerIds;
+  }
+
+  private getPlayerDisconnectedAt(playerId: string) {
+    return this.ctx.storage.get<number>(createPlayerDisconnectedAtKey(playerId));
+  }
+
+  private async setPlayerDisconnectedAt(playerId: string, disconnectedAt: number) {
+    await this.ctx.storage.put(createPlayerDisconnectedAtKey(playerId), disconnectedAt);
+  }
+
+  private async clearPlayerDisconnectedAt(playerId: string) {
+    await this.ctx.storage.delete(createPlayerDisconnectedAtKey(playerId));
   }
 }
 
@@ -269,6 +362,10 @@ function parseMessage(message: string) {
   } catch {
     return null;
   }
+}
+
+function createPlayerDisconnectedAtKey(playerId: string) {
+  return `playerDisconnectedAt:${playerId}`;
 }
 
 export { RoomServer };

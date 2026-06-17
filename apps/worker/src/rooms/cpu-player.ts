@@ -7,8 +7,12 @@ import {
 } from "game";
 import { GameStateSchema, clientEventTypes, type RoomState } from "schema";
 
-function applyNextCpuTurn(room: RoomState): RoomState {
-  if (!isCpuTurn(room) || room.game === null) {
+type CpuTurnOptions = {
+  cpuControlledPlayerIds?: readonly PlayerId[];
+};
+
+function applyNextCpuTurn(room: RoomState, options: CpuTurnOptions = {}): RoomState {
+  if (!isCpuTurn(room, options) || room.game === null) {
     return room;
   }
 
@@ -27,7 +31,7 @@ function applyNextCpuTurn(room: RoomState): RoomState {
   };
 }
 
-function isCpuTurn(room: RoomState) {
+function isCpuTurn(room: RoomState, options: CpuTurnOptions = {}) {
   if (room.status !== "playing" || room.game === null || room.game.phase !== "playing") {
     return false;
   }
@@ -36,7 +40,10 @@ function isCpuTurn(room: RoomState) {
     (candidate) => candidate.id === room.game?.turnPlayerId,
   );
 
-  return participant?.kind === "cpu";
+  return (
+    participant?.kind === "cpu" ||
+    options.cpuControlledPlayerIds?.includes(room.game.turnPlayerId) === true
+  );
 }
 
 function createCpuAction(state: GameState, playerId: PlayerId): GameAction | null {
@@ -68,7 +75,7 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
   }
 
   if (state.table.play === null) {
-    return player.hand[0] === undefined ? null : [player.hand[0].id];
+    return findOpeningCardIds(state, playerId);
   }
 
   const cardCount = state.table.play?.cards.length ?? 1;
@@ -83,6 +90,28 @@ function findPlayableCardIds(state: GameState, playerId: PlayerId): readonly str
   }
 
   return null;
+}
+
+function findOpeningCardIds(state: GameState, playerId: PlayerId): readonly string[] | null {
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  const weakestCard = player?.hand[0];
+
+  if (player === undefined || weakestCard === undefined) {
+    return null;
+  }
+
+  const weakestCardIds = player.hand
+    .filter((card) => card.rank === weakestCard.rank)
+    .map((card) => card.id);
+
+  if (
+    weakestCardIds.length >= 2 &&
+    getAvailableActions(state, playerId, { selectedCardIds: weakestCardIds }).canPlaySelectedCards
+  ) {
+    return weakestCardIds;
+  }
+
+  return [weakestCard.id];
 }
 
 function* iterateCardIdCombinations(
@@ -110,3 +139,4 @@ function* iterateCardIdCombinations(
 }
 
 export { applyNextCpuTurn, isCpuTurn };
+export type { CpuTurnOptions };

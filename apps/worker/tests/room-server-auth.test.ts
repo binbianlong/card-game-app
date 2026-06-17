@@ -13,6 +13,10 @@ import {
   createInternalRoomRequest,
   validateInternalRoomRequest,
 } from "../src/room-server/internal-request.ts";
+import {
+  getDisconnectedPlayerCpuAlarmTime,
+  isDisconnectedPlayerCpuControlled,
+} from "../src/room-server/disconnected-player.ts";
 
 describe("room server", () => {
   test("redacts other players' hands from client room states", () => {
@@ -238,6 +242,22 @@ describe("room server", () => {
       error: expect.objectContaining({ code: "notAllowed" }),
       ok: false,
     });
+  });
+
+  test("waits 15 seconds before cpu controls a disconnected player", () => {
+    expect(
+      isDisconnectedPlayerCpuControlled({
+        disconnectedAt: 1_000,
+        now: 15_999,
+      }),
+    ).toBe(false);
+    expect(
+      isDisconnectedPlayerCpuControlled({
+        disconnectedAt: 1_000,
+        now: 16_000,
+      }),
+    ).toBe(true);
+    expect(getDisconnectedPlayerCpuAlarmTime(1_000)).toBe(16_000);
   });
 
   test("accepts internal room requests with the configured secret", () => {

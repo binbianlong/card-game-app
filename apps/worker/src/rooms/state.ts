@@ -1,5 +1,11 @@
-import { GameRuleError } from "game";
-import { clientEventTypes, type ClientEvent, type RoomParticipant, type RoomState } from "schema";
+import { GameRuleError, applyGameAction } from "game";
+import {
+  GameStateSchema,
+  clientEventTypes,
+  type ClientEvent,
+  type RoomParticipant,
+  type RoomState,
+} from "schema";
 import { applyGameRoomAction, startGame, startRematch } from "./game.ts";
 import { RoomStateError } from "./errors.ts";
 import { createPlayerId, createPlayerName } from "./factory.ts";
@@ -43,6 +49,28 @@ function applyRoomClientEvent(room: RoomState, event: ClientEvent): RoomState {
 
     throw error;
   }
+}
+
+function applyRoomConnectionChange(
+  room: RoomState,
+  playerId: string,
+  connected: boolean,
+): RoomState {
+  const nextRoom = updateParticipant(room, playerId, { connected });
+
+  if (nextRoom.game === null) {
+    return nextRoom;
+  }
+
+  return {
+    ...nextRoom,
+    game: GameStateSchema.parse(
+      applyGameAction(nextRoom.game, {
+        type: connected ? "reconnect" : "disconnect",
+        playerId,
+      }),
+    ),
+  };
 }
 
 function joinRoom(room: RoomState, playerName: string): RoomState {
@@ -107,7 +135,7 @@ function assertHost(room: RoomState, playerId: string) {
   }
 }
 
-export { RoomStateError, applyRoomClientEvent };
+export { RoomStateError, applyRoomClientEvent, applyRoomConnectionChange };
 export { applyNextCpuTurn, isCpuTurn } from "./cpu-player.ts";
 export {
   createFallbackRoom,
