@@ -6,6 +6,10 @@ import {
   validateConnectionToken,
 } from "../src/room-server/connection-event.ts";
 import {
+  consumeConnectionTicket,
+  setConnectionTicket,
+} from "../src/room-server/connection-ticket.ts";
+import {
   createInternalRoomRequest,
   validateInternalRoomRequest,
 } from "../src/room-server/internal-request.ts";
@@ -131,6 +135,111 @@ describe("room server", () => {
     });
   });
 
+  test("consumes issued websocket connection tickets", async () => {
+    await withCurrentTime(1000, async () => {
+      const storage = createTestStorage();
+      const ticket = await setConnectionTicket(storage, {
+        connectionToken: "token-1",
+        playerId: "player-1",
+      });
+
+      await expect(
+        consumeConnectionTicket({
+          playerId: "player-1",
+          request: createTicketRequest(ticket),
+          storage,
+          validateConnectionToken: async () => null,
+        }),
+      ).resolves.toEqual({
+        connectionToken: "token-1",
+        ok: true,
+      });
+    });
+  });
+
+  test("rejects reused websocket connection tickets", async () => {
+    await withCurrentTime(1000, async () => {
+      const storage = createTestStorage();
+      const ticket = await setConnectionTicket(storage, {
+        connectionToken: "token-1",
+        playerId: "player-1",
+      });
+      const consumeTicket = () =>
+        consumeConnectionTicket({
+          playerId: "player-1",
+          request: createTicketRequest(ticket),
+          storage,
+          validateConnectionToken: async () => null,
+        });
+
+      await expect(consumeTicket()).resolves.toMatchObject({ ok: true });
+      await expect(consumeTicket()).resolves.toMatchObject({
+        error: expect.objectContaining({ code: "notAllowed" }),
+        ok: false,
+      });
+    });
+  });
+
+  test("rejects expired websocket connection tickets", async () => {
+    const storage = createTestStorage();
+    const ticket = await withCurrentTime(1000, () =>
+      setConnectionTicket(storage, {
+        connectionToken: "token-1",
+        playerId: "player-1",
+      }),
+    );
+
+    await withCurrentTime(31_000, async () => {
+      await expect(
+        consumeConnectionTicket({
+          playerId: "player-1",
+          request: createTicketRequest(ticket),
+          storage,
+          validateConnectionToken: async () => null,
+        }),
+      ).resolves.toMatchObject({
+        error: expect.objectContaining({ code: "notAllowed" }),
+        ok: false,
+      });
+    });
+  });
+
+  test("rejects websocket connection tickets for another player", async () => {
+    await withCurrentTime(1000, async () => {
+      const storage = createTestStorage();
+      const ticket = await setConnectionTicket(storage, {
+        connectionToken: "token-1",
+        playerId: "player-1",
+      });
+
+      await expect(
+        consumeConnectionTicket({
+          playerId: "player-2",
+          request: createTicketRequest(ticket),
+          storage,
+          validateConnectionToken: async () => null,
+        }),
+      ).resolves.toMatchObject({
+        error: expect.objectContaining({ code: "notAllowed" }),
+        ok: false,
+      });
+    });
+  });
+
+  test("rejects missing websocket connection tickets", async () => {
+    await expect(
+      consumeConnectionTicket({
+        playerId: "player-1",
+        request: createTicketRequest(""),
+        storage: createTestStorage(),
+        validateConnectionToken: async () => null,
+      }),
+    ).resolves.toMatchObject({
+      error: expect.objectContaining({ code: "notAllowed" }),
+      ok: false,
+    });
+  });
+
   test("accepts internal room requests with the configured secret", () => {
     const request = createInternalRoomRequest({
       body: JSON.stringify({ ok: true }),
@@ -167,6 +276,35 @@ describe("room server", () => {
     });
   });
 });
+
+function createTestStorage() {
+  const values = new Map<string, unknown>();
+
+  return {
+    async get<T>(key: string) {
+      return values.get(key) as T | undefined;
+    },
+    async put(key: string, value: unknown) {
+      values.set(key, value);
+    },
+  } as unknown as DurableObjectStorage;
+}
+
+function createTicketRequest(ticket: string) {
+  return new Request(`https://room-server.internal/?ticket=${encodeURIComponent(ticket)}`);
+}
+
+async function withCurrentTime<T>(now: number, run: () => T | Promise<T>) {
+  const originalDateNow = Date.now;
+
+  Date.now = () => now;
+
+  try {
+    return await run();
+  } finally {
+    Date.now = originalDateNow;
+  }
+}
 
 function createPlayingRoom(): RoomState {
   return {
