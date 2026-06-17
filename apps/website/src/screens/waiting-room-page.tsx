@@ -23,11 +23,12 @@ function WaitingRoomPage() {
       ? ""
       : getRoomConnectionToken({ playerId, roomId });
   const hasConnectionToken = connectionToken.length > 0;
-  const { connectionStatus, errorMessage, room, sendEvent } = useWaitingRoomSocket({
-    connectionToken,
-    playerId,
-    roomId,
-  });
+  const { connectionStatus, errorMessage, isReconnectRequired, room, sendEvent } =
+    useWaitingRoomSocket({
+      connectionToken,
+      playerId,
+      roomId,
+    });
   const localRules = room?.rules ?? defaultLocalRuleSettings;
   const isConnected = connectionStatus === "open";
   const isReadyToStart =
@@ -107,7 +108,7 @@ function WaitingRoomPage() {
         </p>
       </section>
 
-      {hasConnectionToken ? (
+      {hasConnectionToken && !isReconnectRequired ? (
         <WaitingRoomView
           connectionStatus={connectionStatus}
           errorMessage={errorMessage}

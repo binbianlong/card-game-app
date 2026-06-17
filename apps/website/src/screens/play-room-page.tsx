@@ -44,6 +44,7 @@ function PlayRoomPage() {
     clearSelection,
     errorMessage,
     finalResults,
+    isReconnectRequired,
     leaveRoom,
     opponents,
     passTurn,
@@ -91,13 +92,13 @@ function PlayRoomPage() {
         <ActiveLocalRulesModal rules={localRules} onClose={() => setIsRulesOpen(false)} />
       ) : null}
 
-      {hasConnectionToken && errorMessage !== null ? (
+      {hasConnectionToken && !isReconnectRequired && errorMessage !== null ? (
         <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
           {errorMessage}
         </div>
       ) : null}
 
-      {!hasConnectionToken ? (
+      {!hasConnectionToken || isReconnectRequired ? (
         <ReconnectRequiredPage />
       ) : playerView.phase === "finished" ? (
         <FinishedGameResults

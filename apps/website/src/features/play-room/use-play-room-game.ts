@@ -68,7 +68,7 @@ function usePlayRoomGame({
   playerId: string;
   roomId: string;
 }) {
-  const { errorMessage, room, sendEvent } = useRoomSocket({
+  const { errorMessage, isReconnectRequired, room, sendEvent } = useRoomSocket({
     connectionToken,
     invalidMessage: "ゲーム状態を読み取れませんでした。",
     playerId,
@@ -187,6 +187,7 @@ function usePlayRoomGame({
     clearSelection,
     errorMessage,
     finalResults,
+    isReconnectRequired,
     leaveRoom,
     opponents,
     passTurn,

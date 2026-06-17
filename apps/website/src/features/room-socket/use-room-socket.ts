@@ -1,9 +1,15 @@
 import PartySocket from "partysocket";
 import { useEffect, useRef, useState } from "react";
 import { ServerEventSchema, roomPartyName, type ClientEvent, type RoomClientState } from "schema";
-import { createRoomConnectionTicket, getWorkerHost } from "@/features/rooms/room-api";
+import {
+  createRoomConnectionTicket,
+  getWorkerHost,
+  RoomConnectionTicketError,
+} from "@/features/rooms/room-api";
 
 type ConnectionStatus = "closed" | "connecting" | "open";
+
+const policyViolationCloseCode = 1008;
 
 function useRoomSocket({
   connectionToken,
@@ -19,6 +25,7 @@ function useRoomSocket({
   const socketRef = useRef<PartySocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("closed");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isReconnectRequired, setIsReconnectRequired] = useState(false);
   const [room, setRoom] = useState<RoomClientState | null>(null);
 
   useEffect(() => {
@@ -29,20 +36,40 @@ function useRoomSocket({
 
     setConnectionStatus("connecting");
     setErrorMessage(null);
+    setIsReconnectRequired(false);
 
     const socket = new PartySocket({
       host: getWorkerHost(),
       party: roomPartyName,
-      query: async () => ({
-        ticket: await createRoomConnectionTicket({ connectionToken, playerId, roomId }),
-      }),
+      query: async () => {
+        try {
+          return {
+            ticket: await createRoomConnectionTicket({ connectionToken, playerId, roomId }),
+          };
+        } catch (error) {
+          if (isConnectionRejected(error)) {
+            setIsReconnectRequired(true);
+            socket.close(policyViolationCloseCode, "Connection rejected.");
+          }
+
+          throw error;
+        }
+      },
       room: roomId,
       id: playerId,
+      startClosed: true,
     });
     socketRef.current = socket;
 
     socket.addEventListener("open", () => setConnectionStatus("open"));
-    socket.addEventListener("close", () => setConnectionStatus("closed"));
+    socket.addEventListener("close", (event) => {
+      setConnectionStatus("closed");
+
+      if (event.code === policyViolationCloseCode) {
+        setIsReconnectRequired(true);
+        socket.close(event.code, event.reason);
+      }
+    });
     socket.addEventListener("error", () => {
       setConnectionStatus("closed");
       setErrorMessage("リアルタイム接続に失敗しました。");
@@ -63,6 +90,7 @@ function useRoomSocket({
       setRoom(serverEvent.data.room);
       setErrorMessage(null);
     });
+    socket.reconnect();
 
     return () => {
       socket.close();
@@ -76,7 +104,7 @@ function useRoomSocket({
     socketRef.current?.send(JSON.stringify(event));
   }
 
-  return { connectionStatus, errorMessage, room, sendEvent };
+  return { connectionStatus, errorMessage, isReconnectRequired, room, sendEvent };
 }
 
 function parseMessage(message: unknown) {
@@ -89,6 +117,10 @@ function parseMessage(message: unknown) {
   } catch {
     return null;
   }
+}
+
+function isConnectionRejected(error: unknown) {
+  return error instanceof RoomConnectionTicketError && error.status === 403;
 }
 
 export { useRoomSocket };

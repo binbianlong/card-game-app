@@ -91,10 +91,19 @@ async function createRoomConnectionTicket({
   );
 
   if (!response.ok) {
-    throw new Error("Failed to create connection ticket.");
+    throw new RoomConnectionTicketError(response.status);
   }
 
   return CreateConnectionTicketResponseSchema.parse(await response.json()).ticket;
+}
+
+class RoomConnectionTicketError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super("Failed to create connection ticket.");
+    this.status = status;
+  }
 }
 
 function normalizeInviteCode(inviteCode: string) {
@@ -139,4 +148,5 @@ export {
   getWorkerHost,
   getWorkerOrigin,
   joinRoom,
+  RoomConnectionTicketError,
 };
