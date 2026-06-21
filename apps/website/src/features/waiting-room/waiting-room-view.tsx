@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions, type LocalRuleKey } from "@/features/local-rules/local-rule-options";
 import type { ConnectionStatus } from "@/features/waiting-room/use-waiting-room-socket";
 import type { GameRuleSettings, RoomClientState, RoomParticipant } from "schema";
@@ -218,15 +219,7 @@ function RuleToggle({
           : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
       }
     >
-      <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="size-5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-base leading-snug font-bold">{label}</span>
-        <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">
-          {description}
-        </span>
-      </span>
+      <LocalRuleContent description={description} Icon={Icon} label={label} variant="toggle" />
       <span
         className={
           enabled

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { PageHeader, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 import {
   BattleStatus,
@@ -163,15 +164,12 @@ function ActiveLocalRulesModal({
                   key={rule.key}
                   className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3"
                 >
-                  <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="size-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-sm leading-snug font-bold">{rule.label}</div>
-                    <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-                      {rule.description}
-                    </p>
-                  </div>
+                  <LocalRuleContent
+                    description={rule.description}
+                    Icon={Icon}
+                    label={rule.label}
+                    variant="compact"
+                  />
                 </div>
               );
             })

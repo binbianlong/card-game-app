@@ -2,6 +2,7 @@ import { BookOpen, Handshake } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 
 const extraLocalRules = [
@@ -93,15 +94,12 @@ function RulesPage() {
               return (
                 <Card key={rule.key} className="border-primary/15 bg-card/90 shadow-none">
                   <CardContent className="grid grid-cols-[40px_minmax(0,1fr)] gap-3 p-3.5">
-                    <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="text-base leading-snug font-bold">{rule.label}</h3>
-                      <p className="mt-1.5 text-[13px] leading-5 text-muted-foreground">
-                        {rule.description}
-                      </p>
-                    </div>
+                    <LocalRuleContent
+                      description={rule.description}
+                      Icon={Icon}
+                      label={rule.label}
+                      variant="detail"
+                    />
                   </CardContent>
                 </Card>
               );
