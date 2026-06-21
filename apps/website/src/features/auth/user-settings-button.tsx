@@ -1,6 +1,7 @@
 import { LogOut, Settings, UserRound } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { authClient } from "./auth-client";
 import { LoginButton } from "./login-button";
@@ -52,14 +53,14 @@ function UserSettingsButton() {
         <label htmlFor={nicknameInputId} className="mt-4 block text-xs font-bold">
           ニックネーム
         </label>
-        <input
+        <Input
           id={nicknameInputId}
           type="text"
           value={nicknameInput}
           maxLength={24}
           placeholder="未設定"
           onChange={(event) => setNicknameInput(event.currentTarget.value)}
-          className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm font-bold outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="mt-2 h-10 bg-background text-sm font-bold"
         />
         <Button type="button" size="sm" className="mt-3 w-full" onClick={saveNickname}>
           ニックネームを保存

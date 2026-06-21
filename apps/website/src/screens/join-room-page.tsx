@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
 import { getStoredNickname } from "@/features/auth/nickname";
@@ -184,13 +185,13 @@ function TextSetting({
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{description}</p>
         </div>
       </div>
-      <input
+      <Input
         id={inputId}
         type="text"
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.currentTarget.value)}
-        className="mt-3 h-11 w-full rounded-md border bg-background px-3 text-base font-bold outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="mt-3 h-11 bg-background text-base font-bold md:text-base"
       />
     </div>
   );

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useNickname } from "@/features/auth/nickname";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
 import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
@@ -200,7 +201,7 @@ function NumberSetting({
         >
           <Minus className="size-4" aria-hidden="true" />
         </Button>
-        <input
+        <Input
           id={inputId}
           type="number"
           inputMode="numeric"
@@ -208,7 +209,7 @@ function NumberSetting({
           max={max}
           value={value}
           onChange={(event) => onChange(Number(event.currentTarget.value))}
-          className="h-11 w-full rounded-md border bg-background px-3 text-center text-lg font-extrabold outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="h-11 bg-background text-center text-lg font-extrabold md:text-lg"
         />
         <Button
           type="button"
