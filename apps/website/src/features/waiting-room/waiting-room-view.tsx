@@ -21,7 +21,7 @@ type WaitingRoomViewProps = {
   isConnected: boolean;
   isReadyToStart: boolean;
   localRules: GameRuleSettings;
-  onReady: () => void;
+  onToggleReady: () => void;
   onStartGame: () => void;
   onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
   playerCount: number;
@@ -35,8 +35,8 @@ function WaitingRoomView({
   isConnected,
   isReadyToStart,
   localRules,
-  onReady,
   onStartGame,
+  onToggleReady,
   onToggleLocalRule,
   playerCount,
   playerId,
@@ -46,11 +46,9 @@ function WaitingRoomView({
   const waitingCount = Math.max(playerCount - participants.length, 0);
   const currentParticipant = participants.find((participant) => participant.id === playerId);
   const isHost = room?.hostPlayerId === playerId;
-  const canReady =
-    isConnected &&
-    currentParticipant !== undefined &&
-    !currentParticipant.ready &&
-    room?.status === "waiting";
+  const isCurrentPlayerReady = currentParticipant?.ready === true;
+  const canToggleReady =
+    isConnected && currentParticipant !== undefined && room?.status === "waiting";
 
   return (
     <section className="grid flex-1 content-start gap-4" aria-label="ルーム待機画面">
@@ -128,13 +126,17 @@ function WaitingRoomView({
         <CardContent className="grid gap-3 p-4">
           <Button
             type="button"
-            variant="outline"
+            variant={isCurrentPlayerReady ? "secondary" : "outline"}
             className="w-full"
-            disabled={!canReady}
-            onClick={onReady}
+            disabled={!canToggleReady}
+            onClick={onToggleReady}
           >
-            <CheckCircle2 className="size-4" aria-hidden="true" />
-            準備OK
+            {isCurrentPlayerReady ? (
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+            ) : (
+              <Clock className="size-4" aria-hidden="true" />
+            )}
+            {isCurrentPlayerReady ? "準備OK" : "待機中"}
           </Button>
           {isHost ? (
             <Button

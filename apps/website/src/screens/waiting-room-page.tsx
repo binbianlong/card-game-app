@@ -68,12 +68,16 @@ function WaitingRoomPage() {
     );
   }
 
-  function setReady() {
+  function toggleReady() {
+    const isReady = room?.participants.some(
+      (participant) => participant.id === playerId && participant.ready,
+    );
+
     sendEvent(
       createClientEvent.setReady({
         roomId,
         playerId,
-        ready: true,
+        ready: !isReady,
       }),
     );
   }
@@ -116,9 +120,9 @@ function WaitingRoomPage() {
           isConnected={isConnected}
           isReadyToStart={isReadyToStart}
           localRules={localRules}
-          onReady={setReady}
           onStartGame={startGame}
           onToggleLocalRule={toggleLocalRule}
+          onToggleReady={toggleReady}
           playerCount={playerCount}
           playerId={playerId}
           room={room}
