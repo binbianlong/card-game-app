@@ -49,6 +49,7 @@ function PlayRoomPage() {
     opponents,
     passTurn,
     playerHand,
+    playableCardIdSet,
     playerMetas,
     playerRank,
     playerView,
@@ -123,6 +124,7 @@ function PlayRoomPage() {
             onPlaySelectedCards={playSelectedCards}
             onToggleCard={toggleCard}
             playerHand={playerHand}
+            playableCardIdSet={playableCardIdSet}
             playerRank={playerRank}
             selectedCards={selectedCards}
             selectedCardIdSet={selectedCardIdSet}

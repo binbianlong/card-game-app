@@ -65,6 +65,14 @@ const opponents = [
 const playerView = createPlayerView();
 const selectedCardIdSet = new Set(["player-8h", "player-8s"]);
 const selectedCards = playerHand.filter((cardItem) => selectedCardIdSet.has(cardItem.id));
+const playableCardIdSet = new Set([
+  "player-8h",
+  "player-8s",
+  "player-jc",
+  "player-as",
+  "player-2h",
+  "player-joker",
+]);
 
 const meta = {
   title: "Features/PlayRoom/Sections",
@@ -96,6 +104,7 @@ export const InTurnWithSelection: Story = {
         onPlaySelectedCards={noop}
         onToggleCard={noop}
         playerHand={playerHand}
+        playableCardIdSet={playableCardIdSet}
         playerRank={null}
         selectedCards={selectedCards}
         selectedCardIdSet={selectedCardIdSet}
@@ -120,6 +129,7 @@ export const WaitingForOpponent: Story = {
         onPlaySelectedCards={noop}
         onToggleCard={noop}
         playerHand={playerHand}
+        playableCardIdSet={new Set()}
         playerRank={null}
         selectedCards={[]}
         selectedCardIdSet={new Set()}
@@ -150,6 +160,7 @@ export const FinishedPlayerHand: Story = {
       onPlaySelectedCards={noop}
       onToggleCard={noop}
       playerHand={[]}
+      playableCardIdSet={new Set()}
       playerRank={2}
       selectedCards={[]}
       selectedCardIdSet={new Set()}

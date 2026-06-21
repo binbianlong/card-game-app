@@ -383,6 +383,7 @@ function PlayerArea({
   onPlaySelectedCards,
   onToggleCard,
   playerHand,
+  playableCardIdSet,
   playerRank,
   selectedCards,
   selectedCardIdSet,
@@ -393,6 +394,7 @@ function PlayerArea({
   onPlaySelectedCards: () => void;
   onToggleCard: (cardId: string) => void;
   playerHand: readonly GameCard[];
+  playableCardIdSet: ReadonlySet<string>;
   playerRank: number | null;
   selectedCards: readonly GameCard[];
   selectedCardIdSet: ReadonlySet<string>;
@@ -437,7 +439,7 @@ function PlayerArea({
                 suit={card.suit}
                 selected={selectedCardIdSet.has(card.id)}
                 size="sm"
-                disabled={!availableActions.isTurn}
+                disabled={!playableCardIdSet.has(card.id)}
                 onClick={() => onToggleCard(card.id)}
                 className="shadow-md"
                 style={{ marginLeft: index === 0 ? 0 : -12, zIndex: index + 1 }}

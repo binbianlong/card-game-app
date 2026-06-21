@@ -1,5 +1,6 @@
 import {
   getAvailableViewActions,
+  getPlayableViewCardIds,
   type Card,
   type Play,
   type PlayerGameView,
@@ -84,6 +85,10 @@ function usePlayRoomGame({
   const playerRank = viewer?.rank ?? null;
   const selectedCards = playerHand.filter((card) => selectedCardIds.includes(card.id));
   const selectedCardIdSet = useMemo(() => new Set(selectedCardIds), [selectedCardIds]);
+  const playableCardIdSet = useMemo(
+    () => new Set(gameState === null ? [] : getPlayableViewCardIds(gameState)),
+    [gameState],
+  );
   const availableActions =
     gameState === null
       ? { isTurn: false, canPlaySelectedCards: false, canPass: false }
@@ -192,6 +197,7 @@ function usePlayRoomGame({
     opponents,
     passTurn,
     playerHand,
+    playableCardIdSet,
     playerMetas,
     playerRank,
     playerView,

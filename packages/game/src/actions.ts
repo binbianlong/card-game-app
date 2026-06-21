@@ -31,6 +31,30 @@ export function getAvailableViewActions(
   };
 }
 
+export function getPlayableViewCardIds(view: PlayerGameView): readonly string[] {
+  if (!isPlayerViewTurn(view)) {
+    return [];
+  }
+
+  const viewer = view.players.find((player) => player.id === view.viewerId);
+  const hand = viewer?.hand ?? [];
+  const requiredCardCount = view.table.play?.cards.length ?? 1;
+  const playableCardIds = new Set<string>();
+
+  for (const cardIds of combinations(
+    hand.map((card) => card.id),
+    requiredCardCount,
+  )) {
+    if (canPlaySelectedViewCards(view, cardIds)) {
+      for (const cardId of cardIds) {
+        playableCardIds.add(cardId);
+      }
+    }
+  }
+
+  return hand.filter((card) => playableCardIds.has(card.id)).map((card) => card.id);
+}
+
 export function canPlaySelectedCards(
   state: GameState,
   playerId: PlayerId,
@@ -114,4 +138,31 @@ function canApply(action: () => unknown): boolean {
   } catch {
     return false;
   }
+}
+
+function combinations<T>(items: readonly T[], count: number): readonly (readonly T[])[] {
+  if (count <= 0 || count > items.length) {
+    return [];
+  }
+
+  const result: T[][] = [];
+
+  function collect(startIndex: number, current: T[]) {
+    if (current.length === count) {
+      result.push([...current]);
+      return;
+    }
+
+    const remainingCount = count - current.length;
+    const lastStartIndex = items.length - remainingCount;
+
+    for (let index = startIndex; index <= lastStartIndex; index += 1) {
+      current.push(items[index]);
+      collect(index + 1, current);
+      current.pop();
+    }
+  }
+
+  collect(0, []);
+  return result;
 }
