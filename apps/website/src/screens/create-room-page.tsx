@@ -1,9 +1,11 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Bot, Minus, Plus, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Bot, Minus, Plus, Users, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SettingField } from "@/components/form/setting-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { useNickname } from "@/features/auth/nickname";
 import { defaultLocalRuleSettings } from "@/features/local-rules/local-rule-options";
 import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
@@ -73,26 +75,14 @@ function CreateRoomPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="ホームに戻る">
-          <Link to="/">
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">ルーム作成</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
-      <section className="pt-8 pb-5" aria-labelledby="create-room-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Create room</p>
-        <h1 id="create-room-title" className="text-3xl leading-tight font-extrabold">
-          ルームを作成
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          対戦人数とCPUの人数を決めて、新しい対戦ルームを準備します。
-        </p>
-      </section>
+    <PageShell>
+      <PageHeader backLabel="ホームに戻る" backTo="/" title="ルーム作成" />
+      <PageIntro
+        description="対戦人数とCPUの人数を決めて、新しい対戦ルームを準備します。"
+        eyebrow="Create room"
+        title="ルームを作成"
+        titleId="create-room-title"
+      />
 
       <form className="grid flex-1 content-start gap-4" aria-label="ルーム作成フォーム">
         <Card>
@@ -105,7 +95,7 @@ function CreateRoomPage() {
           <CardContent className="grid gap-3 px-4 pb-4">
             <NumberSetting
               description={`${minPlayers}人から${maxPlayers}人まで選べます。`}
-              icon={<Users className="size-5" aria-hidden="true" />}
+              Icon={Users}
               label="対戦人数"
               max={maxPlayers}
               min={minPlayers}
@@ -114,7 +104,7 @@ function CreateRoomPage() {
             />
             <NumberSetting
               description="最低1人はプレイヤー参加枠として残します。"
-              icon={<Bot className="size-5" aria-hidden="true" />}
+              Icon={Bot}
               label="CPUにする人数"
               max={maxCpuCount}
               min={0}
@@ -153,13 +143,13 @@ function CreateRoomPage() {
           </CardContent>
         </Card>
       </form>
-    </main>
+    </PageShell>
   );
 }
 
 function NumberSetting({
   description,
-  icon,
+  Icon,
   label,
   max,
   min,
@@ -167,7 +157,7 @@ function NumberSetting({
   value,
 }: {
   description: string;
-  icon: ReactNode;
+  Icon: LucideIcon;
   label: string;
   max: number;
   min: number;
@@ -177,18 +167,7 @@ function NumberSetting({
   const inputId = `${label}-input`;
 
   return (
-    <div className="rounded-lg border bg-card p-3.5">
-      <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3">
-        <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <label htmlFor={inputId} className="text-base leading-snug font-bold">
-            {label}
-          </label>
-          <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{description}</p>
-        </div>
-      </div>
+    <SettingField description={description} Icon={Icon} inputId={inputId} label={label}>
       <div className="mt-3 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2">
         <Button
           type="button"
@@ -200,7 +179,7 @@ function NumberSetting({
         >
           <Minus className="size-4" aria-hidden="true" />
         </Button>
-        <input
+        <Input
           id={inputId}
           type="number"
           inputMode="numeric"
@@ -208,7 +187,7 @@ function NumberSetting({
           max={max}
           value={value}
           onChange={(event) => onChange(Number(event.currentTarget.value))}
-          className="h-11 w-full rounded-md border bg-background px-3 text-center text-lg font-extrabold outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="h-11 bg-background text-center text-lg font-extrabold md:text-lg"
         />
         <Button
           type="button"
@@ -221,7 +200,7 @@ function NumberSetting({
           <Plus className="size-4" aria-hidden="true" />
         </Button>
       </div>
-    </div>
+    </SettingField>
   );
 }
 

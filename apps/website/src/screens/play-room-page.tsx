@@ -1,9 +1,11 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
-import { ArrowLeft, BookOpen, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { BookOpen } from "lucide-react";
+import { useState } from "react";
+import { PageHeader, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 import {
   BattleStatus,
@@ -12,7 +14,7 @@ import {
   TableArea,
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
-import { getRoomConnectionToken } from "@/features/rooms/connection-token";
+import { resolveRoomConnection } from "@/features/rooms/connection-token";
 import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function PlayRoomPage() {
@@ -20,24 +22,8 @@ function PlayRoomPage() {
   const search = useSearch({ from: "/rooms/play" });
   const playerCount = search.players;
   const cpuCount = search.cpu;
-  const roomId = search.roomId ?? "";
-  const playerId = search.playerId ?? "";
-  const connectionToken =
-    roomId.length === 0 || playerId.length === 0
-      ? ""
-      : getRoomConnectionToken({ playerId, roomId });
-  const hasConnectionToken = connectionToken.length > 0;
+  const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
-  const localRules = useMemo(
-    () => ({
-      eightCut: search.eightCut,
-      elevenBack: search.elevenBack,
-      revolution: search.revolution,
-      sequence: search.sequence,
-      suitLock: search.suitLock,
-    }),
-    [search.eightCut, search.elevenBack, search.revolution, search.sequence, search.suitLock],
-  );
   const {
     availableActions,
     canStartRematch,
@@ -49,6 +35,7 @@ function PlayRoomPage() {
     opponents,
     passTurn,
     playerHand,
+    playableCardIdSet,
     playerMetas,
     playerRank,
     playerView,
@@ -57,7 +44,8 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
-  } = usePlayRoomGame({ connectionToken, cpuCount, playerCount, playerId, roomId });
+  } = usePlayRoomGame({ connectionToken, playerId, roomId });
+  const localRules = playerView.rules;
 
   function exitRoom() {
     leaveRoom();
@@ -65,32 +53,27 @@ function PlayRoomPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="待機画面に戻る">
-          <Link
-            to="/rooms/waiting"
-            search={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
+    <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
+      <PageHeader
+        backLabel="待機画面に戻る"
+        backTo="/rooms/waiting"
+        backSearch={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
+        title="対戦中"
+        action={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="採用中のローカルルールを確認"
+            aria-expanded={isRulesOpen}
+            onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
           >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">対戦中</div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="採用中のローカルルールを確認"
-          aria-expanded={isRulesOpen}
-          onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
-        >
-          <BookOpen className="size-5" aria-hidden="true" />
-        </Button>
-      </header>
+            <BookOpen className="size-5" aria-hidden="true" />
+          </Button>
+        }
+      />
 
-      {isRulesOpen ? (
-        <ActiveLocalRulesModal rules={localRules} onClose={() => setIsRulesOpen(false)} />
-      ) : null}
+      <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
       {hasConnectionToken && !isReconnectRequired && errorMessage !== null ? (
         <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
@@ -123,92 +106,66 @@ function PlayRoomPage() {
             onPlaySelectedCards={playSelectedCards}
             onToggleCard={toggleCard}
             playerHand={playerHand}
+            playableCardIdSet={playableCardIdSet}
             playerRank={playerRank}
             selectedCards={selectedCards}
             selectedCardIdSet={selectedCardIdSet}
           />
         </section>
       )}
-    </main>
+    </PageShell>
   );
 }
 
 function ActiveLocalRulesModal({
-  onClose,
+  onOpenChange,
+  open,
   rules,
 }: {
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
   rules: GameRuleSettings;
 }) {
   const enabledRules = localRuleOptions.filter((rule) => rules[rule.key]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-background/80 px-4 py-6 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="active-local-rules-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="採用中のローカルルールを閉じる"
-        onClick={onClose}
-      />
-      <Card className="relative w-full max-w-[390px] py-0 shadow-lg">
-        <CardContent className="grid gap-4 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] leading-none font-extrabold text-primary uppercase">
-                <BookOpen className="size-3.5" aria-hidden="true" />
-                Local rules
-              </div>
-              <h2 id="active-local-rules-title" className="mt-1.5 text-lg leading-tight font-bold">
-                採用中のルール
-              </h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[390px]">
+        <DialogHeader className="pr-8 text-left">
+          <div className="flex items-center gap-2 text-[11px] leading-none font-extrabold text-primary uppercase">
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            Local rules
+          </div>
+          <DialogTitle className="text-lg leading-tight font-bold">採用中のルール</DialogTitle>
+        </DialogHeader>
+
+        <div className="grid gap-2">
+          {enabledRules.length > 0 ? (
+            enabledRules.map((rule) => {
+              const Icon = rule.Icon;
+
+              return (
+                <div
+                  key={rule.key}
+                  className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3"
+                >
+                  <LocalRuleContent
+                    description={rule.description}
+                    Icon={Icon}
+                    label={rule.label}
+                    variant="compact"
+                  />
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-lg bg-muted/60 p-3 text-sm font-bold text-muted-foreground">
+              採用中のローカルルールはありません。
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="採用中のローカルルールを閉じる"
-              onClick={onClose}
-            >
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </div>
-
-          <div className="grid gap-2">
-            {enabledRules.length > 0 ? (
-              enabledRules.map((rule) => {
-                const Icon = rule.Icon;
-
-                return (
-                  <div
-                    key={rule.key}
-                    className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3"
-                  >
-                    <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
-                      <Icon className="size-4" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm leading-snug font-bold">{rule.label}</div>
-                      <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-                        {rule.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="rounded-lg bg-muted/60 p-3 text-sm font-bold text-muted-foreground">
-                採用中のローカルルールはありません。
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

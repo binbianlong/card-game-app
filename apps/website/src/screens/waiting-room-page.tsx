@@ -1,12 +1,11 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import {
   defaultLocalRuleSettings,
   type LocalRuleKey,
 } from "@/features/local-rules/local-rule-options";
-import { getRoomConnectionToken } from "@/features/rooms/connection-token";
+import { resolveRoomConnection } from "@/features/rooms/connection-token";
 import { useWaitingRoomSocket } from "@/features/waiting-room/use-waiting-room-socket";
 import { WaitingRoomView } from "@/features/waiting-room/waiting-room-view";
 import { createClientEvent } from "schema";
@@ -16,13 +15,7 @@ function WaitingRoomPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
-  const roomId = search.roomId ?? "";
-  const playerId = search.playerId ?? "";
-  const connectionToken =
-    roomId.length === 0 || playerId.length === 0
-      ? ""
-      : getRoomConnectionToken({ playerId, roomId });
-  const hasConnectionToken = connectionToken.length > 0;
+  const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const { connectionStatus, errorMessage, isReconnectRequired, room, sendEvent } =
     useWaitingRoomSocket({
       connectionToken,
@@ -32,10 +25,11 @@ function WaitingRoomPage() {
   const localRules = room?.rules ?? defaultLocalRuleSettings;
   const isConnected = connectionStatus === "open";
   const isReadyToStart =
+    isConnected &&
     room !== null &&
     room.status === "waiting" &&
-    room.participants.length >= playerCount &&
-    room.participants.some((participant) => participant.id === playerId && participant.ready);
+    room.participants.length === playerCount &&
+    room.participants.every((participant) => participant.kind === "cpu" || participant.ready);
 
   useEffect(() => {
     if (room?.status !== "playing") {
@@ -49,10 +43,9 @@ function WaitingRoomPage() {
         cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
         roomId: room.id,
         playerId,
-        ...room.rules,
       },
     });
-  }, [navigate, room]);
+  }, [navigate, playerId, room]);
 
   function toggleLocalRule(ruleKey: LocalRuleKey) {
     sendEvent(
@@ -67,12 +60,16 @@ function WaitingRoomPage() {
     );
   }
 
-  function setReady() {
+  function toggleReady() {
+    const isReady = room?.participants.some(
+      (participant) => participant.id === playerId && participant.ready,
+    );
+
     sendEvent(
       createClientEvent.setReady({
         roomId,
         playerId,
-        ready: true,
+        ready: !isReady,
       }),
     );
   }
@@ -87,26 +84,14 @@ function WaitingRoomPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="ルーム作成に戻る">
-          <Link to="/rooms/new">
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">待機画面</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
-      <section className="pt-8 pb-5" aria-labelledby="waiting-room-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Waiting room</p>
-        <h1 id="waiting-room-title" className="text-3xl leading-tight font-extrabold">
-          参加者を待機中
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          参加者全員が集まると、ゲームを開始できます。
-        </p>
-      </section>
+    <PageShell>
+      <PageHeader backLabel="ルーム作成に戻る" backTo="/rooms/new" title="待機画面" />
+      <PageIntro
+        description="参加者全員が集まると、ゲームを開始できます。"
+        eyebrow="Waiting room"
+        title="参加者を待機中"
+        titleId="waiting-room-title"
+      />
 
       {hasConnectionToken && !isReconnectRequired ? (
         <WaitingRoomView
@@ -115,9 +100,9 @@ function WaitingRoomPage() {
           isConnected={isConnected}
           isReadyToStart={isReadyToStart}
           localRules={localRules}
-          onReady={setReady}
           onStartGame={startGame}
           onToggleLocalRule={toggleLocalRule}
+          onToggleReady={toggleReady}
           playerCount={playerCount}
           playerId={playerId}
           room={room}
@@ -125,7 +110,7 @@ function WaitingRoomPage() {
       ) : (
         <ReconnectRequiredPage />
       )}
-    </main>
+    </PageShell>
   );
 }
 

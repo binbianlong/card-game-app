@@ -1,68 +1,31 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Bot, ChevronDown, ChevronRight, Users } from "lucide-react";
-import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { Bot, ChevronDown, ChevronRight, Users } from "lucide-react";
 import type { MatchHistoryItem, MatchHistoryPlayer, RoomHistoryItem } from "schema";
 import { PlayingCard } from "@/components/playing-card/playing-card";
+import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
-import { getRoomHistory, getRoomMatchHistory } from "@/features/rooms/room-api";
-
-type LoadStatus = "error" | "idle" | "loading" | "success";
+import { useAuthStatus } from "@/features/auth/use-auth-status";
+import { useRoomHistory, useRoomMatchHistory } from "@/features/room-history/use-room-history";
 
 function RoomHistoryPage() {
-  const session = authClient.useSession();
-  const [rooms, setRooms] = useState<readonly RoomHistoryItem[]>([]);
-  const [status, setStatus] = useState<LoadStatus>("idle");
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
-
-  useEffect(() => {
-    if (session.isPending || isLoggedOut) {
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadHistory() {
-      setStatus("loading");
-
-      try {
-        const data = await getRoomHistory();
-
-        if (!ignore) {
-          setRooms(data.rooms);
-          setStatus("success");
-        }
-      } catch {
-        if (!ignore) {
-          setStatus("error");
-        }
-      }
-    }
-
-    void loadHistory();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isLoggedOut, session.isPending]);
+  const { isLoggedIn, isLoggedOut, isPending } = useAuthStatus();
+  const { data, status } = useRoomHistory(isLoggedIn);
+  const rooms = data?.rooms ?? [];
 
   return (
-    <HistoryShell backTo="/" title="対戦履歴">
-      <section className="pt-8 pb-5" aria-labelledby="room-history-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Room history</p>
-        <h1 id="room-history-title" className="text-3xl leading-tight font-extrabold">
-          ルームごとの履歴
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          作成済みルームを選んで、そのルーム内の対戦結果を確認できます。
-        </p>
-      </section>
+    <PageShell>
+      <PageHeader backTo="/" title="対戦履歴" />
+      <PageIntro
+        description="作成済みルームを選んで、そのルーム内の対戦結果を確認できます。"
+        eyebrow="Room history"
+        title="ルームごとの履歴"
+        titleId="room-history-title"
+      />
 
       <section className="grid flex-1 content-start gap-3" aria-label="ルーム履歴一覧">
-        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {isLoggedOut ? <HistoryLoginRequired isPending={isPending} /> : null}
         {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}
@@ -74,66 +37,36 @@ function RoomHistoryPage() {
         ) : null}
         {!isLoggedOut && rooms.map((room) => <RoomHistoryCard key={room.id} room={room} />)}
       </section>
-    </HistoryShell>
+    </PageShell>
   );
 }
 
 function RoomMatchHistoryPage() {
   const { roomId } = useParams({ from: "/rooms/history/$roomId" });
-  const session = authClient.useSession();
-  const [matches, setMatches] = useState<readonly MatchHistoryItem[]>([]);
-  const [room, setRoom] = useState<RoomHistoryItem | null>(null);
-  const [status, setStatus] = useState<LoadStatus>("idle");
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
-
-  useEffect(() => {
-    if (session.isPending || isLoggedOut) {
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadHistory() {
-      setStatus("loading");
-
-      try {
-        const data = await getRoomMatchHistory(roomId);
-
-        if (!ignore) {
-          setRoom(data.room);
-          setMatches(data.matches);
-          setStatus("success");
-        }
-      } catch {
-        if (!ignore) {
-          setStatus("error");
-        }
-      }
-    }
-
-    void loadHistory();
-
-    return () => {
-      ignore = true;
-    };
-  }, [roomId, isLoggedOut, session.isPending]);
+  const { isLoggedIn, isLoggedOut, isPending } = useAuthStatus();
+  const { data, status } = useRoomMatchHistory({
+    enabled: isLoggedIn,
+    roomId,
+  });
+  const matches = data?.matches ?? [];
+  const room = data?.room ?? null;
 
   return (
-    <HistoryShell backTo="/rooms/history" title="ルーム履歴">
-      <section className="pt-8 pb-5" aria-labelledby="match-history-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Match history</p>
-        <h1 id="match-history-title" className="text-3xl leading-tight font-extrabold">
-          ルーム内の対戦
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          {room === null
+    <PageShell>
+      <PageHeader backTo="/rooms/history" title="ルーム履歴" />
+      <PageIntro
+        description={
+          room === null
             ? "このルームで終了した対戦を確認できます。"
-            : `${formatDateTime(new Date(room.createdAt))} 作成 / ${room.matchCount}戦`}
-        </p>
-      </section>
+            : `${formatDateTime(new Date(room.createdAt))} 作成 / ${room.matchCount}戦`
+        }
+        eyebrow="Match history"
+        title="ルーム内の対戦"
+        titleId="match-history-title"
+      />
 
       <section className="grid flex-1 content-start gap-3" aria-label="対戦履歴一覧">
-        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {isLoggedOut ? <HistoryLoginRequired isPending={isPending} /> : null}
         {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}
@@ -145,51 +78,7 @@ function RoomMatchHistoryPage() {
         ) : null}
         {!isLoggedOut && matches.map((match) => <MatchHistoryCard key={match.id} match={match} />)}
       </section>
-    </HistoryShell>
-  );
-}
-
-function HistoryShell({
-  backTo,
-  children,
-  title,
-}: {
-  backTo: "/";
-  children: ReactNode;
-  title: string;
-}): ReactNode;
-function HistoryShell({
-  backTo,
-  children,
-  title,
-}: {
-  backTo: "/rooms/history";
-  children: ReactNode;
-  title: string;
-}): ReactNode;
-function HistoryShell({
-  backTo,
-  children,
-  title,
-}: {
-  backTo: "/" | "/rooms/history";
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="戻る">
-          <Link to={backTo}>
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">{title}</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
-      {children}
-    </main>
+    </PageShell>
   );
 }
 
