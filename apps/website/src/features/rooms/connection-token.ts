@@ -14,8 +14,30 @@ function getRoomConnectionToken({ playerId, roomId }: { playerId: string; roomId
   return window.sessionStorage.getItem(createRoomConnectionTokenKey(roomId, playerId)) ?? "";
 }
 
+function resolveRoomConnection({
+  playerId: optionalPlayerId,
+  roomId: optionalRoomId,
+}: {
+  playerId: string | undefined;
+  roomId: string | undefined;
+}) {
+  const playerId = optionalPlayerId ?? "";
+  const roomId = optionalRoomId ?? "";
+  const connectionToken =
+    playerId.length === 0 || roomId.length === 0
+      ? ""
+      : getRoomConnectionToken({ playerId, roomId });
+
+  return {
+    connectionToken,
+    hasConnectionToken: connectionToken.length > 0,
+    playerId,
+    roomId,
+  };
+}
+
 function createRoomConnectionTokenKey(roomId: string, playerId: string) {
   return `room-connection-token:${roomId}:${playerId}`;
 }
 
-export { getRoomConnectionToken, saveRoomConnectionToken };
+export { getRoomConnectionToken, resolveRoomConnection, saveRoomConnectionToken };

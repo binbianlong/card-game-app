@@ -5,7 +5,7 @@ import {
   defaultLocalRuleSettings,
   type LocalRuleKey,
 } from "@/features/local-rules/local-rule-options";
-import { getRoomConnectionToken } from "@/features/rooms/connection-token";
+import { resolveRoomConnection } from "@/features/rooms/connection-token";
 import { useWaitingRoomSocket } from "@/features/waiting-room/use-waiting-room-socket";
 import { WaitingRoomView } from "@/features/waiting-room/waiting-room-view";
 import { createClientEvent } from "schema";
@@ -15,13 +15,7 @@ function WaitingRoomPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/waiting" });
   const playerCount = search.players;
-  const roomId = search.roomId ?? "";
-  const playerId = search.playerId ?? "";
-  const connectionToken =
-    roomId.length === 0 || playerId.length === 0
-      ? ""
-      : getRoomConnectionToken({ playerId, roomId });
-  const hasConnectionToken = connectionToken.length > 0;
+  const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const { connectionStatus, errorMessage, isReconnectRequired, room, sendEvent } =
     useWaitingRoomSocket({
       connectionToken,
