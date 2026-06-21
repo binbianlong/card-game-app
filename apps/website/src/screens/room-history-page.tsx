@@ -1,6 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { Bot, ChevronDown, ChevronRight, Users } from "lucide-react";
-import { useEffect, useState } from "react";
 import type { MatchHistoryItem, MatchHistoryPlayer, RoomHistoryItem } from "schema";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
@@ -8,46 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
-import { getRoomHistory, getRoomMatchHistory } from "@/features/rooms/room-api";
-
-type LoadStatus = "error" | "idle" | "loading" | "success";
+import { useRoomHistory, useRoomMatchHistory } from "@/features/room-history/use-room-history";
 
 function RoomHistoryPage() {
   const session = authClient.useSession();
-  const [rooms, setRooms] = useState<readonly RoomHistoryItem[]>([]);
-  const [status, setStatus] = useState<LoadStatus>("idle");
   const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
-
-  useEffect(() => {
-    if (session.isPending || isLoggedOut) {
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadHistory() {
-      setStatus("loading");
-
-      try {
-        const data = await getRoomHistory();
-
-        if (!ignore) {
-          setRooms(data.rooms);
-          setStatus("success");
-        }
-      } catch {
-        if (!ignore) {
-          setStatus("error");
-        }
-      }
-    }
-
-    void loadHistory();
-
-    return () => {
-      ignore = true;
-    };
-  }, [isLoggedOut, session.isPending]);
+  const { data, status } = useRoomHistory(!session.isPending && !isLoggedOut);
+  const rooms = data?.rooms ?? [];
 
   return (
     <PageShell>
@@ -79,42 +45,13 @@ function RoomHistoryPage() {
 function RoomMatchHistoryPage() {
   const { roomId } = useParams({ from: "/rooms/history/$roomId" });
   const session = authClient.useSession();
-  const [matches, setMatches] = useState<readonly MatchHistoryItem[]>([]);
-  const [room, setRoom] = useState<RoomHistoryItem | null>(null);
-  const [status, setStatus] = useState<LoadStatus>("idle");
   const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
-
-  useEffect(() => {
-    if (session.isPending || isLoggedOut) {
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadHistory() {
-      setStatus("loading");
-
-      try {
-        const data = await getRoomMatchHistory(roomId);
-
-        if (!ignore) {
-          setRoom(data.room);
-          setMatches(data.matches);
-          setStatus("success");
-        }
-      } catch {
-        if (!ignore) {
-          setStatus("error");
-        }
-      }
-    }
-
-    void loadHistory();
-
-    return () => {
-      ignore = true;
-    };
-  }, [roomId, isLoggedOut, session.isPending]);
+  const { data, status } = useRoomMatchHistory({
+    enabled: !session.isPending && !isLoggedOut,
+    roomId,
+  });
+  const matches = data?.matches ?? [];
+  const room = data?.room ?? null;
 
   return (
     <PageShell>
