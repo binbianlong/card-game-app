@@ -45,6 +45,7 @@ function WaitingRoomView({
   const participants = room?.participants ?? [];
   const waitingCount = Math.max(playerCount - participants.length, 0);
   const currentParticipant = participants.find((participant) => participant.id === playerId);
+  const isHost = room?.hostPlayerId === playerId;
   const canReady =
     isConnected &&
     currentParticipant !== undefined &&
@@ -126,16 +127,18 @@ function WaitingRoomView({
             <CheckCircle2 className="size-4" aria-hidden="true" />
             準備OK
           </Button>
-          <Button
-            type="button"
-            size="lg"
-            className="h-12 w-full text-base font-bold"
-            disabled={!isReadyToStart}
-            onClick={onStartGame}
-          >
-            <Play className="size-4 fill-current" aria-hidden="true" />
-            開始する
-          </Button>
+          {isHost ? (
+            <Button
+              type="button"
+              size="lg"
+              className="h-12 w-full text-base font-bold"
+              disabled={!isReadyToStart}
+              onClick={onStartGame}
+            >
+              <Play className="size-4 fill-current" aria-hidden="true" />
+              開始する
+            </Button>
+          ) : null}
           {!isReadyToStart ? (
             <p className="text-center text-[13px] leading-5 text-muted-foreground">
               あと{waitingCount}人の参加を待っています。
