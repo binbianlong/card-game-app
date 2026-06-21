@@ -54,7 +54,7 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
-  } = usePlayRoomGame({ connectionToken, cpuCount, playerCount, playerId, roomId });
+  } = usePlayRoomGame({ connectionToken, playerId, roomId });
 
   function exitRoom() {
     leaveRoom();

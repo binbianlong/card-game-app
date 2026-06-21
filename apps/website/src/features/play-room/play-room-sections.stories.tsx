@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { AvailableGameActions, Card, Play, PlayerGameView } from "game";
 import { BattleStatus, FinishedGameResults, PlayerArea, TableArea } from "./play-room-sections";
-import type { FinalResult, Opponent, PlayerMeta } from "./use-play-room-game";
+import type { FinalResult, Opponent, PlayerMeta } from "./play-room-view-model";
 
 const noop = () => {};
 

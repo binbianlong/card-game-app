@@ -8,7 +8,7 @@ import {
   getPlayerMeta,
   type Opponent,
   type PlayerMeta,
-} from "./use-play-room-game";
+} from "./play-room-view-model";
 
 function BattleStatus({
   opponents,

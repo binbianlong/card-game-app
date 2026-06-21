@@ -3,7 +3,7 @@ import { Bot, Crown, LogOut, RotateCcw, Trophy, Users } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { FinalResult } from "./use-play-room-game";
+import type { FinalResult } from "./play-room-view-model";
 
 function FinishedGameResults({
   canStartRematch,

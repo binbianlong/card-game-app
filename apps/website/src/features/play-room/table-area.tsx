@@ -1,7 +1,7 @@
 import type { Play, PlayerId } from "game";
 import { Crown } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
-import { describePlay, getPlayerMeta, type PlayerMeta } from "./use-play-room-game";
+import { describePlay, getPlayerMeta, type PlayerMeta } from "./play-room-view-model";
 
 function TableArea({
   playerMetas,
