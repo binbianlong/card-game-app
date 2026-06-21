@@ -1,6 +1,7 @@
 import {
   getAvailableViewActions,
   getPlayableViewCardIds,
+  getPlayableViewSelection,
   type Card,
   type Play,
   type PlayerGameView,
@@ -150,11 +151,19 @@ function usePlayRoomGame({
   }, [playerHand]);
 
   function toggleCard(cardId: string) {
-    setSelectedCardIds((currentIds) =>
-      currentIds.includes(cardId)
-        ? currentIds.filter((selectedId) => selectedId !== cardId)
-        : [...currentIds, cardId],
-    );
+    setSelectedCardIds((currentIds) => {
+      if (currentIds.includes(cardId)) {
+        return gameState?.table.play === null
+          ? currentIds.filter((selectedId) => selectedId !== cardId)
+          : [];
+      }
+
+      if (gameState?.table.play === null || gameState === null) {
+        return [...currentIds, cardId];
+      }
+
+      return [...getPlayableViewSelection(gameState, cardId)];
+    });
   }
 
   function clearSelection() {

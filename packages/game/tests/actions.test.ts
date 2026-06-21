@@ -6,6 +6,7 @@ import {
   createGameState,
   getAvailableActions,
   getPlayableViewCardIds,
+  getPlayableViewSelection,
   getPlayerView,
 } from "../src/index.ts";
 import { card } from "./helpers.ts";
@@ -98,5 +99,31 @@ describe("available actions", () => {
 
     expect(getPlayableViewCardIds(getPlayerView(played, "p2"))).toEqual(["hearts-8", "spades-8"]);
     expect(getPlayableViewCardIds(getPlayerView(played, "p3"))).toEqual([]);
+  });
+
+  test("returns a complete legal selection for a clicked card", () => {
+    const state = createGameState([
+      { id: "p1", hand: [card("7", "hearts"), card("7", "spades")] },
+      {
+        id: "p2",
+        hand: [
+          card("6", "hearts"),
+          card("6", "spades"),
+          card("8", "hearts"),
+          card("8", "spades"),
+          card("9", "clubs"),
+        ],
+      },
+      { id: "p3", hand: [card("10")] },
+    ]);
+    const played = applyGameAction(state, {
+      type: "playCards",
+      playerId: "p1",
+      cardIds: ["hearts-7", "spades-7"],
+    });
+    const view = getPlayerView(played, "p2");
+
+    expect(getPlayableViewSelection(view, "hearts-8")).toEqual(["hearts-8", "spades-8"]);
+    expect(getPlayableViewSelection(view, "clubs-9")).toEqual([]);
   });
 });

@@ -5,6 +5,7 @@ export {
   getAvailableActions,
   getAvailableViewActions,
   getPlayableViewCardIds,
+  getPlayableViewSelection,
 } from "./actions.ts";
 export { createDeck, createNewGame, dealCards, shuffleCards } from "./setup.ts";
 export { applyGameAction, createGameState } from "./state.ts";

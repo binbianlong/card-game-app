@@ -32,27 +32,21 @@ export function getAvailableViewActions(
 }
 
 export function getPlayableViewCardIds(view: PlayerGameView): readonly string[] {
-  if (!isPlayerViewTurn(view)) {
-    return [];
-  }
-
   const viewer = view.players.find((player) => player.id === view.viewerId);
   const hand = viewer?.hand ?? [];
-  const requiredCardCount = view.table.play?.cards.length ?? 1;
   const playableCardIds = new Set<string>();
 
-  for (const cardIds of combinations(
-    hand.map((card) => card.id),
-    requiredCardCount,
-  )) {
-    if (canPlaySelectedViewCards(view, cardIds)) {
-      for (const cardId of cardIds) {
-        playableCardIds.add(cardId);
-      }
+  for (const cardIds of getPlayableViewCardGroups(view)) {
+    for (const cardId of cardIds) {
+      playableCardIds.add(cardId);
     }
   }
 
   return hand.filter((card) => playableCardIds.has(card.id)).map((card) => card.id);
+}
+
+export function getPlayableViewSelection(view: PlayerGameView, cardId: string): readonly string[] {
+  return getPlayableViewCardGroups(view).find((cardIds) => cardIds.includes(cardId)) ?? [];
 }
 
 export function canPlaySelectedCards(
@@ -138,6 +132,21 @@ function canApply(action: () => unknown): boolean {
   } catch {
     return false;
   }
+}
+
+function getPlayableViewCardGroups(view: PlayerGameView): readonly (readonly string[])[] {
+  if (!isPlayerViewTurn(view)) {
+    return [];
+  }
+
+  const viewer = view.players.find((player) => player.id === view.viewerId);
+  const hand = viewer?.hand ?? [];
+  const requiredCardCount = view.table.play?.cards.length ?? 1;
+
+  return combinations(
+    hand.map((card) => card.id),
+    requiredCardCount,
+  ).filter((cardIds) => canPlaySelectedViewCards(view, cardIds));
 }
 
 function combinations<T>(items: readonly T[], count: number): readonly (readonly T[])[] {
