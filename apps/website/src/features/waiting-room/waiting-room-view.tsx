@@ -74,26 +74,6 @@ function WaitingRoomView({
       <Card>
         <CardHeader className="px-4 pt-4">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="size-4 text-primary" aria-hidden="true" />
-            参加者
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2.5 px-4 pb-4">
-          {participants.length > 0 ? (
-            participants.map((participant) => (
-              <ParticipantRow key={participant.id} participant={participant} />
-            ))
-          ) : (
-            <div className="rounded-lg bg-muted/60 p-3 text-center text-sm font-bold text-muted-foreground">
-              ルーム状態を取得中です。
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="px-4 pt-4">
-          <CardTitle className="flex items-center gap-2 text-base">
             <Settings2 className="size-4 text-primary" aria-hidden="true" />
             採用ルール
             <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
@@ -119,6 +99,26 @@ function WaitingRoomView({
               onClick={() => onToggleLocalRule(rule.key)}
             />
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="px-4 pt-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="size-4 text-primary" aria-hidden="true" />
+            参加者
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-2.5 px-4 pb-4">
+          {participants.length > 0 ? (
+            participants.map((participant) => (
+              <ParticipantRow key={participant.id} participant={participant} />
+            ))
+          ) : (
+            <div className="rounded-lg bg-muted/60 p-3 text-center text-sm font-bold text-muted-foreground">
+              ルーム状態を取得中です。
+            </div>
+          )}
         </CardContent>
       </Card>
 
