@@ -5,14 +5,13 @@ import { PlayingCard } from "@/components/playing-card/playing-card";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
+import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { useRoomHistory, useRoomMatchHistory } from "@/features/room-history/use-room-history";
 
 function RoomHistoryPage() {
-  const session = authClient.useSession();
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
-  const { data, status } = useRoomHistory(!session.isPending && !isLoggedOut);
+  const { isLoggedIn, isLoggedOut, isPending } = useAuthStatus();
+  const { data, status } = useRoomHistory(isLoggedIn);
   const rooms = data?.rooms ?? [];
 
   return (
@@ -26,7 +25,7 @@ function RoomHistoryPage() {
       />
 
       <section className="grid flex-1 content-start gap-3" aria-label="ルーム履歴一覧">
-        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {isLoggedOut ? <HistoryLoginRequired isPending={isPending} /> : null}
         {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}
@@ -44,10 +43,9 @@ function RoomHistoryPage() {
 
 function RoomMatchHistoryPage() {
   const { roomId } = useParams({ from: "/rooms/history/$roomId" });
-  const session = authClient.useSession();
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
+  const { isLoggedIn, isLoggedOut, isPending } = useAuthStatus();
   const { data, status } = useRoomMatchHistory({
-    enabled: !session.isPending && !isLoggedOut,
+    enabled: isLoggedIn,
     roomId,
   });
   const matches = data?.matches ?? [];
@@ -68,7 +66,7 @@ function RoomMatchHistoryPage() {
       />
 
       <section className="grid flex-1 content-start gap-3" aria-label="対戦履歴一覧">
-        {isLoggedOut ? <HistoryLoginRequired isPending={session.isPending} /> : null}
+        {isLoggedOut ? <HistoryLoginRequired isPending={isPending} /> : null}
         {!isLoggedOut && (status === "loading" || status === "idle") ? (
           <HistoryMessage>履歴を読み込んでいます。</HistoryMessage>
         ) : null}

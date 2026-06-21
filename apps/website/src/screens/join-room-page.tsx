@@ -6,19 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
-import { authClient } from "@/features/auth/auth-client";
 import { LoginButton } from "@/features/auth/login-button";
 import { getStoredNickname } from "@/features/auth/nickname";
+import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { saveRoomConnectionToken } from "@/features/rooms/connection-token";
 import { joinRoom as joinRoomRequest } from "@/features/rooms/room-api";
 
 function JoinRoomPage() {
   const navigate = useNavigate();
-  const session = authClient.useSession();
+  const { isLoggedOut, isPending } = useAuthStatus();
   const [inviteCode, setInviteCode] = useState("");
   const [playerName, setPlayerName] = useState(() => getStoredNickname() ?? "");
   const [status, setStatus] = useState<"idle" | "joining" | "error">("idle");
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   const normalizedInviteCode = useMemo(
     () => inviteCode.trim().replace(/\s|-/g, "").toUpperCase(),
@@ -117,7 +116,7 @@ function JoinRoomPage() {
               </p>
               <LoginButton
                 className="h-12 w-full text-base font-bold"
-                isPending={session.isPending}
+                isPending={isPending}
                 size="lg"
               />
             </CardContent>

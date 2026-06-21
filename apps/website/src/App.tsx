@@ -5,8 +5,8 @@ import { useState } from "react";
 import { PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { authClient } from "@/features/auth/auth-client";
 import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-prompt-dialog";
+import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
 
 const actions = [
@@ -42,9 +42,8 @@ const actionButtonClassName =
   "h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent";
 
 function App() {
-  const session = authClient.useSession();
+  const { isLoggedOut, isPending } = useAuthStatus();
   const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
-  const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   return (
     <PageShell>
@@ -81,7 +80,7 @@ function App() {
 
       {loginPrompt !== null && isLoggedOut ? (
         <LoginPromptDialog
-          isPending={session.isPending}
+          isPending={isPending}
           prompt={loginPrompt}
           onClose={() => setLoginPrompt(null)}
         />

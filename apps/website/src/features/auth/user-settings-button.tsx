@@ -6,11 +6,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { authClient } from "./auth-client";
 import { LoginButton } from "./login-button";
 import { useNickname } from "./nickname";
+import { useAuthStatus } from "./use-auth-status";
 
 function UserSettingsButton() {
   const nicknameInputId = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const session = authClient.useSession();
+  const { isLoggedIn, isPending } = useAuthStatus();
   const { displayName, setNickname } = useNickname();
   const [nicknameInput, setNicknameInput] = useState(displayName);
 
@@ -67,15 +68,13 @@ function UserSettingsButton() {
         </Button>
 
         <div className="mt-3 border-t pt-3">
-          {session.data === null || session.data === undefined ? (
-            <LoginButton className="w-full" isPending={session.isPending} />
-          ) : (
+          {isLoggedIn ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="w-full"
-              disabled={session.isPending}
+              disabled={isPending}
               onClick={() => {
                 void authClient.signOut();
                 setIsOpen(false);
@@ -84,6 +83,8 @@ function UserSettingsButton() {
               <LogOut className="size-4" aria-hidden="true" />
               ログアウト
             </Button>
+          ) : (
+            <LoginButton className="w-full" isPending={isPending} />
           )}
         </div>
       </PopoverContent>
