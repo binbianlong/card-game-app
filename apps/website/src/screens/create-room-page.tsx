@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Bot, Minus, Plus, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { Bot, Minus, Plus, Users, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SettingField } from "@/components/form/setting-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -95,7 +95,7 @@ function CreateRoomPage() {
           <CardContent className="grid gap-3 px-4 pb-4">
             <NumberSetting
               description={`${minPlayers}人から${maxPlayers}人まで選べます。`}
-              icon={<Users className="size-5" aria-hidden="true" />}
+              Icon={Users}
               label="対戦人数"
               max={maxPlayers}
               min={minPlayers}
@@ -104,7 +104,7 @@ function CreateRoomPage() {
             />
             <NumberSetting
               description="最低1人はプレイヤー参加枠として残します。"
-              icon={<Bot className="size-5" aria-hidden="true" />}
+              Icon={Bot}
               label="CPUにする人数"
               max={maxCpuCount}
               min={0}
@@ -149,7 +149,7 @@ function CreateRoomPage() {
 
 function NumberSetting({
   description,
-  icon,
+  Icon,
   label,
   max,
   min,
@@ -157,7 +157,7 @@ function NumberSetting({
   value,
 }: {
   description: string;
-  icon: ReactNode;
+  Icon: LucideIcon;
   label: string;
   max: number;
   min: number;
@@ -167,18 +167,7 @@ function NumberSetting({
   const inputId = `${label}-input`;
 
   return (
-    <div className="rounded-lg border bg-card p-3.5">
-      <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3">
-        <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <label htmlFor={inputId} className="text-base leading-snug font-bold">
-            {label}
-          </label>
-          <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{description}</p>
-        </div>
-      </div>
+    <SettingField description={description} Icon={Icon} inputId={inputId} label={label}>
       <div className="mt-3 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2">
         <Button
           type="button"
@@ -211,7 +200,7 @@ function NumberSetting({
           <Plus className="size-4" aria-hidden="true" />
         </Button>
       </div>
-    </div>
+    </SettingField>
   );
 }
 
