@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useRoomSocket } from "@/features/room-socket/use-room-socket";
 import { createClientEvent, type RoomClientState } from "schema";
+import { retainHandCardSelection, toggleCardSelection } from "./card-selection";
 
 type PlayerMeta = {
   id: PlayerId;
@@ -145,25 +146,22 @@ function usePlayRoomGame({
   const canStartRematch = room?.status === "finished" && room.hostPlayerId === playerId;
 
   useEffect(() => {
-    setSelectedCardIds((currentIds) =>
-      currentIds.filter((cardId) => playerHand.some((card) => card.id === cardId)),
-    );
+    const handCardIds = new Set(playerHand.map((card) => card.id));
+    setSelectedCardIds((currentIds) => [...retainHandCardSelection(currentIds, handCardIds)]);
   }, [playerHand]);
 
   function toggleCard(cardId: string) {
-    setSelectedCardIds((currentIds) => {
-      if (currentIds.includes(cardId)) {
-        return gameState?.table.play === null
-          ? currentIds.filter((selectedId) => selectedId !== cardId)
-          : [];
-      }
+    const tableCardCount = gameState?.table.play?.cards.length ?? null;
+    const playableSelection = gameState === null ? [] : getPlayableViewSelection(gameState, cardId);
 
-      if (gameState?.table.play === null || gameState === null) {
-        return [...currentIds, cardId];
-      }
-
-      return [...getPlayableViewSelection(gameState, cardId)];
-    });
+    setSelectedCardIds((currentIds) => [
+      ...toggleCardSelection({
+        cardId,
+        currentCardIds: currentIds,
+        playableSelection,
+        tableCardCount,
+      }),
+    ]);
   }
 
   function clearSelection() {
