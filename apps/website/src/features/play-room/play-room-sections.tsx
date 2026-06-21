@@ -429,7 +429,7 @@ function PlayerArea({
         </Button>
       </div>
 
-      <div className="overflow-x-auto pb-1">
+      <div className="overflow-x-auto pt-2 pb-1">
         <div className="flex min-w-max items-end pl-1 pr-4">
           {playerHand.length > 0 ? (
             playerHand.map((card, index) => (
