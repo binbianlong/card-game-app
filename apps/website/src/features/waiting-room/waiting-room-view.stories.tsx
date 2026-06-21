@@ -76,6 +76,16 @@ export const ReadyToStart: Story = {
   },
 };
 
+export const GuestReadyToStart: Story = {
+  args: {
+    isReadyToStart: true,
+    playerId: "guest-1",
+    room: createRoom({
+      participants: participants.map((participant) => ({ ...participant, ready: true })),
+    }),
+  },
+};
+
 export const Connecting: Story = {
   args: {
     connectionStatus: "connecting",

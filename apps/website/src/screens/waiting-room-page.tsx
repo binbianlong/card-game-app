@@ -32,10 +32,11 @@ function WaitingRoomPage() {
   const localRules = room?.rules ?? defaultLocalRuleSettings;
   const isConnected = connectionStatus === "open";
   const isReadyToStart =
+    isConnected &&
     room !== null &&
     room.status === "waiting" &&
-    room.participants.length >= playerCount &&
-    room.participants.some((participant) => participant.id === playerId && participant.ready);
+    room.participants.length === playerCount &&
+    room.participants.every((participant) => participant.kind === "cpu" || participant.ready);
 
   useEffect(() => {
     if (room?.status !== "playing") {

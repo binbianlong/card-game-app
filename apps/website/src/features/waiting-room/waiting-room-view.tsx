@@ -98,14 +98,23 @@ function WaitingRoomView({
           <CardTitle className="flex items-center gap-2 text-base">
             <Settings2 className="size-4 text-primary" aria-hidden="true" />
             採用ルール
+            <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
+              <Crown className="size-3" aria-hidden="true" />
+              ホストのみ
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2.5 px-4 pb-4">
+          <p className="rounded-lg bg-muted/60 px-3 py-2 text-[13px] leading-5 text-muted-foreground">
+            {isHost
+              ? "採用するルールを変更できます。"
+              : "ルールを変更できるのはホストのみです。現在の設定を確認できます。"}
+          </p>
           {localRuleOptions.map((rule) => (
             <RuleToggle
               key={rule.key}
               description={rule.description}
-              disabled={!isConnected || room?.status !== "waiting"}
+              disabled={!isHost || !isConnected || room?.status !== "waiting"}
               enabled={localRules[rule.key]}
               Icon={rule.Icon}
               label={rule.label}
@@ -138,12 +147,15 @@ function WaitingRoomView({
               <Play className="size-4 fill-current" aria-hidden="true" />
               開始する
             </Button>
-          ) : null}
-          {!isReadyToStart ? (
-            <p className="text-center text-[13px] leading-5 text-muted-foreground">
-              あと{waitingCount}人の参加を待っています。
-            </p>
-          ) : null}
+          ) : (
+            <div className="flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-3 text-[13px] leading-5 text-muted-foreground">
+              <Crown className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+              <span>ゲームを開始できるのはホストのみです。準備OKにしてお待ちください。</span>
+            </div>
+          )}
+          <p className="text-center text-[13px] leading-5 text-muted-foreground">
+            {getStartStatusLabel({ isHost, isReadyToStart, waitingCount })}
+          </p>
         </CardContent>
       </Card>
     </section>
@@ -200,8 +212,8 @@ function RuleToggle({
       onClick={onClick}
       className={
         enabled
-          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs"
-          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs"
+          ? "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-primary/35 bg-primary/5 p-3.5 text-left shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
+          : "grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
       }
     >
       <span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -284,6 +296,28 @@ function getConnectionStatusLabel(status: ConnectionStatus) {
     case "closed":
       return "未接続";
   }
+}
+
+function getStartStatusLabel({
+  isHost,
+  isReadyToStart,
+  waitingCount,
+}: {
+  isHost: boolean;
+  isReadyToStart: boolean;
+  waitingCount: number;
+}) {
+  if (waitingCount > 0) {
+    return `あと${waitingCount}人の参加を待っています。`;
+  }
+
+  if (!isReadyToStart) {
+    return "参加者全員の準備完了を待っています。";
+  }
+
+  return isHost
+    ? "全員の準備が完了しました。ゲームを開始できます。"
+    : "全員の準備が完了しました。ホストの開始を待っています。";
 }
 
 export { WaitingRoomView };
