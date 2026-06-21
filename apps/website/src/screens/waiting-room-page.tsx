@@ -43,10 +43,9 @@ function WaitingRoomPage() {
         cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
         roomId: room.id,
         playerId,
-        ...room.rules,
       },
     });
-  }, [navigate, room]);
+  }, [navigate, playerId, room]);
 
   function toggleLocalRule(ruleKey: LocalRuleKey) {
     sendEvent(

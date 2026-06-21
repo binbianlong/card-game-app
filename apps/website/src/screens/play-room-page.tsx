@@ -1,7 +1,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
 import { BookOpen } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PageHeader, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,16 +24,6 @@ function PlayRoomPage() {
   const cpuCount = search.cpu;
   const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
-  const localRules = useMemo(
-    () => ({
-      eightCut: search.eightCut,
-      elevenBack: search.elevenBack,
-      revolution: search.revolution,
-      sequence: search.sequence,
-      suitLock: search.suitLock,
-    }),
-    [search.eightCut, search.elevenBack, search.revolution, search.sequence, search.suitLock],
-  );
   const {
     availableActions,
     canStartRematch,
@@ -55,6 +45,7 @@ function PlayRoomPage() {
     startRematch,
     toggleCard,
   } = usePlayRoomGame({ connectionToken, playerId, roomId });
+  const localRules = playerView.rules;
 
   function exitRoom() {
     leaveRoom();

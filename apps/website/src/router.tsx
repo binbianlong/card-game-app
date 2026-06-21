@@ -76,11 +76,6 @@ const playRoomRoute = createRoute({
       cpu,
       roomId: parseSearchOptionalString(search.roomId),
       playerId: parseSearchOptionalString(search.playerId),
-      eightCut: parseSearchBoolean(search.eightCut),
-      elevenBack: parseSearchBoolean(search.elevenBack),
-      revolution: parseSearchBoolean(search.revolution),
-      sequence: parseSearchBoolean(search.sequence),
-      suitLock: parseSearchBoolean(search.suitLock),
     };
   },
   component: PlayRoomPage,
@@ -105,10 +100,6 @@ function clampSearchNumber(value: unknown, min: number, max: number, fallback: n
   }
 
   return Math.min(Math.max(numberValue, min), max);
-}
-
-function parseSearchBoolean(value: unknown) {
-  return value === true || value === "true" || value === "1";
 }
 
 function parseSearchOptionalString(value: unknown) {
