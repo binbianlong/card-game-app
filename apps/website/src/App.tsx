@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-react";
+import { BookOpen, ChevronRight, History, LogIn, Plus, Spade, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { PageShell } from "@/components/page-layout";
@@ -9,24 +9,38 @@ import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-promp
 import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
 
-const actions = [
+type HomeAction = {
+  description: string;
+  icon: LucideIcon;
+  loggedOutBehavior?: {
+    muted: boolean;
+    prompt: LoginPrompt;
+  };
+  title: string;
+  to: "/rooms/history" | "/rooms/join" | "/rooms/new" | "/rules";
+};
+
+const actions: readonly HomeAction[] = [
   {
     title: "ルームを作成",
     description: "新しい対戦ルームを開く",
     to: "/rooms/new",
     icon: Plus,
+    loggedOutBehavior: { muted: true, prompt: "createRoom" },
   },
   {
     title: "ルームに参加",
     description: "招待コードで合流する",
     to: "/rooms/join",
     icon: LogIn,
+    loggedOutBehavior: { muted: false, prompt: "joinRoom" },
   },
   {
     title: "対戦履歴",
     description: "最近の結果を確認する",
     to: "/rooms/history",
     icon: History,
+    loggedOutBehavior: { muted: true, prompt: "history" },
   },
   {
     title: "ルールを確認",
@@ -34,9 +48,7 @@ const actions = [
     to: "/rules",
     icon: BookOpen,
   },
-] as const;
-
-type HomeAction = (typeof actions)[number];
+];
 
 const actionButtonClassName =
   "h-auto min-h-20 w-full justify-start gap-3 rounded-lg px-3.5 py-3.5 text-left hover:bg-transparent";
@@ -99,51 +111,35 @@ function HomeActionCard({
   onLoginPrompt: (prompt: LoginPrompt) => void;
 }) {
   const Icon = action.icon;
-  const isCreateRoomAction = action.to === "/rooms/new";
-  const isHistoryAction = action.to === "/rooms/history";
-  const isJoinRoomAction = action.to === "/rooms/join";
-  const isDisabled = (isCreateRoomAction || isHistoryAction) && isLoggedOut;
-  const shouldShowJoinPrompt = isJoinRoomAction && isLoggedOut;
+  const loggedOutBehavior = isLoggedOut ? action.loggedOutBehavior : undefined;
+  const content = (
+    <ActionContent
+      description={action.description}
+      icon={<Icon className="size-5" aria-hidden="true" />}
+      title={action.title}
+    />
+  );
 
   return (
     <Card>
       <CardContent className="p-0">
-        {isDisabled ? (
-          <Button
-            type="button"
-            variant="ghost"
-            aria-disabled="true"
-            className={`${actionButtonClassName} opacity-50 grayscale`}
-            onClick={() => onLoginPrompt(isHistoryAction ? "history" : "createRoom")}
-          >
-            <ActionContent
-              description={action.description}
-              icon={<Icon className="size-5" aria-hidden="true" />}
-              title={action.title}
-            />
-          </Button>
-        ) : shouldShowJoinPrompt ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className={actionButtonClassName}
-            onClick={() => onLoginPrompt("joinRoom")}
-          >
-            <ActionContent
-              description={action.description}
-              icon={<Icon className="size-5" aria-hidden="true" />}
-              title={action.title}
-            />
+        {loggedOutBehavior === undefined ? (
+          <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
+            <Link to={action.to}>{content}</Link>
           </Button>
         ) : (
-          <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
-            <Link to={action.to}>
-              <ActionContent
-                description={action.description}
-                icon={<Icon className="size-5" aria-hidden="true" />}
-                title={action.title}
-              />
-            </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-disabled={loggedOutBehavior.muted || undefined}
+            className={
+              loggedOutBehavior.muted
+                ? `${actionButtonClassName} opacity-50 grayscale`
+                : actionButtonClassName
+            }
+            onClick={() => onLoginPrompt(loggedOutBehavior.prompt)}
+          >
+            {content}
           </Button>
         )}
       </CardContent>
