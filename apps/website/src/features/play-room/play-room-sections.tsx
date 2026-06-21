@@ -330,7 +330,7 @@ function TableArea({
       className="grid min-h-0 content-center rounded-xl border bg-card/80 p-4 shadow-sm"
       aria-label="場のカード"
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[11px] leading-none font-extrabold text-primary uppercase">
             <Crown className="size-3.5 fill-current" aria-hidden="true" />
@@ -340,10 +340,6 @@ function TableArea({
             {tablePlay === null ? "場は空です" : describePlay(tablePlay)}
           </h2>
         </div>
-        <Button type="button" variant="outline" size="sm" disabled>
-          <RotateCcw className="size-4" aria-hidden="true" />
-          流す
-        </Button>
       </div>
 
       <div className="mt-5 grid justify-items-center gap-3">
