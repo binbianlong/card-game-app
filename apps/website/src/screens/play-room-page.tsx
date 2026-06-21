@@ -1,9 +1,9 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
-import { ArrowLeft, BookOpen, X } from "lucide-react";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 import {
   BattleStatus,
@@ -89,9 +89,7 @@ function PlayRoomPage() {
         </Button>
       </header>
 
-      {isRulesOpen ? (
-        <ActiveLocalRulesModal rules={localRules} onClose={() => setIsRulesOpen(false)} />
-      ) : null}
+      <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
       {hasConnectionToken && !isReconnectRequired && errorMessage !== null ? (
         <div className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-center text-[13px] leading-5 font-bold text-destructive">
@@ -136,81 +134,57 @@ function PlayRoomPage() {
 }
 
 function ActiveLocalRulesModal({
-  onClose,
+  onOpenChange,
+  open,
   rules,
 }: {
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
   rules: GameRuleSettings;
 }) {
   const enabledRules = localRuleOptions.filter((rule) => rules[rule.key]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-background/80 px-4 py-6 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="active-local-rules-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="採用中のローカルルールを閉じる"
-        onClick={onClose}
-      />
-      <Card className="relative w-full max-w-[390px] py-0 shadow-lg">
-        <CardContent className="grid gap-4 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] leading-none font-extrabold text-primary uppercase">
-                <BookOpen className="size-3.5" aria-hidden="true" />
-                Local rules
-              </div>
-              <h2 id="active-local-rules-title" className="mt-1.5 text-lg leading-tight font-bold">
-                採用中のルール
-              </h2>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="採用中のローカルルールを閉じる"
-              onClick={onClose}
-            >
-              <X className="size-4" aria-hidden="true" />
-            </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[390px]">
+        <DialogHeader className="pr-8 text-left">
+          <div className="flex items-center gap-2 text-[11px] leading-none font-extrabold text-primary uppercase">
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            Local rules
           </div>
+          <DialogTitle className="text-lg leading-tight font-bold">採用中のルール</DialogTitle>
+        </DialogHeader>
 
-          <div className="grid gap-2">
-            {enabledRules.length > 0 ? (
-              enabledRules.map((rule) => {
-                const Icon = rule.Icon;
+        <div className="grid gap-2">
+          {enabledRules.length > 0 ? (
+            enabledRules.map((rule) => {
+              const Icon = rule.Icon;
 
-                return (
-                  <div
-                    key={rule.key}
-                    className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3"
-                  >
-                    <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
-                      <Icon className="size-4" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm leading-snug font-bold">{rule.label}</div>
-                      <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-                        {rule.description}
-                      </p>
-                    </div>
+              return (
+                <div
+                  key={rule.key}
+                  className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 rounded-lg border bg-card p-3"
+                >
+                  <span className="grid size-9 place-items-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="size-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm leading-snug font-bold">{rule.label}</div>
+                    <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
+                      {rule.description}
+                    </p>
                   </div>
-                );
-              })
-            ) : (
-              <div className="rounded-lg bg-muted/60 p-3 text-sm font-bold text-muted-foreground">
-                採用中のローカルルールはありません。
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-lg bg-muted/60 p-3 text-sm font-bold text-muted-foreground">
+              採用中のローカルルールはありません。
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
