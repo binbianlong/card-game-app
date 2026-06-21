@@ -3,6 +3,16 @@ import type { RoomHistoryResponse, RoomMatchHistoryResponse } from "schema";
 import { getRoomHistory, getRoomMatchHistory } from "@/features/rooms/room-api";
 
 type LoadStatus = "error" | "idle" | "loading" | "success";
+type HistoryQueryState<T> =
+  | { data: null; status: Exclude<LoadStatus, "success"> }
+  | { data: T; status: "success" };
+
+type StoredHistoryQueryState<T> = HistoryQueryState<T> & {
+  load: (() => Promise<T>) | null;
+};
+
+const idleHistoryQueryState = { data: null, status: "idle" } as const;
+const loadingHistoryQueryState = { data: null, status: "loading" } as const;
 
 function useRoomHistory(enabled: boolean) {
   const loadHistory = useCallback(() => getRoomHistory(), []);
@@ -17,27 +27,29 @@ function useRoomMatchHistory({ enabled, roomId }: { enabled: boolean; roomId: st
 }
 
 function useHistoryQuery<T>({ enabled, load }: { enabled: boolean; load: () => Promise<T> }) {
-  const [data, setData] = useState<T | null>(null);
-  const [status, setStatus] = useState<LoadStatus>("idle");
+  const [state, setState] = useState<StoredHistoryQueryState<T>>({
+    ...idleHistoryQueryState,
+    load: null,
+  });
 
   useEffect(() => {
     if (!enabled) {
+      setState({ ...idleHistoryQueryState, load: null });
       return;
     }
 
     let ignore = false;
-    setStatus("loading");
+    setState({ ...loadingHistoryQueryState, load });
 
     void load()
       .then((nextData) => {
         if (!ignore) {
-          setData(nextData);
-          setStatus("success");
+          setState({ data: nextData, status: "success", load });
         }
       })
       .catch(() => {
         if (!ignore) {
-          setStatus("error");
+          setState({ data: null, status: "error", load });
         }
       });
 
@@ -46,8 +58,16 @@ function useHistoryQuery<T>({ enabled, load }: { enabled: boolean; load: () => P
     };
   }, [enabled, load]);
 
-  return { data, status };
+  if (!enabled) {
+    return idleHistoryQueryState;
+  }
+
+  if (state.load !== load) {
+    return loadingHistoryQueryState;
+  }
+
+  return { data: state.data, status: state.status } as HistoryQueryState<T>;
 }
 
 export { useRoomHistory, useRoomMatchHistory };
-export type { LoadStatus };
+export type { HistoryQueryState, LoadStatus };
