@@ -1,7 +1,8 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PageHeader, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
@@ -66,28 +67,25 @@ function PlayRoomPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="待機画面に戻る">
-          <Link
-            to="/rooms/waiting"
-            search={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
+    <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
+      <PageHeader
+        backLabel="待機画面に戻る"
+        backTo="/rooms/waiting"
+        backSearch={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
+        title="対戦中"
+        action={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="採用中のローカルルールを確認"
+            aria-expanded={isRulesOpen}
+            onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
           >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">対戦中</div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="採用中のローカルルールを確認"
-          aria-expanded={isRulesOpen}
-          onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
-        >
-          <BookOpen className="size-5" aria-hidden="true" />
-        </Button>
-      </header>
+            <BookOpen className="size-5" aria-hidden="true" />
+          </Button>
+        }
+      />
 
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
@@ -129,7 +127,7 @@ function PlayRoomPage() {
           />
         </section>
       )}
-    </main>
+    </PageShell>
   );
 }
 

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpen, ChevronRight, History, LogIn, Plus, Spade } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { authClient } from "@/features/auth/auth-client";
@@ -46,7 +47,7 @@ function App() {
   const isLoggedOut = !session.isPending && (session.data === null || session.data === undefined);
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
+    <PageShell>
       <header className="flex min-h-11 items-center justify-between gap-3" aria-label="ホーム">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="grid size-8 place-items-center rounded-lg border bg-card text-primary shadow-sm">
@@ -85,7 +86,7 @@ function App() {
           onClose={() => setLoginPrompt(null)}
         />
       ) : null}
-    </main>
+    </PageShell>
   );
 }
 

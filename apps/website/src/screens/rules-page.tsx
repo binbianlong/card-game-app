@@ -1,7 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, Handshake } from "lucide-react";
+import { BookOpen, Handshake } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
-import { Button } from "@/components/ui/button";
+import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
 
@@ -36,26 +35,14 @@ const cardStrengthRows = [cardStrength.slice(0, 7), cardStrength.slice(7)] as co
 
 function RulesPage() {
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="ホームに戻る">
-          <Link to="/">
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">ルール</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
-      <section className="pt-8 pb-5" aria-labelledby="rules-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Game rules</p>
-        <h1 id="rules-title" className="text-3xl leading-tight font-extrabold">
-          ルールを確認
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          大富豪の基本ルールと、ルームごとに選べるローカルルールを確認できます。
-        </p>
-      </section>
+    <PageShell>
+      <PageHeader backLabel="ホームに戻る" backTo="/" title="ルール" />
+      <PageIntro
+        description="大富豪の基本ルールと、ルームごとに選べるローカルルールを確認できます。"
+        eyebrow="Game rules"
+        title="ルールを確認"
+        titleId="rules-title"
+      />
 
       <section className="grid gap-3" aria-label="基本ルール">
         <Card>
@@ -122,7 +109,7 @@ function RulesPage() {
           </CardContent>
         </Card>
       </section>
-    </main>
+    </PageShell>
   );
 }
 

@@ -1,7 +1,6 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import {
   defaultLocalRuleSettings,
   type LocalRuleKey,
@@ -92,26 +91,14 @@ function WaitingRoomPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <Button asChild variant="ghost" size="icon" aria-label="ルーム作成に戻る">
-          <Link to="/rooms/new">
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </Link>
-        </Button>
-        <div className="text-sm font-bold">待機画面</div>
-        <div className="size-9" aria-hidden="true" />
-      </header>
-
-      <section className="pt-8 pb-5" aria-labelledby="waiting-room-title">
-        <p className="mb-2 text-xs font-extrabold text-primary uppercase">Waiting room</p>
-        <h1 id="waiting-room-title" className="text-3xl leading-tight font-extrabold">
-          参加者を待機中
-        </h1>
-        <p className="mt-3 max-w-[24em] text-[15px] leading-7 text-muted-foreground">
-          参加者全員が集まると、ゲームを開始できます。
-        </p>
-      </section>
+    <PageShell>
+      <PageHeader backLabel="ルーム作成に戻る" backTo="/rooms/new" title="待機画面" />
+      <PageIntro
+        description="参加者全員が集まると、ゲームを開始できます。"
+        eyebrow="Waiting room"
+        title="参加者を待機中"
+        titleId="waiting-room-title"
+      />
 
       {hasConnectionToken && !isReconnectRequired ? (
         <WaitingRoomView
@@ -130,7 +117,7 @@ function WaitingRoomPage() {
       ) : (
         <ReconnectRequiredPage />
       )}
-    </main>
+    </PageShell>
   );
 }
 
