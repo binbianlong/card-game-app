@@ -3,7 +3,6 @@ import type { GameRuleSettings } from "schema";
 import { BookOpen } from "lucide-react";
 import { useState } from "react";
 import { PageShell } from "@/components/page-layout";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
@@ -52,20 +51,6 @@ function PlayRoomPage() {
 
   return (
     <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
-      <header className="flex min-h-10 items-center justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="rounded-lg text-muted-foreground hover:text-foreground"
-          aria-label="採用中のローカルルールを確認"
-          aria-expanded={isRulesOpen}
-          onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
-        >
-          <BookOpen className="size-4.5" aria-hidden="true" />
-        </Button>
-      </header>
-
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
       {hasConnectionToken && !isReconnectRequired && errorMessage !== null ? (
@@ -85,7 +70,7 @@ function PlayRoomPage() {
           playerId={playerId}
         />
       ) : (
-        <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-3">
+        <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-1">
           <BattleStatus opponents={opponents} playerMetas={playerMetas} playerView={playerView} />
           <TableArea
             playerMetas={playerMetas}
@@ -94,7 +79,9 @@ function PlayRoomPage() {
           />
           <PlayerArea
             availableActions={availableActions}
+            isRulesOpen={isRulesOpen}
             onClearSelection={clearSelection}
+            onOpenRules={() => setIsRulesOpen(true)}
             onPass={passTurn}
             onPlaySelectedCards={playSelectedCards}
             onToggleCard={toggleCard}
