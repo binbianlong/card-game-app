@@ -2,7 +2,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
 import { BookOpen } from "lucide-react";
 import { useState } from "react";
-import { PageHeader, PageShell } from "@/components/page-layout";
+import { PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
@@ -20,8 +20,6 @@ import { ReconnectRequiredPage } from "./reconnect-required-page";
 function PlayRoomPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/play" });
-  const playerCount = search.players;
-  const cpuCount = search.cpu;
   const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const {
@@ -54,12 +52,10 @@ function PlayRoomPage() {
 
   return (
     <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
-      <PageHeader
-        backLabel="待機画面に戻る"
-        backTo="/rooms/waiting"
-        backSearch={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
-        title="対戦中"
-        action={
+      <header className="flex min-h-11 items-center justify-between gap-3">
+        <div className="size-9" aria-hidden="true" />
+        <div className="text-sm font-bold">対戦中</div>
+        <div>
           <Button
             type="button"
             variant="ghost"
@@ -70,8 +66,8 @@ function PlayRoomPage() {
           >
             <BookOpen className="size-5" aria-hidden="true" />
           </Button>
-        }
-      />
+        </div>
+      </header>
 
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
