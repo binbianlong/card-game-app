@@ -13,7 +13,7 @@ import {
   TableArea,
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
-import { resolveRoomConnection } from "@/features/rooms/connection-token";
+import { removeRoomConnection, resolveRoomConnection } from "@/features/rooms/connection-token";
 import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function PlayRoomPage() {
@@ -46,6 +46,7 @@ function PlayRoomPage() {
 
   function exitRoom() {
     leaveRoom();
+    removeRoomConnection({ playerId, roomId });
     void navigate({ to: "/" });
   }
 

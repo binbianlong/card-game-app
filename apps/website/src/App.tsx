@@ -1,13 +1,23 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen, ChevronRight, History, LogIn, Plus, Spade, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  ChevronRight,
+  History,
+  LogIn,
+  Plus,
+  Radio,
+  Spade,
+  type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-prompt-dialog";
 import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
+import { getRoomConnections } from "@/features/rooms/connection-token";
 
 type HomeAction = {
   description: string;
@@ -55,6 +65,9 @@ const actionButtonClassName =
 
 function App() {
   const { isLoggedOut, isPending } = useAuthStatus();
+  const [roomConnections] = useState(() =>
+    typeof window === "undefined" ? [] : getRoomConnections(),
+  );
   const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
 
   return (
@@ -81,12 +94,16 @@ function App() {
 
       <section className="grid gap-3" aria-label="メニュー">
         {actions.map((action) => (
-          <HomeActionCard
-            key={action.title}
-            action={action}
-            isLoggedOut={isLoggedOut}
-            onLoginPrompt={setLoginPrompt}
-          />
+          <Fragment key={action.title}>
+            <HomeActionCard
+              action={action}
+              isLoggedOut={isLoggedOut}
+              onLoginPrompt={setLoginPrompt}
+            />
+            {action.to === "/rooms/join" ? (
+              <RoomReconnectCard roomConnectionCount={roomConnections.length} />
+            ) : null}
+          </Fragment>
         ))}
       </section>
 
@@ -98,6 +115,29 @@ function App() {
         />
       ) : null}
     </PageShell>
+  );
+}
+
+function RoomReconnectCard({ roomConnectionCount }: { roomConnectionCount: number }) {
+  const description =
+    roomConnectionCount > 0
+      ? `${roomConnectionCount}件の接続情報を確認する`
+      : "ルーム接続情報を確認する";
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
+          <Link to="/rooms/reconnect">
+            <ActionContent
+              description={description}
+              icon={<Radio className="size-5" aria-hidden="true" />}
+              title="通信中のルームに戻る"
+            />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
