@@ -52,21 +52,18 @@ function PlayRoomPage() {
 
   return (
     <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
-      <header className="flex min-h-11 items-center justify-between gap-3">
-        <div className="size-9" aria-hidden="true" />
-        <div className="text-sm font-bold">対戦中</div>
-        <div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="採用中のローカルルールを確認"
-            aria-expanded={isRulesOpen}
-            onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
-          >
-            <BookOpen className="size-5" aria-hidden="true" />
-          </Button>
-        </div>
+      <header className="flex min-h-10 items-center justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="rounded-lg text-muted-foreground hover:text-foreground"
+          aria-label="採用中のローカルルールを確認"
+          aria-expanded={isRulesOpen}
+          onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
+        >
+          <BookOpen className="size-4.5" aria-hidden="true" />
+        </Button>
       </header>
 
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
