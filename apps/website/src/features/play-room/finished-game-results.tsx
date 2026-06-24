@@ -1,6 +1,7 @@
 import type { Card as GameCard, PlayerId } from "game";
 import { Bot, CheckCircle2, Clock, Crown, LogOut, RotateCcw, Trophy, Users } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
+import { ReadyStatusBadge } from "@/components/ready-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { FinalResult } from "./play-room-view-model";
@@ -179,20 +180,7 @@ function FinalResultRow({ isViewer, result }: { isViewer: boolean; result: Final
           <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-sm font-extrabold text-primary-foreground">
             {result.rank}位
           </span>
-          <span
-            className={
-              result.ready
-                ? "inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary"
-                : "inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-bold text-muted-foreground"
-            }
-          >
-            {result.ready ? (
-              <CheckCircle2 className="size-3.5" aria-hidden="true" />
-            ) : (
-              <Clock className="size-3.5" aria-hidden="true" />
-            )}
-            {result.ready ? "準備OK" : "待機中"}
-          </span>
+          <ReadyStatusBadge ready={result.ready} />
         </div>
       </div>
 
