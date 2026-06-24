@@ -312,7 +312,7 @@ describe("room state", () => {
     expect(nextGame.table.play?.cards.map((playedCard) => playedCard.id)).toEqual([card.id]);
   });
 
-  test("starts rematches with the same participants after games finish", () => {
+  test("resets human readiness after games finish", () => {
     const finishedRoom = finishGame(
       applyRoomClientEvent(
         readyAllHumanParticipants(createPlayableRoom()),
@@ -322,19 +322,63 @@ describe("room state", () => {
         }),
       ),
     );
+
+    expect(finishedRoom.status).toBe("finished");
+    expect(finishedRoom.participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "player-1", ready: false }),
+        expect.objectContaining({ id: "player-2", ready: false }),
+        expect.objectContaining({ id: "player-3", ready: false }),
+      ]),
+    );
+  });
+
+  test("starts rematches with the same participants after everyone is ready", () => {
+    const finishedRoom = finishGame(
+      applyRoomClientEvent(
+        readyAllHumanParticipants(createPlayableRoom()),
+        createClientEvent.startGame({
+          roomId: "room-1",
+          playerId: "player-1",
+        }),
+      ),
+    );
+    const readyRoom = readyAllHumanParticipants(finishedRoom);
     const rematchRoom = applyRoomClientEvent(
-      finishedRoom,
+      readyRoom,
       createClientEvent.rematch({
-        roomId: finishedRoom.id,
-        playerId: finishedRoom.hostPlayerId,
+        roomId: readyRoom.id,
+        playerId: readyRoom.hostPlayerId,
       }),
     );
 
     expect(finishedRoom.status).toBe("finished");
     expect(rematchRoom.status).toBe("playing");
-    expect(rematchRoom.participants).toEqual(finishedRoom.participants);
+    expect(rematchRoom.participants).toEqual(readyRoom.participants);
     expect(rematchRoom.game?.phase).toBe("playing");
     expect(rematchRoom.game?.initialHands).toHaveLength(finishedRoom.participants.length);
+  });
+
+  test("rejects rematches before all human players are ready", () => {
+    const finishedRoom = finishGame(
+      applyRoomClientEvent(
+        readyAllHumanParticipants(createPlayableRoom()),
+        createClientEvent.startGame({
+          roomId: "room-1",
+          playerId: "player-1",
+        }),
+      ),
+    );
+
+    expect(() =>
+      applyRoomClientEvent(
+        finishedRoom,
+        createClientEvent.rematch({
+          roomId: finishedRoom.id,
+          playerId: finishedRoom.hostPlayerId,
+        }),
+      ),
+    ).toThrow(RoomStateError);
   });
 
   test("rejects game actions before the game starts", () => {

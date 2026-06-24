@@ -6,6 +6,7 @@ type PlayerMeta = {
   id: PlayerId;
   kind: "cpu" | "guest" | "host";
   name: string;
+  ready: boolean;
 };
 
 type Opponent = {
@@ -23,6 +24,7 @@ type FinalResult = {
   name: string;
   playerId: PlayerId;
   rank: number;
+  ready: boolean;
   remainingCards: readonly Card[];
 };
 
@@ -108,15 +110,24 @@ function usePlayRoomViewModel({
         name: meta.name,
         playerId: rankedPlayerId,
         rank: index + 1,
+        ready: meta.ready,
         remainingCards: finalPlayer?.hand ?? [],
       };
     });
   }, [gameState, playerMetas]);
+  const isReadyToStartRematch =
+    room?.status === "finished" &&
+    room.participants.length === room.playerCount &&
+    room.participants.every((participant) => participant.kind === "cpu" || participant.ready);
 
   return {
-    canStartRematch: room?.status === "finished" && room.hostPlayerId === playerId,
+    canStartRematch: isReadyToStartRematch && room?.hostPlayerId === playerId,
     finalResults,
     gameState,
+    isCurrentPlayerReady:
+      room?.participants.some((participant) => participant.id === playerId && participant.ready) ??
+      false,
+    isReadyToStartRematch,
     opponents,
     playerHand,
     playerMetas,
@@ -131,6 +142,7 @@ function createPlayerMetas(room: RoomClientState | null): readonly PlayerMeta[] 
       id: participant.id,
       kind: participant.kind,
       name: participant.name,
+      ready: participant.ready,
     })) ?? []
   );
 }
@@ -141,6 +153,7 @@ function getPlayerMeta(playerMetas: readonly PlayerMeta[], playerId: PlayerId): 
       id: playerId,
       kind: "guest",
       name: playerId,
+      ready: false,
     }
   );
 }

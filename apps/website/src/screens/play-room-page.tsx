@@ -27,7 +27,9 @@ function PlayRoomPage() {
     clearSelection,
     errorMessage,
     finalResults,
+    isCurrentPlayerReady,
     isReconnectRequired,
+    isReadyToStartRematch,
     leaveRoom,
     opponents,
     passTurn,
@@ -41,6 +43,7 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
+    toggleReady,
   } = usePlayRoomGame({ connectionToken, playerId, roomId });
   const localRules = playerView.rules;
 
@@ -66,8 +69,11 @@ function PlayRoomPage() {
         <FinishedGameResults
           canStartRematch={canStartRematch}
           finalResults={finalResults}
+          isCurrentPlayerReady={isCurrentPlayerReady}
+          isReadyToStartRematch={isReadyToStartRematch}
           onLeaveRoom={exitRoom}
           onStartRematch={startRematch}
+          onToggleReady={toggleReady}
           playerId={playerId}
         />
       ) : (

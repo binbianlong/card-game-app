@@ -1,5 +1,5 @@
 import type { Card as GameCard, PlayerId } from "game";
-import { Bot, Crown, LogOut, RotateCcw, Trophy, Users } from "lucide-react";
+import { Bot, CheckCircle2, Clock, Crown, LogOut, RotateCcw, Trophy, Users } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,18 +8,25 @@ import type { FinalResult } from "./play-room-view-model";
 function FinishedGameResults({
   canStartRematch,
   finalResults,
+  isCurrentPlayerReady,
+  isReadyToStartRematch,
   onLeaveRoom,
   onStartRematch,
+  onToggleReady,
   playerId,
 }: {
   canStartRematch: boolean;
   finalResults: readonly FinalResult[];
+  isCurrentPlayerReady: boolean;
+  isReadyToStartRematch: boolean;
   onLeaveRoom: () => void;
   onStartRematch: () => void;
+  onToggleReady: () => void;
   playerId: PlayerId;
 }) {
   const viewerResult = finalResults.find((result) => result.playerId === playerId);
   const winner = finalResults[0];
+  const isHost = viewerResult?.kind === "host";
 
   return (
     <section
@@ -72,7 +79,20 @@ function FinishedGameResults({
       </Card>
 
       <Card className="min-w-0 py-0">
-        <CardContent className="grid min-w-0 gap-2 p-4">
+        <CardContent className="grid min-w-0 gap-3 p-4">
+          <Button
+            type="button"
+            variant={isCurrentPlayerReady ? "secondary" : "outline"}
+            className="w-full"
+            onClick={onToggleReady}
+          >
+            {isCurrentPlayerReady ? (
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+            ) : (
+              <Clock className="size-4" aria-hidden="true" />
+            )}
+            {isCurrentPlayerReady ? "準備OK" : "待機中"}
+          </Button>
           <Button
             type="button"
             size="lg"
@@ -83,11 +103,9 @@ function FinishedGameResults({
             <RotateCcw className="size-4" aria-hidden="true" />
             もう一回
           </Button>
-          {!canStartRematch ? (
-            <p className="text-center text-[12px] leading-5 text-muted-foreground">
-              再戦を開始できるのはホストです。
-            </p>
-          ) : null}
+          <p className="text-center text-[12px] leading-5 text-muted-foreground">
+            {getRematchStatusLabel({ isHost, isReadyToStartRematch })}
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -102,6 +120,22 @@ function FinishedGameResults({
       </Card>
     </section>
   );
+}
+
+function getRematchStatusLabel({
+  isHost,
+  isReadyToStartRematch,
+}: {
+  isHost: boolean;
+  isReadyToStartRematch: boolean;
+}) {
+  if (!isReadyToStartRematch) {
+    return "参加者全員の準備完了を待っています。";
+  }
+
+  return isHost
+    ? "全員の準備が完了しました。再戦を開始できます。"
+    : "全員の準備が完了しました。ホストの開始を待っています。";
 }
 
 function ResultStat({ label, value }: { label: string; value: string }) {
@@ -141,9 +175,25 @@ function FinalResultRow({ isViewer, result }: { isViewer: boolean; result: Final
             初期 {result.cards.length}枚 / 残り {result.remainingCards.length}枚
           </div>
         </div>
-        <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-sm font-extrabold text-primary-foreground">
-          {result.rank}位
-        </span>
+        <div className="grid justify-items-end gap-1">
+          <span className="inline-flex h-8 min-w-12 items-center justify-center rounded-md bg-primary px-2 text-sm font-extrabold text-primary-foreground">
+            {result.rank}位
+          </span>
+          <span
+            className={
+              result.ready
+                ? "inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary"
+                : "inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-bold text-muted-foreground"
+            }
+          >
+            {result.ready ? (
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Clock className="size-3.5" aria-hidden="true" />
+            )}
+            {result.ready ? "準備OK" : "待機中"}
+          </span>
+        </div>
       </div>
 
       <ResultHandCards label="初期手札" cards={result.cards} />

@@ -45,6 +45,16 @@ function usePlayRoomGame({
     selection.clearSelection();
   }
 
+  function toggleReady() {
+    sendEvent(
+      createClientEvent.setReady({
+        roomId,
+        playerId,
+        ready: !viewModel.isCurrentPlayerReady,
+      }),
+    );
+  }
+
   function leaveRoom() {
     sendEvent(createClientEvent.leaveRoom({ roomId, playerId }));
   }
@@ -55,7 +65,9 @@ function usePlayRoomGame({
     clearSelection: selection.clearSelection,
     errorMessage,
     finalResults: viewModel.finalResults,
+    isCurrentPlayerReady: viewModel.isCurrentPlayerReady,
     isReconnectRequired,
+    isReadyToStartRematch: viewModel.isReadyToStartRematch,
     leaveRoom,
     opponents: viewModel.opponents,
     passTurn,
@@ -69,6 +81,7 @@ function usePlayRoomGame({
     selectedCards: selection.selectedCards,
     startRematch,
     toggleCard: selection.toggleCard,
+    toggleReady,
   };
 }
 

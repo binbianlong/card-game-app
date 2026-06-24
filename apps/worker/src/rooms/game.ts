@@ -62,6 +62,10 @@ function assertCanStartRematch(room: RoomState, playerId: string) {
   if (room.participants.length !== room.playerCount) {
     throw new RoomStateError("notAllowed", "Not enough players are in the room.");
   }
+
+  if (room.participants.some((participant) => participant.kind !== "cpu" && !participant.ready)) {
+    throw new RoomStateError("notAllowed", "All players must be ready before starting a rematch.");
+  }
 }
 
 function applyGameRoomAction(
@@ -73,10 +77,18 @@ function applyGameRoomAction(
   }
 
   const game = GameStateSchema.parse(applyGameAction(room.game, event));
+  const participants =
+    game.phase === "finished"
+      ? room.participants.map((participant) => ({
+          ...participant,
+          ready: participant.kind === "cpu",
+        }))
+      : room.participants;
 
   return {
     ...room,
     status: game.phase,
+    participants,
     game,
   };
 }

@@ -7,10 +7,10 @@ const noop = () => {};
 
 const playerId = "player";
 const playerMetas = [
-  { id: playerId, kind: "host", name: "あなた" },
-  { id: "guest-1", kind: "guest", name: "ゲストA" },
-  { id: "cpu-1", kind: "cpu", name: "CPU 1" },
-  { id: "cpu-2", kind: "cpu", name: "CPU 2" },
+  { id: playerId, kind: "host", name: "あなた", ready: true },
+  { id: "guest-1", kind: "guest", name: "ゲストA", ready: false },
+  { id: "cpu-1", kind: "cpu", name: "CPU 1", ready: true },
+  { id: "cpu-2", kind: "cpu", name: "CPU 2", ready: true },
 ] satisfies PlayerMeta[];
 
 const rules = {
@@ -173,8 +173,11 @@ export const FinishedResultsHost: Story = {
     <FinishedGameResults
       canStartRematch
       finalResults={finalResults}
+      isCurrentPlayerReady
+      isReadyToStartRematch
       onLeaveRoom={noop}
       onStartRematch={noop}
+      onToggleReady={noop}
       playerId={playerId}
     />
   ),
@@ -185,8 +188,11 @@ export const FinishedResultsGuest: Story = {
     <FinishedGameResults
       canStartRematch={false}
       finalResults={finalResults}
+      isCurrentPlayerReady={false}
+      isReadyToStartRematch={false}
       onLeaveRoom={noop}
       onStartRematch={noop}
+      onToggleReady={noop}
       playerId="guest-1"
     />
   ),
@@ -239,6 +245,7 @@ const finalResults = [
     kind: "cpu",
     name: "CPU 2",
     rank: 1,
+    ready: true,
     cards: [
       card("3", "clubs", "cpu2-3c"),
       card("4", "clubs", "cpu2-4c"),
@@ -252,6 +259,7 @@ const finalResults = [
     kind: "host",
     name: "あなた",
     rank: 2,
+    ready: true,
     cards: playerHand,
     remainingCards: [card("2", "hearts", "result-2h")],
   },
@@ -260,6 +268,7 @@ const finalResults = [
     kind: "guest",
     name: "ゲストA",
     rank: 3,
+    ready: false,
     cards: [
       card("4", "diamonds", "guest-4d"),
       card("9", "diamonds", "guest-9d"),
