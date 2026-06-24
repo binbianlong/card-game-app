@@ -2,8 +2,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { GameRuleSettings } from "schema";
 import { BookOpen } from "lucide-react";
 import { useState } from "react";
-import { PageHeader, PageShell } from "@/components/page-layout";
-import { Button } from "@/components/ui/button";
+import { PageShell } from "@/components/page-layout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LocalRuleContent } from "@/features/local-rules/local-rule-content";
 import { localRuleOptions } from "@/features/local-rules/local-rule-options";
@@ -14,14 +13,12 @@ import {
   TableArea,
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
-import { resolveRoomConnection } from "@/features/rooms/connection-token";
+import { removeRoomConnection, resolveRoomConnection } from "@/features/rooms/connection-token";
 import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function PlayRoomPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/play" });
-  const playerCount = search.players;
-  const cpuCount = search.cpu;
   const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const {
@@ -30,7 +27,9 @@ function PlayRoomPage() {
     clearSelection,
     errorMessage,
     finalResults,
+    isCurrentPlayerReady,
     isReconnectRequired,
+    isReadyToStartRematch,
     leaveRoom,
     opponents,
     passTurn,
@@ -44,35 +43,18 @@ function PlayRoomPage() {
     selectedCards,
     startRematch,
     toggleCard,
+    toggleReady,
   } = usePlayRoomGame({ connectionToken, playerId, roomId });
   const localRules = playerView.rules;
 
   function exitRoom() {
     leaveRoom();
+    removeRoomConnection({ playerId, roomId });
     void navigate({ to: "/" });
   }
 
   return (
     <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
-      <PageHeader
-        backLabel="待機画面に戻る"
-        backTo="/rooms/waiting"
-        backSearch={{ players: playerCount, cpu: cpuCount, roomId, playerId }}
-        title="対戦中"
-        action={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="採用中のローカルルールを確認"
-            aria-expanded={isRulesOpen}
-            onClick={() => setIsRulesOpen((currentValue) => !currentValue)}
-          >
-            <BookOpen className="size-5" aria-hidden="true" />
-          </Button>
-        }
-      />
-
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
 
       {hasConnectionToken && !isReconnectRequired && errorMessage !== null ? (
@@ -87,12 +69,15 @@ function PlayRoomPage() {
         <FinishedGameResults
           canStartRematch={canStartRematch}
           finalResults={finalResults}
+          isCurrentPlayerReady={isCurrentPlayerReady}
+          isReadyToStartRematch={isReadyToStartRematch}
           onLeaveRoom={exitRoom}
           onStartRematch={startRematch}
+          onToggleReady={toggleReady}
           playerId={playerId}
         />
       ) : (
-        <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-3">
+        <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-1">
           <BattleStatus opponents={opponents} playerMetas={playerMetas} playerView={playerView} />
           <TableArea
             playerMetas={playerMetas}
@@ -101,7 +86,9 @@ function PlayRoomPage() {
           />
           <PlayerArea
             availableActions={availableActions}
+            isRulesOpen={isRulesOpen}
             onClearSelection={clearSelection}
+            onOpenRules={() => setIsRulesOpen(true)}
             onPass={passTurn}
             onPlaySelectedCards={playSelectedCards}
             onToggleCard={toggleCard}

@@ -85,7 +85,7 @@ function WaitingRoomPage() {
 
   return (
     <PageShell>
-      <PageHeader backLabel="ルーム作成に戻る" backTo="/rooms/new" title="待機画面" />
+      <PageHeader backLabel="ホームに戻る" backTo="/" title="待機画面" />
       <PageIntro
         description="参加者全員が集まると、ゲームを開始できます。"
         eyebrow="Waiting room"

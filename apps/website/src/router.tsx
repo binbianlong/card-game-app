@@ -3,6 +3,7 @@ import App from "./App";
 import { CreateRoomPage } from "./screens/create-room-page";
 import { JoinRoomPage } from "./screens/join-room-page";
 import { PlayRoomPage } from "./screens/play-room-page";
+import { ReconnectRoomPage } from "./screens/reconnect-room-page";
 import { RoomHistoryPage, RoomMatchHistoryPage } from "./screens/room-history-page";
 import { RulesPage } from "./screens/rules-page";
 import { WaitingRoomPage } from "./screens/waiting-room-page";
@@ -50,35 +51,21 @@ const roomMatchHistoryRoute = createRoute({
 const waitingRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/waiting",
-  validateSearch: (search: Record<string, unknown>) => {
-    const players = clampSearchNumber(search.players, 3, 6, 4);
-    const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
-
-    return {
-      players,
-      cpu,
-      roomId: parseSearchOptionalString(search.roomId),
-      playerId: parseSearchOptionalString(search.playerId),
-    };
-  },
+  validateSearch: parseRoomConnectionSearch,
   component: WaitingRoomPage,
 });
 
 const playRoomRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms/play",
-  validateSearch: (search: Record<string, unknown>) => {
-    const players = clampSearchNumber(search.players, 3, 6, 4);
-    const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
-
-    return {
-      players,
-      cpu,
-      roomId: parseSearchOptionalString(search.roomId),
-      playerId: parseSearchOptionalString(search.playerId),
-    };
-  },
+  validateSearch: parseRoomConnectionSearch,
   component: PlayRoomPage,
+});
+
+const reconnectRoomRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rooms/reconnect",
+  component: ReconnectRoomPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -90,6 +77,7 @@ const routeTree = rootRoute.addChildren([
   roomMatchHistoryRoute,
   waitingRoomRoute,
   playRoomRoute,
+  reconnectRoomRoute,
 ]);
 
 function clampSearchNumber(value: unknown, min: number, max: number, fallback: number) {
@@ -104,6 +92,18 @@ function clampSearchNumber(value: unknown, min: number, max: number, fallback: n
 
 function parseSearchOptionalString(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function parseRoomConnectionSearch(search: Record<string, unknown>) {
+  const players = clampSearchNumber(search.players, 3, 6, 4);
+  const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
+
+  return {
+    players,
+    cpu,
+    roomId: parseSearchOptionalString(search.roomId),
+    playerId: parseSearchOptionalString(search.playerId),
+  };
 }
 
 export const router = createRouter({

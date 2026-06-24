@@ -38,8 +38,10 @@ function JoinRoomPage() {
         playerName: playerName.trim(),
       });
       saveRoomConnectionToken({
+        cpuCount: data.room.participants.filter((participant) => participant.kind === "cpu").length,
         connectionToken: data.connectionToken,
         playerId: data.playerId,
+        playerCount: data.room.playerCount,
         roomId: data.room.id,
       });
 

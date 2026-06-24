@@ -1,5 +1,6 @@
-import { Bot, CheckCircle2, Clock, Crown, Users } from "lucide-react";
+import { Bot, Crown, Users } from "lucide-react";
 import type { RoomParticipant } from "schema";
+import { ReadyStatusBadge } from "@/components/ready-status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function ParticipantList({ participants }: { participants: readonly RoomParticipant[] }) {
@@ -27,7 +28,6 @@ function ParticipantList({ participants }: { participants: readonly RoomParticip
 }
 
 function ParticipantRow({ participant }: { participant: RoomParticipant }) {
-  const isReady = participant.ready;
   const isHost = participant.kind === "host";
   const isCpu = participant.kind === "cpu";
 
@@ -48,20 +48,7 @@ function ParticipantRow({ participant }: { participant: RoomParticipant }) {
           {isCpu ? "CPU" : isHost ? "ホスト" : "ゲスト"}
         </div>
       </div>
-      <span
-        className={
-          isReady
-            ? "inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-bold text-primary"
-            : "inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-bold text-muted-foreground"
-        }
-      >
-        {isReady ? (
-          <CheckCircle2 className="size-3.5" aria-hidden="true" />
-        ) : (
-          <Clock className="size-3.5" aria-hidden="true" />
-        )}
-        {isReady ? "準備OK" : "待機中"}
-      </span>
+      <ReadyStatusBadge ready={participant.ready} />
     </div>
   );
 }

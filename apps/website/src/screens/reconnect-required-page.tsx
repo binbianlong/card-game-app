@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { LogIn } from "lucide-react";
+import { ArrowLeft, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function ReconnectRequiredPage() {
@@ -16,9 +16,21 @@ function ReconnectRequiredPage() {
           </p>
         </div>
       </div>
-      <Button asChild size="lg" className="h-12 w-full text-base font-bold">
-        <Link to="/rooms/join">ルームに参加する</Link>
-      </Button>
+      <div className="grid gap-2">
+        <Button asChild size="lg" className="h-12 w-full text-base font-bold">
+          <Link to="/rooms/join">ルームに参加する</Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-12 w-full text-base font-bold"
+          onClick={() => window.history.back()}
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          前の画面に戻る
+        </Button>
+      </div>
     </section>
   );
 }

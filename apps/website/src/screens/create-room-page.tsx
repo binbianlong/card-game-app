@@ -55,8 +55,10 @@ function CreateRoomPage() {
         rules: defaultLocalRuleSettings,
       });
       saveRoomConnectionToken({
+        cpuCount: data.room.participants.filter((participant) => participant.kind === "cpu").length,
         connectionToken: data.connectionToken,
         playerId: data.room.hostPlayerId,
+        playerCount: data.room.playerCount,
         roomId: data.room.id,
       });
 

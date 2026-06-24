@@ -1,11 +1,13 @@
 import type { AvailableGameActions, Card as GameCard } from "game";
-import { Check, CircleSlash, Hand, Send } from "lucide-react";
+import { BookOpen, Check, CircleSlash, Hand, Send } from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { Button } from "@/components/ui/button";
 
 function PlayerArea({
   availableActions,
+  isRulesOpen,
   onClearSelection,
+  onOpenRules,
   onPass,
   onPlaySelectedCards,
   onToggleCard,
@@ -16,7 +18,9 @@ function PlayerArea({
   selectedCardIdSet,
 }: {
   availableActions: AvailableGameActions;
+  isRulesOpen?: boolean;
   onClearSelection: () => void;
+  onOpenRules?: () => void;
   onPass: () => void;
   onPlaySelectedCards: () => void;
   onToggleCard: (cardId: string) => void;
@@ -37,7 +41,22 @@ function PlayerArea({
             <Hand className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base leading-tight font-extrabold">あなたの手札</h2>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <h2 className="text-base leading-tight font-extrabold">あなたの手札</h2>
+              {onOpenRules === undefined ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="採用中のローカルルールを確認"
+                  aria-expanded={isRulesOpen}
+                  onClick={onOpenRules}
+                >
+                  <BookOpen className="size-4" aria-hidden="true" />
+                </Button>
+              )}
+            </div>
             <p className="text-[13px] leading-5 text-muted-foreground">
               {hasFinished
                 ? `${playerRank}位で上がり`
