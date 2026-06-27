@@ -21,7 +21,7 @@ const participants = [
 function createRoom(overrides: Partial<RoomClientState> = {}): RoomClientState {
   return {
     id: "room-1",
-    inviteCode: "7KQ2",
+    inviteCode: "A7K9Q2",
     playerCount: 4,
     status: "waiting",
     hostPlayerId: "host",

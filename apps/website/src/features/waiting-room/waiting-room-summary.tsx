@@ -47,7 +47,7 @@ function InviteCodePanel({ room }: { room: RoomClientState | null }) {
       <div className="min-w-0">
         <div className="text-[11px] leading-none font-bold text-muted-foreground">招待コード</div>
         <div className="mt-1 text-2xl leading-none font-extrabold tracking-[0.16em]">
-          {room?.inviteCode ?? "----"}
+          {room?.inviteCode ?? "------"}
         </div>
       </div>
       <Button

@@ -114,8 +114,12 @@ function createRoomsRoute<Env extends WorkerBindings>({
         }
 
         const event = context.req.valid("json");
+        const inviteCode = await createAvailableInviteCode(env, findRoomByInviteCode);
+        if (inviteCode === null) {
+          return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
+        }
+
         const roomId = createRoomId();
-        const inviteCode = createInviteCode(roomId);
         const room = createWaitingRoom(event, roomId, inviteCode);
         const connectionToken = await saveRoom(env, roomId, room, user.id);
 
@@ -215,8 +219,23 @@ function createLoginRequiredError(action: string) {
   return createErrorEvent("notAllowed", `Login is required to ${action}.`);
 }
 
+async function createAvailableInviteCode<Env extends WorkerBindings>(
+  env: Env,
+  findRoomByInviteCode: RoomsRouteOptions<Env>["findRoomByInviteCode"],
+) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const inviteCode = createInviteCode();
+
+    if ((await findRoomByInviteCode(env, inviteCode)) === null) {
+      return inviteCode;
+    }
+  }
+
+  return null;
+}
+
 function createRoomId() {
-  return createInviteCode(crypto.randomUUID());
+  return crypto.randomUUID();
 }
 
 function normalizeInviteCode(inviteCode: string) {

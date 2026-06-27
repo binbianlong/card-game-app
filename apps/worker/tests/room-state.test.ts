@@ -6,7 +6,6 @@ import {
   applyNextCpuTurn,
   applyRoomConnectionChange,
   applyRoomClientEvent,
-  createInviteCode,
   createWaitingRoom,
   isCpuTurn,
 } from "../src/rooms/state.ts";
@@ -28,13 +27,13 @@ describe("room state", () => {
         cpuCount: 1,
         rules,
       }),
-      "room-1",
-      createInviteCode("room-1"),
+      "00000000-0000-4000-8000-000000000001",
+      "A7K9Q2",
     );
 
     expect(room).toMatchObject({
-      id: "room-1",
-      inviteCode: "ROOM",
+      id: "00000000-0000-4000-8000-000000000001",
+      inviteCode: "A7K9Q2",
       status: "waiting",
       hostPlayerId: "player-1",
       game: null,
@@ -71,7 +70,7 @@ describe("room state", () => {
         rules,
       }),
       "room-1",
-      createInviteCode("room-1"),
+      "A7K9Q2",
     );
     const joinedRoom = applyRoomClientEvent(
       room,
@@ -448,7 +447,7 @@ function createRoom() {
       rules,
     }),
     "room-1",
-    createInviteCode("room-1"),
+    "A7K9Q2",
   );
 }
 
@@ -461,7 +460,7 @@ function createCpuRoom() {
       rules,
     }),
     "room-1",
-    createInviteCode("room-1"),
+    "A7K9Q2",
   );
 }
 

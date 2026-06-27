@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import type { CreateRoomResponse } from "schema";
 import { createWorkerApp } from "../src/app.ts";
 
 const app = createWorkerApp({
@@ -14,7 +15,7 @@ const app = createWorkerApp({
     return "ticket-1";
   },
   async findRoomByInviteCode(_env, inviteCode) {
-    if (inviteCode !== "ROOM") {
+    if (inviteCode !== "A7K9Q2") {
       return null;
     }
 
@@ -24,7 +25,7 @@ const app = createWorkerApp({
     };
   },
   async getRoomHistory(_env, roomKey, userId) {
-    if (userId !== "user-1" || (roomKey !== "ROOM" && roomKey !== "room-1")) {
+    if (userId !== "user-1" || (roomKey !== "A7K9Q2" && roomKey !== "room-1")) {
       return null;
     }
 
@@ -50,13 +51,22 @@ const app = createWorkerApp({
 
     return null;
   },
-  async joinRoom() {
+  async joinRoom(_env, roomId, event) {
+    if (roomId !== "room-1" || event.roomId !== "room-1") {
+      return Response.json(
+        { type: "error", code: "notAllowed", message: "Wrong room." },
+        {
+          status: 403,
+        },
+      );
+    }
+
     return Response.json({
       connectionToken: "guest-token",
       playerId: "player-2",
       room: {
         id: "room-1",
-        inviteCode: "ROOM",
+        inviteCode: "A7K9Q2",
         playerCount: 3,
         status: "waiting",
         hostPlayerId: "player-1",
@@ -85,7 +95,7 @@ const app = createWorkerApp({
         },
         game: null,
       },
-      websocketPath: "/parties/room-server/ROOM",
+      websocketPath: "/parties/room-server/room-1",
     });
   },
   async listMatchHistory(_env, roomId, userId) {
@@ -148,7 +158,7 @@ describe("worker", () => {
       new Request("https://worker.test/api/rooms/join", {
         body: JSON.stringify({
           type: "joinRoom",
-          roomId: "ROOM",
+          roomId: "A7K9Q2",
           playerName: "Guest",
         }),
         headers: { "content-type": "application/json" },
@@ -162,9 +172,9 @@ describe("worker", () => {
       playerId: "player-2",
       room: {
         id: "room-1",
-        inviteCode: "ROOM",
+        inviteCode: "A7K9Q2",
       },
-      websocketPath: "/parties/room-server/ROOM",
+      websocketPath: "/parties/room-server/room-1",
     });
   });
 
@@ -194,13 +204,20 @@ describe("worker", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const data = (await response.json()) as CreateRoomResponse;
+
+    expect(data).toMatchObject({
       connectionToken: "host-token",
       room: {
         hostPlayerId: "player-1",
         status: "waiting",
       },
     });
+    expect(data.room.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(data.room.inviteCode).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+    expect(data.websocketPath).toBe(`/parties/room-server/${data.room.id}`);
   });
 
   test("rejects room creation from anonymous users", async () => {
@@ -340,7 +357,7 @@ describe("worker", () => {
 
   test("lists match history in a room", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM", {
+      new Request("https://worker.test/api/rooms/history/A7K9Q2", {
         headers: { authorization: "Bearer test-session" },
       }),
       createTestEnv(),
@@ -362,7 +379,7 @@ describe("worker", () => {
 
   test("rejects match history from anonymous users", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM"),
+      new Request("https://worker.test/api/rooms/history/A7K9Q2"),
       createTestEnv(),
     );
 
@@ -375,7 +392,7 @@ describe("worker", () => {
 
   test("does not show match history to non-participants", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM", {
+      new Request("https://worker.test/api/rooms/history/A7K9Q2", {
         headers: { authorization: "Bearer other-session" },
       }),
       createTestEnv(),

@@ -23,7 +23,7 @@ function JoinRoomPage() {
     () => inviteCode.trim().replace(/\s|-/g, "").toUpperCase(),
     [inviteCode],
   );
-  const canSubmit = status !== "joining" && normalizedInviteCode.length > 0;
+  const canSubmit = status !== "joining" && normalizedInviteCode.length === 6;
 
   async function joinRoom() {
     if (!canSubmit) {
@@ -86,14 +86,14 @@ function JoinRoomPage() {
           </CardHeader>
           <CardContent className="grid gap-3 px-4 pb-4">
             <TextSetting
-              description="英数字の招待コードを入力します。"
+              description="6文字の招待コードを入力します。"
               Icon={Ticket}
               label="招待コード"
               onChange={(value) => {
                 setInviteCode(value);
                 setStatus("idle");
               }}
-              placeholder="例: 8QJ4"
+              placeholder="例: A7K9Q2"
               value={inviteCode}
             />
             <TextSetting
