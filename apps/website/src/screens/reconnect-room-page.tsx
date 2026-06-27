@@ -70,9 +70,7 @@ function RoomConnectionCard({ connection }: { connection: RoomConnectionMetadata
           <Link
             to="/rooms/play"
             search={{
-              cpu: connection.cpuCount,
               playerId: connection.playerId,
-              players: connection.playerCount,
               roomId: connection.roomId,
             }}
           >

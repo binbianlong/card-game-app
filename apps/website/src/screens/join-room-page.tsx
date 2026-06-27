@@ -48,8 +48,6 @@ function JoinRoomPage() {
       await navigate({
         to: "/rooms/waiting",
         search: {
-          players: data.room.playerCount,
-          cpu: data.room.participants.filter((participant) => participant.kind === "cpu").length,
           roomId: data.room.id,
           playerId: data.playerId,
         },

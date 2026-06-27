@@ -8,9 +8,7 @@ const pageShellClassName =
   "mx-auto flex min-h-svh w-full max-w-[430px] flex-col px-4 pt-[max(14px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] sm:min-h-[min(820px,100svh)] sm:px-5 sm:pt-5 sm:pb-7";
 
 type WaitingRoomSearch = {
-  cpu: number;
   playerId: string;
-  players: number;
   roomId: string;
 };
 

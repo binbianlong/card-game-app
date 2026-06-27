@@ -15,7 +15,6 @@ type WaitingRoomViewProps = {
   onToggleReady: () => void;
   onStartGame: () => void;
   onToggleLocalRule: (ruleKey: LocalRuleKey) => void;
-  playerCount: number;
   playerId: string;
   room: RoomClientState | null;
 };
@@ -29,11 +28,11 @@ function WaitingRoomView({
   onStartGame,
   onToggleReady,
   onToggleLocalRule,
-  playerCount,
   playerId,
   room,
 }: WaitingRoomViewProps) {
   const participants = room?.participants ?? [];
+  const playerCount = room?.playerCount ?? 0;
   const waitingCount = Math.max(playerCount - participants.length, 0);
   const currentParticipant = participants.find((participant) => participant.id === playerId);
   const isHost = room?.hostPlayerId === playerId;

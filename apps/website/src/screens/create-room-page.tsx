@@ -65,8 +65,6 @@ function CreateRoomPage() {
       await navigate({
         to: "/rooms/waiting",
         search: {
-          players: playerCount,
-          cpu: cpuCount,
           roomId: data.room.id,
           playerId: data.room.hostPlayerId,
         },
