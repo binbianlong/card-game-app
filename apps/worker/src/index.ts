@@ -3,6 +3,7 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  RoomStateSchema,
 } from "schema";
 import { createWorkerApp } from "./app.ts";
 import { createAuth } from "./auth/auth.ts";
@@ -40,6 +41,32 @@ const app = createWorkerApp<Env>({
     const data = CreateConnectionTicketResponseSchema.parse(await response.json());
 
     return data.ticket;
+  },
+  async endRoom(env, roomId, userId) {
+    const repository = createRoomRepository(env.DB);
+
+    if (!(await repository.canEndRoom(roomId, userId))) {
+      return null;
+    }
+
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify({}),
+        method: "POST",
+        path: "/end",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const room = RoomStateSchema.parse(await response.json());
+    await repository.saveRoomMetadata(room);
+
+    return room;
   },
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);

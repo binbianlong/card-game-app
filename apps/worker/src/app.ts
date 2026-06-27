@@ -14,6 +14,7 @@ type CreateWorkerAppOptions<Env extends WorkerBindings> = RoomsRouteOptions<Env>
 
 function createWorkerApp<Env extends WorkerBindings>({
   createConnectionTicket,
+  endRoom,
   findRoomByInviteCode,
   getRoomHistory,
   getSessionUser,
@@ -48,6 +49,7 @@ function createWorkerApp<Env extends WorkerBindings>({
     "/api/rooms",
     createRoomsRoute({
       createConnectionTicket,
+      endRoom,
       findRoomByInviteCode,
       getRoomHistory,
       getSessionUser,

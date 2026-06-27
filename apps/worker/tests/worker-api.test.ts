@@ -14,6 +14,36 @@ const app = createWorkerApp({
 
     return "ticket-1";
   },
+  async endRoom(_env, roomId, userId) {
+    if (roomId !== "room-1" || userId !== "user-1") {
+      return null;
+    }
+
+    return {
+      id: "room-1",
+      inviteCode: "A7K9Q2",
+      playerCount: 3,
+      status: "finished",
+      hostPlayerId: "player-1",
+      participants: [
+        {
+          id: "player-1",
+          name: "Host",
+          kind: "host",
+          connected: false,
+          ready: false,
+        },
+      ],
+      rules: {
+        eightCut: true,
+        elevenBack: true,
+        revolution: true,
+        sequence: true,
+        suitLock: true,
+      },
+      game: null,
+    };
+  },
   async findRoomByInviteCode(_env, inviteCode) {
     if (inviteCode !== "A7K9Q2") {
       return null;
@@ -298,6 +328,41 @@ describe("worker", () => {
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
+    });
+  });
+
+  test("ends rooms for hosts", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1", {
+        headers: { authorization: "Bearer test-session" },
+        method: "DELETE",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      room: {
+        id: "room-1",
+        status: "finished",
+        game: null,
+      },
+    });
+  });
+
+  test("rejects room endings from non-hosts", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1", {
+        headers: { authorization: "Bearer other-session" },
+        method: "DELETE",
       }),
       createTestEnv(),
     );

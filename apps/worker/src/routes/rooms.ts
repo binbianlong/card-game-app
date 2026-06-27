@@ -40,6 +40,7 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
       playerId: string;
     },
   ) => Promise<string | null>;
+  endRoom: (env: Env, roomId: string, userId: string) => Promise<RoomState | null>;
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
   getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
@@ -60,6 +61,7 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
 
 function createRoomsRoute<Env extends WorkerBindings>({
   createConnectionTicket,
+  endRoom,
   findRoomByInviteCode,
   getRoomHistory,
   getSessionUser,
@@ -179,6 +181,26 @@ function createRoomsRoute<Env extends WorkerBindings>({
       }
 
       return context.json(CreateConnectionTicketResponseSchema.parse({ ticket }));
+    })
+
+    .delete("/:roomId", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("end rooms"), 401);
+      }
+
+      const room = await endRoom(env, context.req.param("roomId"), user.id);
+
+      if (room === null) {
+        return context.json(
+          createErrorEvent("notAllowed", "Only the host can end this room."),
+          403,
+        );
+      }
+
+      return context.json({ room });
     });
 
   return route;

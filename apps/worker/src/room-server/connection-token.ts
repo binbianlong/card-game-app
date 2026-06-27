@@ -1,5 +1,6 @@
 import type { RoomState } from "schema";
 import { validateConnectionToken, type ConnectionToken } from "./connection-event.ts";
+import { RoomStateError } from "../rooms/state.ts";
 
 const connectionTokenTtlMs = 60 * 60 * 1000;
 const connectionTokensStorageKey = "connectionTokens";
@@ -34,6 +35,10 @@ async function validateStoredConnectionToken({
   room: RoomState;
   storage: DurableObjectStorage;
 }) {
+  if (room.status === "finished" && room.game === null) {
+    return new RoomStateError("notAllowed", "Room has ended.");
+  }
+
   const connectionTokens = await getConnectionTokens(storage);
 
   return validateConnectionToken({

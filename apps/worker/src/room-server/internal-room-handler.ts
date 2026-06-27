@@ -11,6 +11,7 @@ import { validateInternalRoomRequest } from "./internal-request.ts";
 
 type InternalRoomHandler = {
   applyClientEvent: (event: ClientEvent) => Promise<RoomState>;
+  endRoom: () => Promise<RoomState>;
   getRoom: () => Promise<RoomState>;
   getStoredRoom: () => Promise<RoomState | undefined>;
   scheduleCpuTurn: (room: RoomState) => Promise<void>;
@@ -52,6 +53,10 @@ async function handleInternalRoomRequest({
 
   if (request.method === "POST" && url.pathname === "/join") {
     return handleJoinRoomRequest(request, handler);
+  }
+
+  if (request.method === "POST" && url.pathname === "/end") {
+    return Response.json(await handler.endRoom());
   }
 
   if (request.method === "POST" && url.pathname === "/ticket") {

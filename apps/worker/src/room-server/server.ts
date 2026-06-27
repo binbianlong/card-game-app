@@ -133,6 +133,7 @@ class RoomServer extends Server<RoomServerEnv> {
     return handleInternalRoomRequest({
       handler: {
         applyClientEvent: (event) => this.applyClientEvent(event),
+        endRoom: () => this.endRoom(),
         getRoom: () => this.getRoom(),
         getStoredRoom: () => this.getStoredRoom(),
         scheduleCpuTurn: (room) => this.scheduleCpuTurn(room),
@@ -196,6 +197,25 @@ class RoomServer extends Server<RoomServerEnv> {
 
     const room = await this.getRoom();
     return this.setRoom(applyRoomConnectionChange(room, playerId, true));
+  }
+
+  private async endRoom() {
+    const room = await this.getRoom();
+    const nextRoom = await this.setRoom({
+      ...room,
+      status: "finished",
+      participants: room.participants.map((participant) => ({
+        ...participant,
+        connected: false,
+        ready: false,
+      })),
+      game: null,
+    });
+
+    this.sendRoomStateToConnections(nextRoom);
+    await this.ctx.storage.deleteAlarm();
+
+    return nextRoom;
   }
 
   private async markPlayerDisconnected(playerId: string) {

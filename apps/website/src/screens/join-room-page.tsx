@@ -40,6 +40,7 @@ function JoinRoomPage() {
       saveRoomConnectionToken({
         cpuCount: data.room.participants.filter((participant) => participant.kind === "cpu").length,
         connectionToken: data.connectionToken,
+        isHost: data.playerId === data.room.hostPlayerId,
         playerId: data.playerId,
         playerCount: data.room.playerCount,
         roomId: data.room.id,

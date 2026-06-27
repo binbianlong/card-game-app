@@ -44,6 +44,16 @@ function createRoomRepository(database: D1Database) {
       return row ?? null;
     },
 
+    async canEndRoom(roomId: string, userId: string) {
+      const row = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.id, roomId), eq(rooms.hostUserId, userId)))
+        .get();
+
+      return row !== undefined;
+    },
+
     async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {
       const now = new Date();
       const roomUpdate = {
@@ -126,24 +136,23 @@ function createRoomRepository(database: D1Database) {
         .from(matches)
         .where(and(eq(matches.status, "finished"), inArray(matches.roomId, accessibleRoomIds)));
 
-      const roomIds = unique(matchRows.map((match) => match.roomId));
-
-      if (roomIds.length === 0) {
-        return [];
-      }
-
       const roomRows = await db
         .select()
         .from(rooms)
-        .where(inArray(rooms.id, roomIds))
+        .where(inArray(rooms.id, accessibleRoomIds))
         .orderBy(desc(rooms.createdAt))
         .limit(limit);
 
-      return roomRows.map((room) => {
-        const roomMatches = matchRows.filter((match) => match.roomId === room.id);
+      return roomRows
+        .filter(
+          (room) =>
+            room.status === "finished" || matchRows.some((match) => match.roomId === room.id),
+        )
+        .map((room) => {
+          const roomMatches = matchRows.filter((match) => match.roomId === room.id);
 
-        return createRoomHistoryItem(room, roomMatches);
-      });
+          return createRoomHistoryItem(room, roomMatches);
+        });
     },
 
     async getRoomHistory(roomKey: string, userId: string): Promise<RoomHistoryItem | null> {

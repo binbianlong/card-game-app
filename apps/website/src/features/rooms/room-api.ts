@@ -73,6 +73,19 @@ async function getRoomMatchHistory(roomId: string) {
   return RoomMatchHistoryResponseSchema.parse(await response.json());
 }
 
+async function endRoom(roomId: string) {
+  const response = await createRoomsClient()[":roomId"].$delete(
+    {
+      param: { roomId },
+    },
+    createRequestOptions(),
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to end room.");
+  }
+}
+
 async function createRoomConnectionTicket({
   connectionToken,
   playerId,
@@ -143,6 +156,7 @@ function getWorkerOrigin() {
 export {
   createRoomConnectionTicket,
   createRoom,
+  endRoom,
   getRoomHistory,
   getRoomMatchHistory,
   getWorkerHost,

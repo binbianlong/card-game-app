@@ -1,12 +1,14 @@
 function saveRoomConnectionToken({
   cpuCount,
   connectionToken,
+  isHost,
   playerId,
   playerCount,
   roomId,
 }: {
   cpuCount: number;
   connectionToken: string;
+  isHost: boolean;
   playerId: string;
   playerCount: number;
   roomId: string;
@@ -20,6 +22,7 @@ function saveRoomConnectionToken({
     activeRoomConnectionStorageKey,
     JSON.stringify({
       cpuCount,
+      isHost,
       playerCount,
       playerId,
       roomId,
@@ -31,6 +34,7 @@ function saveRoomConnectionToken({
     JSON.stringify(
       upsertRoomConnection(getRoomConnections(), {
         cpuCount,
+        isHost,
         playerCount,
         playerId,
         roomId,
@@ -185,6 +189,7 @@ function parseRoomConnectionData(data: unknown) {
 
   return {
     cpuCount: data.cpuCount,
+    isHost: "isHost" in data && typeof data.isHost === "boolean" ? data.isHost : false,
     playerCount: data.playerCount,
     playerId: data.playerId,
     roomId: data.roomId,
@@ -234,6 +239,7 @@ const roomConnectionsStorageKey = "room-connections";
 
 type RoomConnectionMetadata = {
   cpuCount: number;
+  isHost: boolean;
   playerCount: number;
   playerId: string;
   roomId: string;
