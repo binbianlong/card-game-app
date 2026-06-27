@@ -14,6 +14,7 @@ import {
 } from "@/features/play-room/play-room-sections";
 import { usePlayRoomGame } from "@/features/play-room/use-play-room-game";
 import { removeRoomConnection, resolveRoomConnection } from "@/features/rooms/connection-token";
+import { endRoom } from "@/features/rooms/room-api";
 import { ReconnectRequiredPage } from "./reconnect-required-page";
 
 function PlayRoomPage() {
@@ -21,6 +22,7 @@ function PlayRoomPage() {
   const search = useSearch({ from: "/rooms/play" });
   const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [roomEndStatus, setRoomEndStatus] = useState<"ending" | "error" | "idle">("idle");
   const {
     availableActions,
     canStartRematch,
@@ -53,6 +55,18 @@ function PlayRoomPage() {
     void navigate({ to: "/" });
   }
 
+  async function endCurrentRoom() {
+    setRoomEndStatus("ending");
+
+    try {
+      await endRoom(roomId);
+      removeRoomConnection({ playerId, roomId });
+      await navigate({ to: "/rooms/reconnect" });
+    } catch {
+      setRoomEndStatus("error");
+    }
+  }
+
   return (
     <PageShell className="pb-[max(20px,env(safe-area-inset-bottom))]">
       <ActiveLocalRulesModal open={isRulesOpen} rules={localRules} onOpenChange={setIsRulesOpen} />
@@ -71,10 +85,14 @@ function PlayRoomPage() {
           finalResults={finalResults}
           isCurrentPlayerReady={isCurrentPlayerReady}
           isReadyToStartRematch={isReadyToStartRematch}
+          onEndRoom={() => {
+            void endCurrentRoom();
+          }}
           onLeaveRoom={exitRoom}
           onStartRematch={startRematch}
           onToggleReady={toggleReady}
           playerId={playerId}
+          roomEndStatus={roomEndStatus}
         />
       ) : (
         <section className="grid flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 pt-1">

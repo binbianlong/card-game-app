@@ -175,10 +175,12 @@ export const FinishedResultsHost: Story = {
       finalResults={finalResults}
       isCurrentPlayerReady
       isReadyToStartRematch
+      onEndRoom={noop}
       onLeaveRoom={noop}
       onStartRematch={noop}
       onToggleReady={noop}
       playerId={playerId}
+      roomEndStatus="idle"
     />
   ),
 };
@@ -190,10 +192,12 @@ export const FinishedResultsGuest: Story = {
       finalResults={finalResults}
       isCurrentPlayerReady={false}
       isReadyToStartRematch={false}
+      onEndRoom={noop}
       onLeaveRoom={noop}
       onStartRematch={noop}
       onToggleReady={noop}
       playerId="guest-1"
+      roomEndStatus="idle"
     />
   ),
 };
