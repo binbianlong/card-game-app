@@ -51,7 +51,6 @@ function PlayRoomPage() {
 
   function exitRoom() {
     leaveRoom();
-    removeRoomConnection({ playerId, roomId });
     void navigate({ to: "/" });
   }
 
