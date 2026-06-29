@@ -71,6 +71,7 @@ export const rooms = sqliteTable(
     hostPlayerId: text("host_player_id").notNull(),
     playerCount: integer("player_count").notNull(),
     status: text("status", { enum: ["waiting", "playing", "finished"] }).notNull(),
+    endedAt: integer("ended_at", { mode: "timestamp_ms" }),
     ...timestamps,
   },
   (table) => [uniqueIndex("rooms_invite_code_unique").on(table.inviteCode)],

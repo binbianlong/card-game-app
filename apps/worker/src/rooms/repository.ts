@@ -1,5 +1,5 @@
 import { matchPlayers, matches, roomParticipants, rooms } from "db";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   CardSchema,
@@ -48,7 +48,7 @@ function createRoomRepository(database: D1Database) {
       const row = await db
         .select({ id: rooms.id })
         .from(rooms)
-        .where(and(eq(rooms.id, roomId), eq(rooms.hostUserId, userId)))
+        .where(and(eq(rooms.id, roomId), eq(rooms.hostUserId, userId), isNull(rooms.endedAt)))
         .get();
 
       return row !== undefined;
@@ -56,7 +56,9 @@ function createRoomRepository(database: D1Database) {
 
     async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {
       const now = new Date();
+      const endedAt = isEndedRoom(room) ? now : null;
       const roomUpdate = {
+        endedAt,
         inviteCode: room.inviteCode,
         hostPlayerId: room.hostPlayerId,
         playerCount: room.playerCount,
@@ -74,6 +76,7 @@ function createRoomRepository(database: D1Database) {
           hostPlayerId: room.hostPlayerId,
           playerCount: room.playerCount,
           status: room.status,
+          endedAt,
           createdAt: now,
           updatedAt: now,
         })
@@ -395,6 +398,10 @@ function unique<T>(values: readonly T[]): T[] {
 
 function normalizeInviteCode(inviteCode: string) {
   return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
+}
+
+function isEndedRoom(room: RoomState) {
+  return room.status === "finished" && room.game === null;
 }
 
 export { createRoomRepository };
