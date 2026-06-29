@@ -3,6 +3,8 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  ReconnectRoomResponseSchema,
+  RoomStateSchema,
 } from "schema";
 import { createWorkerApp } from "./app.ts";
 import { createAuth } from "./auth/auth.ts";
@@ -23,6 +25,12 @@ type Env = {
 
 const app = createWorkerApp<Env>({
   async createConnectionTicket(env, roomId, request) {
+    const repository = createRoomRepository(env.DB);
+
+    if (!(await repository.isRoomActive(roomId))) {
+      return null;
+    }
+
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(
       createInternalRoomRequest({
@@ -40,6 +48,32 @@ const app = createWorkerApp<Env>({
     const data = CreateConnectionTicketResponseSchema.parse(await response.json());
 
     return data.ticket;
+  },
+  async endRoom(env, roomId, userId) {
+    const repository = createRoomRepository(env.DB);
+
+    if (!(await repository.canEndRoom(roomId, userId))) {
+      return null;
+    }
+
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify({}),
+        method: "POST",
+        path: "/end",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const room = RoomStateSchema.parse(await response.json());
+    await repository.saveRoomMetadata(room);
+
+    return room;
   },
   async findRoomByInviteCode(env, inviteCode) {
     return createRoomRepository(env.DB).findRoomByInviteCode(inviteCode);
@@ -78,8 +112,35 @@ const app = createWorkerApp<Env>({
   async listMatchHistory(env, roomId, userId) {
     return createRoomRepository(env.DB).listMatchHistory(roomId, userId);
   },
+  async listReconnectableRooms(env, userId) {
+    return createRoomRepository(env.DB).listReconnectableRooms(userId);
+  },
   async listRoomHistory(env, userId) {
     return createRoomRepository(env.DB).listRoomHistory(userId);
+  },
+  async reconnectRoom(env, roomId, userId) {
+    const repository = createRoomRepository(env.DB);
+    const participant = await repository.findReconnectableParticipant(roomId, userId);
+
+    if (participant === null) {
+      return null;
+    }
+
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify({ playerId: participant.playerId }),
+        method: "POST",
+        path: "/reconnect",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return ReconnectRoomResponseSchema.parse(await response.json());
   },
   async saveRoom(env, roomId, room, userId) {
     const server = await getServerByName(env.RoomServer, roomId);

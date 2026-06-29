@@ -57,6 +57,7 @@ function CreateRoomPage() {
       saveRoomConnectionToken({
         cpuCount: data.room.participants.filter((participant) => participant.kind === "cpu").length,
         connectionToken: data.connectionToken,
+        isHost: true,
         playerId: data.room.hostPlayerId,
         playerCount: data.room.playerCount,
         roomId: data.room.id,
@@ -65,10 +66,7 @@ function CreateRoomPage() {
       await navigate({
         to: "/rooms/waiting",
         search: {
-          players: playerCount,
-          cpu: cpuCount,
           roomId: data.room.id,
-          playerId: data.room.hostPlayerId,
         },
       });
     } catch {

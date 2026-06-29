@@ -14,7 +14,6 @@ import { ReconnectRequiredPage } from "./reconnect-required-page";
 function WaitingRoomPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/rooms/waiting" });
-  const playerCount = search.players;
   const { connectionToken, hasConnectionToken, playerId, roomId } = resolveRoomConnection(search);
   const { connectionStatus, errorMessage, isReconnectRequired, room, sendEvent } =
     useWaitingRoomSocket({
@@ -28,7 +27,7 @@ function WaitingRoomPage() {
     isConnected &&
     room !== null &&
     room.status === "waiting" &&
-    room.participants.length === playerCount &&
+    room.participants.length === room.playerCount &&
     room.participants.every((participant) => participant.kind === "cpu" || participant.ready);
 
   useEffect(() => {
@@ -39,10 +38,7 @@ function WaitingRoomPage() {
     void navigate({
       to: "/rooms/play",
       search: {
-        players: room.participants.length,
-        cpu: room.participants.filter((participant) => participant.kind === "cpu").length,
         roomId: room.id,
-        playerId,
       },
     });
   }, [navigate, playerId, room]);
@@ -103,7 +99,6 @@ function WaitingRoomPage() {
           onStartGame={startGame}
           onToggleLocalRule={toggleLocalRule}
           onToggleReady={toggleReady}
-          playerCount={playerCount}
           playerId={playerId}
           room={room}
         />

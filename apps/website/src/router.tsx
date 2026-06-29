@@ -80,29 +80,13 @@ const routeTree = rootRoute.addChildren([
   reconnectRoomRoute,
 ]);
 
-function clampSearchNumber(value: unknown, min: number, max: number, fallback: number) {
-  const numberValue = Number(value);
-
-  if (Number.isNaN(numberValue)) {
-    return fallback;
-  }
-
-  return Math.min(Math.max(numberValue, min), max);
-}
-
 function parseSearchOptionalString(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
 function parseRoomConnectionSearch(search: Record<string, unknown>) {
-  const players = clampSearchNumber(search.players, 3, 6, 4);
-  const cpu = clampSearchNumber(search.cpu, 0, players - 1, 1);
-
   return {
-    players,
-    cpu,
     roomId: parseSearchOptionalString(search.roomId),
-    playerId: parseSearchOptionalString(search.playerId),
   };
 }
 

@@ -1,5 +1,15 @@
 import type { Card as GameCard, PlayerId } from "game";
-import { Bot, CheckCircle2, Clock, Crown, LogOut, RotateCcw, Trophy, Users } from "lucide-react";
+import {
+  Bot,
+  CheckCircle2,
+  Clock,
+  Crown,
+  LogOut,
+  RotateCcw,
+  Trash2,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { PlayingCard } from "@/components/playing-card/playing-card";
 import { ReadyStatusBadge } from "@/components/ready-status-badge";
 import { Button } from "@/components/ui/button";
@@ -12,18 +22,22 @@ function FinishedGameResults({
   isCurrentPlayerReady,
   isReadyToStartRematch,
   onLeaveRoom,
+  onEndRoom,
   onStartRematch,
   onToggleReady,
   playerId,
+  roomEndStatus,
 }: {
   canStartRematch: boolean;
   finalResults: readonly FinalResult[];
   isCurrentPlayerReady: boolean;
   isReadyToStartRematch: boolean;
+  onEndRoom: () => void;
   onLeaveRoom: () => void;
   onStartRematch: () => void;
   onToggleReady: () => void;
   playerId: PlayerId;
+  roomEndStatus: "ending" | "error" | "idle";
 }) {
   const viewerResult = finalResults.find((result) => result.playerId === playerId);
   const winner = finalResults[0];
@@ -107,6 +121,25 @@ function FinishedGameResults({
           <p className="text-center text-[12px] leading-5 text-muted-foreground">
             {getRematchStatusLabel({ isHost, isReadyToStartRematch })}
           </p>
+          {isHost ? (
+            <>
+              <Button
+                type="button"
+                size="lg"
+                className="h-12 w-full text-base font-bold"
+                disabled={roomEndStatus === "ending"}
+                onClick={onEndRoom}
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+                {roomEndStatus === "ending" ? "終了中" : "ルームを終了"}
+              </Button>
+              {roomEndStatus === "error" ? (
+                <p className="text-center text-[12px] leading-5 font-bold text-destructive">
+                  ルームを終了できませんでした。
+                </p>
+              ) : null}
+            </>
+          ) : null}
           <Button
             type="button"
             variant="outline"

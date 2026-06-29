@@ -6,12 +6,16 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  ReconnectRoomResponseSchema,
+  ReconnectableRoomsResponseSchema,
   RoomHistoryResponseSchema,
   RoomMatchHistoryResponseSchema,
   createServerEvent,
   getRoomWebSocketPath,
   type ClientEvent,
   type MatchHistoryItem,
+  type ReconnectRoomResponse,
+  type ReconnectableRoom,
   type RoomHistoryItem,
   type RoomState,
   type ServerErrorCode,
@@ -23,6 +27,7 @@ type WorkerBindings = {
 };
 
 type RoomMetadata = {
+  endedAt?: Date | null;
   id: string;
   inviteCode: string;
 };
@@ -40,7 +45,14 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
       playerId: string;
     },
   ) => Promise<string | null>;
+  endRoom: (env: Env, roomId: string, userId: string) => Promise<RoomState | null>;
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
+  listReconnectableRooms: (env: Env, userId: string) => Promise<readonly ReconnectableRoom[]>;
+  reconnectRoom: (
+    env: Env,
+    roomId: string,
+    userId: string,
+  ) => Promise<ReconnectRoomResponse | null>;
   getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
     env: Env,
@@ -60,15 +72,31 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
 
 function createRoomsRoute<Env extends WorkerBindings>({
   createConnectionTicket,
+  endRoom,
   findRoomByInviteCode,
   getRoomHistory,
   getSessionUser,
   joinRoom,
+  listReconnectableRooms,
   listMatchHistory,
   listRoomHistory,
+  reconnectRoom,
   saveRoom,
 }: RoomsRouteOptions<Env>) {
   const route = new Hono<{ Bindings: Env }>()
+    .get("/reconnectable", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("reconnect rooms"), 401);
+      }
+
+      const rooms = await listReconnectableRooms(env, user.id);
+
+      return context.json(ReconnectableRoomsResponseSchema.parse({ rooms }));
+    })
+
     .get("/history", async (context) => {
       const env = context.env as Env;
       const user = await getSessionUser(env, context.req.raw);
@@ -114,8 +142,12 @@ function createRoomsRoute<Env extends WorkerBindings>({
         }
 
         const event = context.req.valid("json");
+        const inviteCode = await createAvailableInviteCode(env, findRoomByInviteCode);
+        if (inviteCode === null) {
+          return context.json(createErrorEvent("internalError", "Failed to create room."), 500);
+        }
+
         const roomId = createRoomId();
-        const inviteCode = createInviteCode(roomId);
         const room = createWaitingRoom(event, roomId, inviteCode);
         const connectionToken = await saveRoom(env, roomId, room, user.id);
 
@@ -139,11 +171,20 @@ function createRoomsRoute<Env extends WorkerBindings>({
       async (context) => {
         const env = context.env as Env;
         const user = await getSessionUser(env, context.req.raw);
+
+        if (user === null) {
+          return context.json(createLoginRequiredError("join rooms"), 401);
+        }
+
         const event = context.req.valid("json");
         const inviteCode = normalizeInviteCode(event.roomId);
         const roomMetadata = await findRoomByInviteCode(env, inviteCode);
 
         if (roomMetadata === null) {
+          return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+        }
+
+        if (roomMetadata.endedAt !== undefined && roomMetadata.endedAt !== null) {
           return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
         }
 
@@ -175,6 +216,43 @@ function createRoomsRoute<Env extends WorkerBindings>({
       }
 
       return context.json(CreateConnectionTicketResponseSchema.parse({ ticket }));
+    })
+
+    .post("/:roomId/reconnect", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("reconnect rooms"), 401);
+      }
+
+      const data = await reconnectRoom(env, context.req.param("roomId"), user.id);
+
+      if (data === null) {
+        return context.json(createErrorEvent("notAllowed", "Cannot reconnect to this room."), 403);
+      }
+
+      return context.json(ReconnectRoomResponseSchema.parse(data));
+    })
+
+    .delete("/:roomId", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("end rooms"), 401);
+      }
+
+      const room = await endRoom(env, context.req.param("roomId"), user.id);
+
+      if (room === null) {
+        return context.json(
+          createErrorEvent("notAllowed", "Only the host can end this room."),
+          403,
+        );
+      }
+
+      return context.json({ room });
     });
 
   return route;
@@ -215,8 +293,23 @@ function createLoginRequiredError(action: string) {
   return createErrorEvent("notAllowed", `Login is required to ${action}.`);
 }
 
+async function createAvailableInviteCode<Env extends WorkerBindings>(
+  env: Env,
+  findRoomByInviteCode: RoomsRouteOptions<Env>["findRoomByInviteCode"],
+) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const inviteCode = createInviteCode();
+
+    if ((await findRoomByInviteCode(env, inviteCode)) === null) {
+      return inviteCode;
+    }
+  }
+
+  return null;
+}
+
 function createRoomId() {
-  return createInviteCode(crypto.randomUUID());
+  return crypto.randomUUID();
 }
 
 function normalizeInviteCode(inviteCode: string) {

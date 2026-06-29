@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import type { CreateRoomResponse } from "schema";
 import { createWorkerApp } from "../src/app.ts";
 
 const app = createWorkerApp({
@@ -13,8 +14,46 @@ const app = createWorkerApp({
 
     return "ticket-1";
   },
+  async endRoom(_env, roomId, userId) {
+    if (roomId !== "room-1" || userId !== "user-1") {
+      return null;
+    }
+
+    return {
+      id: "room-1",
+      inviteCode: "A7K9Q2",
+      playerCount: 3,
+      status: "finished",
+      hostPlayerId: "player-1",
+      participants: [
+        {
+          id: "player-1",
+          name: "Host",
+          kind: "host",
+          connected: false,
+          ready: false,
+        },
+      ],
+      rules: {
+        eightCut: true,
+        elevenBack: true,
+        revolution: true,
+        sequence: true,
+        suitLock: true,
+      },
+      game: null,
+    };
+  },
   async findRoomByInviteCode(_env, inviteCode) {
-    if (inviteCode !== "ROOM") {
+    if (inviteCode === "ENDED1") {
+      return {
+        id: "room-ended",
+        inviteCode,
+        endedAt: new Date(2),
+      };
+    }
+
+    if (inviteCode !== "A7K9Q2") {
       return null;
     }
 
@@ -24,7 +63,7 @@ const app = createWorkerApp({
     };
   },
   async getRoomHistory(_env, roomKey, userId) {
-    if (userId !== "user-1" || (roomKey !== "ROOM" && roomKey !== "room-1")) {
+    if (userId !== "user-1" || (roomKey !== "A7K9Q2" && roomKey !== "room-1")) {
       return null;
     }
 
@@ -50,13 +89,22 @@ const app = createWorkerApp({
 
     return null;
   },
-  async joinRoom() {
+  async joinRoom(_env, roomId, event) {
+    if (roomId !== "room-1" || event.roomId !== "room-1") {
+      return Response.json(
+        { type: "error", code: "notAllowed", message: "Wrong room." },
+        {
+          status: 403,
+        },
+      );
+    }
+
     return Response.json({
       connectionToken: "guest-token",
       playerId: "player-2",
       room: {
         id: "room-1",
-        inviteCode: "ROOM",
+        inviteCode: "A7K9Q2",
         playerCount: 3,
         status: "waiting",
         hostPlayerId: "player-1",
@@ -85,8 +133,76 @@ const app = createWorkerApp({
         },
         game: null,
       },
-      websocketPath: "/parties/room-server/ROOM",
+      websocketPath: "/parties/room-server/room-1",
     });
+  },
+  async listReconnectableRooms(_env, userId) {
+    if (userId !== "user-1") {
+      return [];
+    }
+
+    return [
+      {
+        roomId: "room-1",
+        playerId: "player-1",
+        playerCount: 3,
+        isHost: true,
+        participants: [
+          { name: "Host", kind: "host" },
+          { name: "Guest", kind: "guest" },
+          { name: "CPU 1", kind: "cpu" },
+        ],
+      },
+    ];
+  },
+  async reconnectRoom(_env, roomId, userId) {
+    if (roomId !== "room-1" || userId !== "user-1") {
+      return null;
+    }
+
+    return {
+      connectionToken: "reconnect-token",
+      playerId: "player-1",
+      room: {
+        id: "room-1",
+        inviteCode: "A7K9Q2",
+        playerCount: 3,
+        status: "playing",
+        hostPlayerId: "player-1",
+        participants: [
+          {
+            id: "player-1",
+            name: "Host",
+            kind: "host",
+            connected: false,
+            ready: true,
+          },
+          {
+            id: "player-2",
+            name: "Guest",
+            kind: "guest",
+            connected: true,
+            ready: true,
+          },
+          {
+            id: "player-3",
+            name: "CPU 1",
+            kind: "cpu",
+            connected: true,
+            ready: true,
+          },
+        ],
+        rules: {
+          eightCut: true,
+          elevenBack: true,
+          revolution: true,
+          sequence: true,
+          suitLock: true,
+        },
+        game: null,
+      },
+      websocketPath: "/parties/room-server/room-1",
+    };
   },
   async listMatchHistory(_env, roomId, userId) {
     if (userId !== "user-1" || roomId !== "room-1") {
@@ -148,10 +264,13 @@ describe("worker", () => {
       new Request("https://worker.test/api/rooms/join", {
         body: JSON.stringify({
           type: "joinRoom",
-          roomId: "ROOM",
+          roomId: "A7K9Q2",
           playerName: "Guest",
         }),
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
         method: "POST",
       }),
       createTestEnv(),
@@ -162,9 +281,30 @@ describe("worker", () => {
       playerId: "player-2",
       room: {
         id: "room-1",
-        inviteCode: "ROOM",
+        inviteCode: "A7K9Q2",
       },
-      websocketPath: "/parties/room-server/ROOM",
+      websocketPath: "/parties/room-server/room-1",
+    });
+  });
+
+  test("rejects room joins from anonymous users", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/join", {
+        body: JSON.stringify({
+          type: "joinRoom",
+          roomId: "A7K9Q2",
+          playerName: "Guest",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
     });
   });
 
@@ -194,13 +334,20 @@ describe("worker", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const data = (await response.json()) as CreateRoomResponse;
+
+    expect(data).toMatchObject({
       connectionToken: "host-token",
       room: {
         hostPlayerId: "player-1",
         status: "waiting",
       },
     });
+    expect(data.room.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(data.room.inviteCode).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+    expect(data.websocketPath).toBe(`/parties/room-server/${data.room.id}`);
   });
 
   test("rejects room creation from anonymous users", async () => {
@@ -240,7 +387,34 @@ describe("worker", () => {
           roomId: "NONE",
           playerName: "Guest",
         }),
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      type: "error",
+      code: "roomNotFound",
+    });
+  });
+
+  test("rejects joins when rooms are ended", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/join", {
+        body: JSON.stringify({
+          type: "joinRoom",
+          roomId: "ENDED1",
+          playerName: "Guest",
+        }),
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
         method: "POST",
       }),
       createTestEnv(),
@@ -281,6 +455,103 @@ describe("worker", () => {
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
+    });
+  });
+
+  test("lists reconnectable rooms with participant names", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/reconnectable", {
+        headers: { authorization: "Bearer test-session" },
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      rooms: [
+        {
+          roomId: "room-1",
+          playerId: "player-1",
+          playerCount: 3,
+          isHost: true,
+          participants: [
+            { name: "Host", kind: "host" },
+            { name: "Guest", kind: "guest" },
+            { name: "CPU 1", kind: "cpu" },
+          ],
+        },
+      ],
+    });
+  });
+
+  test("reconnects rooms for participants", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1/reconnect", {
+        headers: { authorization: "Bearer test-session" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      connectionToken: "reconnect-token",
+      playerId: "player-1",
+      room: {
+        id: "room-1",
+      },
+      websocketPath: "/parties/room-server/room-1",
+    });
+  });
+
+  test("rejects room reconnects from non-participants", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1/reconnect", {
+        headers: { authorization: "Bearer other-session" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
+    });
+  });
+
+  test("ends rooms for hosts", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1", {
+        headers: { authorization: "Bearer test-session" },
+        method: "DELETE",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      room: {
+        id: "room-1",
+        status: "finished",
+        game: null,
+      },
+    });
+  });
+
+  test("rejects room endings from non-hosts", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/room-1", {
+        headers: { authorization: "Bearer other-session" },
+        method: "DELETE",
       }),
       createTestEnv(),
     );
@@ -340,7 +611,7 @@ describe("worker", () => {
 
   test("lists match history in a room", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM", {
+      new Request("https://worker.test/api/rooms/history/A7K9Q2", {
         headers: { authorization: "Bearer test-session" },
       }),
       createTestEnv(),
@@ -362,7 +633,7 @@ describe("worker", () => {
 
   test("rejects match history from anonymous users", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM"),
+      new Request("https://worker.test/api/rooms/history/A7K9Q2"),
       createTestEnv(),
     );
 
@@ -375,7 +646,7 @@ describe("worker", () => {
 
   test("does not show match history to non-participants", async () => {
     const response = await app.fetch(
-      new Request("https://worker.test/api/rooms/history/ROOM", {
+      new Request("https://worker.test/api/rooms/history/A7K9Q2", {
         headers: { authorization: "Bearer other-session" },
       }),
       createTestEnv(),

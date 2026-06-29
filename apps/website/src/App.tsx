@@ -17,7 +17,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-prompt-dialog";
 import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
-import { getRoomConnections } from "@/features/rooms/connection-token";
 
 type HomeAction = {
   description: string;
@@ -43,7 +42,7 @@ const actions: readonly HomeAction[] = [
     description: "招待コードで合流する",
     to: "/rooms/join",
     icon: LogIn,
-    loggedOutBehavior: { muted: false, prompt: "joinRoom" },
+    loggedOutBehavior: { muted: true, prompt: "joinRoom" },
   },
   {
     title: "対戦履歴",
@@ -65,9 +64,6 @@ const actionButtonClassName =
 
 function App() {
   const { isLoggedOut, isPending } = useAuthStatus();
-  const [roomConnections] = useState(() =>
-    typeof window === "undefined" ? [] : getRoomConnections(),
-  );
   const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
 
   return (
@@ -101,7 +97,7 @@ function App() {
               onLoginPrompt={setLoginPrompt}
             />
             {action.to === "/rooms/join" ? (
-              <RoomReconnectCard roomConnectionCount={roomConnections.length} />
+              <RoomReconnectCard isLoggedOut={isLoggedOut} onLoginPrompt={setLoginPrompt} />
             ) : null}
           </Fragment>
         ))}
@@ -118,24 +114,39 @@ function App() {
   );
 }
 
-function RoomReconnectCard({ roomConnectionCount }: { roomConnectionCount: number }) {
-  const description =
-    roomConnectionCount > 0
-      ? `${roomConnectionCount}件の接続情報を確認する`
-      : "ルーム接続情報を確認する";
+function RoomReconnectCard({
+  isLoggedOut,
+  onLoginPrompt,
+}: {
+  isLoggedOut: boolean;
+  onLoginPrompt: (prompt: LoginPrompt) => void;
+}) {
+  const content = (
+    <ActionContent
+      description="復帰できるルームを確認する"
+      icon={<Radio className="size-5" aria-hidden="true" />}
+      title="通信中のルームに戻る"
+    />
+  );
 
   return (
     <Card>
       <CardContent className="p-0">
-        <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
-          <Link to="/rooms/reconnect">
-            <ActionContent
-              description={description}
-              icon={<Radio className="size-5" aria-hidden="true" />}
-              title="通信中のルームに戻る"
-            />
-          </Link>
-        </Button>
+        {isLoggedOut ? (
+          <Button
+            type="button"
+            variant="ghost"
+            aria-disabled
+            className={`${actionButtonClassName} opacity-50 grayscale`}
+            onClick={() => onLoginPrompt("reconnectRoom")}
+          >
+            {content}
+          </Button>
+        ) : (
+          <Button asChild type="button" variant="ghost" className={actionButtonClassName}>
+            <Link to="/rooms/reconnect">{content}</Link>
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

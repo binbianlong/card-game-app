@@ -1,4 +1,5 @@
-import { Copy } from "lucide-react";
+import { Check, Copy } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { RoomClientState } from "schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,27 +43,54 @@ function WaitingRoomSummary({
 }
 
 function InviteCodePanel({ room }: { room: RoomClientState | null }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopied(false), 1600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copied]);
+
+  async function copyInviteCode() {
+    if (room === null || navigator.clipboard === undefined) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(room.inviteCode);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg bg-card p-3 shadow-xs">
       <div className="min-w-0">
         <div className="text-[11px] leading-none font-bold text-muted-foreground">招待コード</div>
         <div className="mt-1 text-2xl leading-none font-extrabold tracking-[0.16em]">
-          {room?.inviteCode ?? "----"}
+          {room?.inviteCode ?? "------"}
         </div>
       </div>
       <Button
         type="button"
         variant="outline"
         size="icon"
-        aria-label="招待コードをコピー"
+        aria-label={copied ? "招待コードをコピーしました" : "招待コードをコピー"}
         disabled={room === null}
         onClick={() => {
-          if (room !== null) {
-            void navigator.clipboard.writeText(room.inviteCode);
-          }
+          void copyInviteCode();
         }}
       >
-        <Copy className="size-4" aria-hidden="true" />
+        {copied ? (
+          <Check className="size-4" aria-hidden="true" />
+        ) : (
+          <Copy className="size-4" aria-hidden="true" />
+        )}
       </Button>
     </div>
   );

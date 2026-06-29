@@ -183,6 +183,25 @@ export const JoinRoomResponseSchema = z.object({
   websocketPath: z.string().min(1),
 });
 
+export const ReconnectableRoomParticipantSchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(["host", "guest", "cpu"]),
+});
+
+export const ReconnectableRoomSchema = z.object({
+  roomId: z.string().min(1),
+  playerId: z.string().min(1),
+  playerCount: z.number().int().min(3).max(6),
+  isHost: z.boolean(),
+  participants: z.array(ReconnectableRoomParticipantSchema),
+});
+
+export const ReconnectableRoomsResponseSchema = z.object({
+  rooms: z.array(ReconnectableRoomSchema),
+});
+
+export const ReconnectRoomResponseSchema = JoinRoomResponseSchema;
+
 export const CreateConnectionTicketRequestSchema = z.object({
   connectionToken: z.string().min(1),
   playerId: z.string().min(1),
@@ -452,6 +471,10 @@ export type RoomState = z.infer<typeof RoomStateSchema>;
 export type RoomClientState = z.infer<typeof RoomClientStateSchema>;
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
+export type ReconnectableRoomParticipant = z.infer<typeof ReconnectableRoomParticipantSchema>;
+export type ReconnectableRoom = z.infer<typeof ReconnectableRoomSchema>;
+export type ReconnectableRoomsResponse = z.infer<typeof ReconnectableRoomsResponseSchema>;
+export type ReconnectRoomResponse = z.infer<typeof ReconnectRoomResponseSchema>;
 export type CreateConnectionTicketRequest = z.infer<typeof CreateConnectionTicketRequestSchema>;
 export type CreateConnectionTicketResponse = z.infer<typeof CreateConnectionTicketResponseSchema>;
 export type MatchHistoryItem = z.infer<typeof MatchHistoryItemSchema>;

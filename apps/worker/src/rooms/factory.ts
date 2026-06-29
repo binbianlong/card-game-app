@@ -8,6 +8,9 @@ const defaultRules: GameRuleSettings = {
   suitLock: true,
 };
 
+const inviteCodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const inviteCodeLength = 6;
+
 function createWaitingRoom(
   event: Extract<ClientEvent, { type: "createRoom" }>,
   roomId: string,
@@ -46,7 +49,7 @@ function createWaitingRoom(
 function createFallbackRoom(roomId: string): RoomState {
   return {
     id: roomId,
-    inviteCode: createInviteCode(roomId),
+    inviteCode: createInviteCode(),
     playerCount: 4,
     status: "waiting",
     hostPlayerId: "player-1",
@@ -64,8 +67,13 @@ function createFallbackRoom(roomId: string): RoomState {
   };
 }
 
-function createInviteCode(roomId: string) {
-  return roomId.replaceAll("-", "").slice(0, 4).toUpperCase();
+function createInviteCode() {
+  const values = crypto.getRandomValues(new Uint8Array(inviteCodeLength));
+
+  return Array.from(
+    values,
+    (value) => inviteCodeCharacters[value % inviteCodeCharacters.length],
+  ).join("");
 }
 
 function createPlayerId(participants: readonly RoomParticipant[]) {

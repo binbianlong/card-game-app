@@ -1,12 +1,14 @@
 function saveRoomConnectionToken({
   cpuCount,
   connectionToken,
+  isHost,
   playerId,
   playerCount,
   roomId,
 }: {
   cpuCount: number;
   connectionToken: string;
+  isHost: boolean;
   playerId: string;
   playerCount: number;
   roomId: string;
@@ -20,6 +22,7 @@ function saveRoomConnectionToken({
     activeRoomConnectionStorageKey,
     JSON.stringify({
       cpuCount,
+      isHost,
       playerCount,
       playerId,
       roomId,
@@ -31,6 +34,7 @@ function saveRoomConnectionToken({
     JSON.stringify(
       upsertRoomConnection(getRoomConnections(), {
         cpuCount,
+        isHost,
         playerCount,
         playerId,
         roomId,
@@ -51,6 +55,23 @@ function getRoomConnectionToken({ playerId, roomId }: { playerId: string; roomId
 
 function getActiveRoomConnection() {
   return getRoomConnections()[0] ?? null;
+}
+
+function activateRoomConnection({ playerId, roomId }: { playerId: string; roomId: string }) {
+  const connection = getRoomConnections().find(
+    (candidate) => candidate.roomId === roomId && candidate.playerId === playerId,
+  );
+
+  if (connection === undefined) {
+    return;
+  }
+
+  setStorageItem(window.localStorage, activeRoomConnectionStorageKey, JSON.stringify(connection));
+  setStorageItem(
+    window.localStorage,
+    roomConnectionsStorageKey,
+    JSON.stringify(upsertRoomConnection(getRoomConnections(), connection)),
+  );
 }
 
 function getRoomConnections() {
@@ -97,19 +118,15 @@ function removeRoomConnection({ playerId, roomId }: { playerId: string; roomId: 
   );
 }
 
-function resolveRoomConnection({
-  playerId: optionalPlayerId,
-  roomId: optionalRoomId,
-}: {
-  playerId: string | undefined;
-  roomId: string | undefined;
-}) {
-  const playerId = optionalPlayerId ?? "";
+function resolveRoomConnection({ roomId: optionalRoomId }: { roomId: string | undefined }) {
   const roomId = optionalRoomId ?? "";
+  const connection =
+    roomId.length === 0
+      ? null
+      : (getRoomConnections().find((candidate) => candidate.roomId === roomId) ?? null);
+  const playerId = connection?.playerId ?? "";
   const connectionToken =
-    playerId.length === 0 || roomId.length === 0
-      ? ""
-      : getRoomConnectionToken({ playerId, roomId });
+    connection === null ? "" : getRoomConnectionToken({ playerId: connection.playerId, roomId });
 
   return {
     connectionToken,
@@ -185,6 +202,7 @@ function parseRoomConnectionData(data: unknown) {
 
   return {
     cpuCount: data.cpuCount,
+    isHost: "isHost" in data && typeof data.isHost === "boolean" ? data.isHost : false,
     playerCount: data.playerCount,
     playerId: data.playerId,
     roomId: data.roomId,
@@ -234,12 +252,14 @@ const roomConnectionsStorageKey = "room-connections";
 
 type RoomConnectionMetadata = {
   cpuCount: number;
+  isHost: boolean;
   playerCount: number;
   playerId: string;
   roomId: string;
 };
 
 export {
+  activateRoomConnection,
   getActiveRoomConnection,
   getRoomConnectionToken,
   getRoomConnections,

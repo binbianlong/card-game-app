@@ -21,7 +21,7 @@ const participants = [
 function createRoom(overrides: Partial<RoomClientState> = {}): RoomClientState {
   return {
     id: "room-1",
-    inviteCode: "7KQ2",
+    inviteCode: "A7K9Q2",
     playerCount: 4,
     status: "waiting",
     hostPlayerId: "host",
@@ -54,7 +54,6 @@ const meta = {
     onStartGame: noop,
     onToggleLocalRule: noop,
     onToggleReady: noop,
-    playerCount: 4,
     playerId: "guest-1",
     room: createRoom(),
   },
@@ -104,7 +103,6 @@ export const WithConnectionError: Story = {
 
 export const EmptyRoomState: Story = {
   args: {
-    playerCount: 3,
     room: createRoom({
       participants: [],
       playerCount: 3,

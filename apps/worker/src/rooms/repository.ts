@@ -1,5 +1,5 @@
 import { matchPlayers, matches, roomParticipants, rooms } from "db";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   CardSchema,
@@ -7,6 +7,7 @@ import {
   type Card,
   type GameRuleSettings,
   type MatchHistoryItem,
+  type ReconnectableRoom,
   type RoomHistoryItem,
   type RoomState,
 } from "schema";
@@ -32,10 +33,13 @@ function createRoomRepository(database: D1Database) {
 
   return {
     async findRoomByInviteCode(inviteCode: string) {
+      await expireInactiveRooms();
+
       const row = await db
         .select({
           id: rooms.id,
           inviteCode: rooms.inviteCode,
+          endedAt: rooms.endedAt,
         })
         .from(rooms)
         .where(eq(rooms.inviteCode, inviteCode))
@@ -44,9 +48,106 @@ function createRoomRepository(database: D1Database) {
       return row ?? null;
     },
 
+    async canEndRoom(roomId: string, userId: string) {
+      await expireInactiveRooms();
+
+      const row = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.id, roomId), eq(rooms.hostUserId, userId), isNull(rooms.endedAt)))
+        .get();
+
+      return row !== undefined;
+    },
+
+    async findReconnectableParticipant(roomId: string, userId: string) {
+      await expireInactiveRooms();
+
+      const row = await db
+        .select({
+          playerId: roomParticipants.playerId,
+        })
+        .from(roomParticipants)
+        .innerJoin(rooms, eq(roomParticipants.roomId, rooms.id))
+        .where(
+          and(
+            eq(roomParticipants.roomId, roomId),
+            eq(roomParticipants.userId, userId),
+            isNull(rooms.endedAt),
+          ),
+        )
+        .get();
+
+      return row ?? null;
+    },
+
+    async listReconnectableRooms(userId: string): Promise<readonly ReconnectableRoom[]> {
+      await expireInactiveRooms();
+
+      const participantRows = await db
+        .select({
+          roomId: roomParticipants.roomId,
+          playerId: roomParticipants.playerId,
+          playerCount: rooms.playerCount,
+          hostPlayerId: rooms.hostPlayerId,
+          createdAt: rooms.createdAt,
+        })
+        .from(roomParticipants)
+        .innerJoin(rooms, eq(roomParticipants.roomId, rooms.id))
+        .where(and(eq(roomParticipants.userId, userId), isNull(rooms.endedAt)))
+        .orderBy(desc(rooms.createdAt));
+
+      if (participantRows.length === 0) {
+        return [];
+      }
+
+      const roomIds = participantRows.map((participant) => participant.roomId);
+      const allParticipantRows = await db
+        .select({
+          roomId: roomParticipants.roomId,
+          name: roomParticipants.displayName,
+          kind: roomParticipants.kind,
+          joinedAt: roomParticipants.joinedAt,
+        })
+        .from(roomParticipants)
+        .where(inArray(roomParticipants.roomId, roomIds))
+        .orderBy(roomParticipants.joinedAt);
+
+      return participantRows.map((participant): ReconnectableRoom => {
+        const participants = allParticipantRows
+          .filter((candidate) => candidate.roomId === participant.roomId)
+          .map((candidate) => ({
+            name: candidate.name,
+            kind: candidate.kind,
+          }));
+
+        return {
+          roomId: participant.roomId,
+          playerId: participant.playerId,
+          playerCount: participant.playerCount,
+          isHost: participant.playerId === participant.hostPlayerId,
+          participants,
+        };
+      });
+    },
+
+    async isRoomActive(roomId: string) {
+      await expireInactiveRooms();
+
+      const row = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.id, roomId), isNull(rooms.endedAt)))
+        .get();
+
+      return row !== undefined;
+    },
+
     async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {
       const now = new Date();
+      const endedAt = isEndedRoom(room) ? now : null;
       const roomUpdate = {
+        endedAt,
         inviteCode: room.inviteCode,
         hostPlayerId: room.hostPlayerId,
         playerCount: room.playerCount,
@@ -64,6 +165,7 @@ function createRoomRepository(database: D1Database) {
           hostPlayerId: room.hostPlayerId,
           playerCount: room.playerCount,
           status: room.status,
+          endedAt,
           createdAt: now,
           updatedAt: now,
         })
@@ -126,24 +228,23 @@ function createRoomRepository(database: D1Database) {
         .from(matches)
         .where(and(eq(matches.status, "finished"), inArray(matches.roomId, accessibleRoomIds)));
 
-      const roomIds = unique(matchRows.map((match) => match.roomId));
-
-      if (roomIds.length === 0) {
-        return [];
-      }
-
       const roomRows = await db
         .select()
         .from(rooms)
-        .where(inArray(rooms.id, roomIds))
+        .where(inArray(rooms.id, accessibleRoomIds))
         .orderBy(desc(rooms.createdAt))
         .limit(limit);
 
-      return roomRows.map((room) => {
-        const roomMatches = matchRows.filter((match) => match.roomId === room.id);
+      return roomRows
+        .filter(
+          (room) =>
+            room.status === "finished" || matchRows.some((match) => match.roomId === room.id),
+        )
+        .map((room) => {
+          const roomMatches = matchRows.filter((match) => match.roomId === room.id);
 
-        return createRoomHistoryItem(room, roomMatches);
-      });
+          return createRoomHistoryItem(room, roomMatches);
+        });
     },
 
     async getRoomHistory(roomKey: string, userId: string): Promise<RoomHistoryItem | null> {
@@ -332,6 +433,25 @@ function createRoomRepository(database: D1Database) {
 
     return joinedRoom !== undefined;
   }
+
+  async function expireInactiveRooms(now = Date.now()) {
+    const cutoff = now - roomInactivityTtlMs;
+
+    await db.run(sql`
+      UPDATE ${rooms}
+      SET ended_at = ${now}, updated_at = ${now}
+      WHERE ended_at IS NULL
+        AND status = 'finished'
+        AND id IN (
+          SELECT room_id
+          FROM ${matches}
+          WHERE status = 'finished'
+            AND finished_at IS NOT NULL
+          GROUP BY room_id
+          HAVING MAX(finished_at) <= ${cutoff}
+        )
+    `);
+  }
 }
 
 function createRoomParticipantRowId(roomId: string, playerId: string) {
@@ -387,5 +507,11 @@ function unique<T>(values: readonly T[]): T[] {
 function normalizeInviteCode(inviteCode: string) {
   return inviteCode.trim().replace(/\s|-/g, "").toUpperCase();
 }
+
+function isEndedRoom(room: RoomState) {
+  return room.status === "finished" && room.game === null;
+}
+
+const roomInactivityTtlMs = 24 * 60 * 60 * 1000;
 
 export { createRoomRepository };

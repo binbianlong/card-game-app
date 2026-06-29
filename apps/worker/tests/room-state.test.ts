@@ -6,7 +6,6 @@ import {
   applyNextCpuTurn,
   applyRoomConnectionChange,
   applyRoomClientEvent,
-  createInviteCode,
   createWaitingRoom,
   isCpuTurn,
 } from "../src/rooms/state.ts";
@@ -28,13 +27,13 @@ describe("room state", () => {
         cpuCount: 1,
         rules,
       }),
-      "room-1",
-      createInviteCode("room-1"),
+      "00000000-0000-4000-8000-000000000001",
+      "A7K9Q2",
     );
 
     expect(room).toMatchObject({
-      id: "room-1",
-      inviteCode: "ROOM",
+      id: "00000000-0000-4000-8000-000000000001",
+      inviteCode: "A7K9Q2",
       status: "waiting",
       hostPlayerId: "player-1",
       game: null,
@@ -71,7 +70,7 @@ describe("room state", () => {
         rules,
       }),
       "room-1",
-      createInviteCode("room-1"),
+      "A7K9Q2",
     );
     const joinedRoom = applyRoomClientEvent(
       room,
@@ -209,6 +208,19 @@ describe("room state", () => {
     expect(nextGame).not.toEqual(game);
     expect(nextGame.table.playedBy === cpu.id || nextGame.passedPlayerIds.includes(cpu.id)).toBe(
       true,
+    );
+  });
+
+  test("resets human readiness after cpu turns finish games", () => {
+    const finishedRoom = applyNextCpuTurn(createCpuFinishingRoom());
+
+    expect(finishedRoom.status).toBe("finished");
+    expect(finishedRoom.participants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "player-1", ready: false }),
+        expect.objectContaining({ id: "player-2", ready: false }),
+        expect.objectContaining({ id: "cpu-1", ready: true }),
+      ]),
     );
   });
 
@@ -448,7 +460,7 @@ function createRoom() {
       rules,
     }),
     "room-1",
-    createInviteCode("room-1"),
+    "A7K9Q2",
   );
 }
 
@@ -461,7 +473,7 @@ function createCpuRoom() {
       rules,
     }),
     "room-1",
-    createInviteCode("room-1"),
+    "A7K9Q2",
   );
 }
 
@@ -525,6 +537,34 @@ function createCpuOpeningRoom(cpuHand: readonly Card[]): RoomState {
         { matchId: "match-1", rules },
       ),
     ),
+  };
+}
+
+function createCpuFinishingRoom(): RoomState {
+  return {
+    id: "room-1",
+    inviteCode: "ROOM",
+    playerCount: 3,
+    status: "playing",
+    hostPlayerId: "player-1",
+    participants: [
+      { id: "player-1", name: "Host", kind: "host", connected: true, ready: true },
+      { id: "cpu-1", name: "CPU 1", kind: "cpu", connected: true, ready: true },
+      { id: "player-2", name: "Guest", kind: "guest", connected: true, ready: true },
+    ],
+    rules,
+    game: GameStateSchema.parse({
+      ...createGameState(
+        [
+          { id: "player-1", hand: [card("3", "clubs")] },
+          { id: "cpu-1", hand: [card("5", "clubs")] },
+          { id: "player-2", hand: [card("4", "clubs")] },
+        ],
+        "cpu-1",
+        { matchId: "match-1", rules },
+      ),
+      rankings: ["player-1", "player-2"],
+    }),
   };
 }
 
