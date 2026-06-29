@@ -36,6 +36,8 @@ type RoomConnectionState = {
 };
 
 const cpuTurnDelayMs = 900;
+const roomInactivityTtlMs = 24 * 60 * 60 * 1000;
+const finishedRoomExpiresAtKey = "finishedRoomExpiresAt";
 
 class RoomServer extends Server<RoomServerEnv> {
   static override options = {
@@ -152,16 +154,23 @@ class RoomServer extends Server<RoomServerEnv> {
   private async applyClientEvent(event: ClientEvent) {
     const previousRoom = await this.getRoom();
     const nextRoom = await this.setRoom(applyRoomClientEvent(previousRoom, event));
-    await this.saveFinishedRoom(previousRoom, nextRoom);
+    await this.saveRoomMetadata(previousRoom, nextRoom);
 
     return nextRoom;
   }
 
   async onAlarm() {
     const room = await this.getRoom();
+
+    if (await this.shouldExpireFinishedRoom(room, Date.now())) {
+      const nextRoom = await this.endRoom();
+      await this.saveEndedRoom(nextRoom);
+      return;
+    }
+
     const cpuControlledPlayerIds = await this.getCpuControlledPlayerIds(room);
     const nextRoom = await this.setRoom(applyNextCpuTurn(room, { cpuControlledPlayerIds }));
-    await this.saveFinishedRoom(room, nextRoom);
+    await this.saveRoomMetadata(room, nextRoom);
 
     if (nextRoom !== room) {
       this.sendRoomStateToConnections(nextRoom);
@@ -213,6 +222,7 @@ class RoomServer extends Server<RoomServerEnv> {
     });
 
     this.sendRoomStateToConnections(nextRoom);
+    await this.ctx.storage.delete(finishedRoomExpiresAtKey);
     await this.ctx.storage.deleteAlarm();
 
     return nextRoom;
@@ -297,8 +307,8 @@ class RoomServer extends Server<RoomServerEnv> {
     return false;
   }
 
-  private async saveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
-    if (!shouldSaveFinishedRoom(previousRoom, nextRoom)) {
+  private async saveRoomMetadata(previousRoom: RoomState, nextRoom: RoomState) {
+    if (!shouldSaveRoomMetadata(previousRoom, nextRoom)) {
       return;
     }
 
@@ -309,12 +319,33 @@ class RoomServer extends Server<RoomServerEnv> {
     try {
       await createRoomRepository(this.env.DB).saveRoomMetadata(nextRoom);
     } catch (error) {
-      console.error("Failed to save finished room metadata.", error);
+      console.error("Failed to save room metadata.", error);
+    }
+  }
+
+  private async saveEndedRoom(room: RoomState) {
+    if (this.env.DB === undefined) {
+      return;
+    }
+
+    try {
+      await createRoomRepository(this.env.DB).saveRoomMetadata(room);
+    } catch (error) {
+      console.error("Failed to save ended room metadata.", error);
     }
   }
 
   private async scheduleCpuTurn(room: RoomState) {
     const now = Date.now();
+
+    if (room.status === "finished" && room.game?.phase === "finished") {
+      const expiresAt = await this.getFinishedRoomExpiresAt(now);
+      await this.ctx.storage.setAlarm(expiresAt);
+      return;
+    }
+
+    await this.ctx.storage.delete(finishedRoomExpiresAtKey);
+
     const cpuControlledPlayerIds = await this.getCpuControlledPlayerIds(room, now);
 
     if (isCpuTurn(room, { cpuControlledPlayerIds })) {
@@ -332,6 +363,29 @@ class RoomServer extends Server<RoomServerEnv> {
     }
 
     await this.ctx.storage.deleteAlarm();
+  }
+
+  private async getFinishedRoomExpiresAt(now: number) {
+    const storedExpiresAt = await this.ctx.storage.get<number>(finishedRoomExpiresAtKey);
+
+    if (storedExpiresAt !== undefined) {
+      return storedExpiresAt;
+    }
+
+    const expiresAt = now + roomInactivityTtlMs;
+    await this.ctx.storage.put(finishedRoomExpiresAtKey, expiresAt);
+
+    return expiresAt;
+  }
+
+  private async shouldExpireFinishedRoom(room: RoomState, now: number) {
+    if (room.status !== "finished" || room.game?.phase !== "finished") {
+      return false;
+    }
+
+    const expiresAt = await this.ctx.storage.get<number>(finishedRoomExpiresAtKey);
+
+    return expiresAt !== undefined && expiresAt <= now;
   }
 
   private async getCpuControlledPlayerIds(room: RoomState, now = Date.now()) {
@@ -368,12 +422,8 @@ class RoomServer extends Server<RoomServerEnv> {
   }
 }
 
-function shouldSaveFinishedRoom(previousRoom: RoomState, nextRoom: RoomState) {
-  return (
-    previousRoom.status !== "finished" &&
-    nextRoom.status === "finished" &&
-    nextRoom.game?.phase === "finished"
-  );
+function shouldSaveRoomMetadata(previousRoom: RoomState, nextRoom: RoomState) {
+  return previousRoom.status !== nextRoom.status;
 }
 
 function parseMessage(message: string) {

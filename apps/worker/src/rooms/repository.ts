@@ -1,5 +1,5 @@
 import { matchPlayers, matches, roomParticipants, rooms } from "db";
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import {
   CardSchema,
@@ -33,10 +33,13 @@ function createRoomRepository(database: D1Database) {
 
   return {
     async findRoomByInviteCode(inviteCode: string) {
+      await expireInactiveRooms();
+
       const row = await db
         .select({
           id: rooms.id,
           inviteCode: rooms.inviteCode,
+          endedAt: rooms.endedAt,
         })
         .from(rooms)
         .where(eq(rooms.inviteCode, inviteCode))
@@ -46,6 +49,8 @@ function createRoomRepository(database: D1Database) {
     },
 
     async canEndRoom(roomId: string, userId: string) {
+      await expireInactiveRooms();
+
       const row = await db
         .select({ id: rooms.id })
         .from(rooms)
@@ -56,6 +61,8 @@ function createRoomRepository(database: D1Database) {
     },
 
     async findReconnectableParticipant(roomId: string, userId: string) {
+      await expireInactiveRooms();
+
       const row = await db
         .select({
           playerId: roomParticipants.playerId,
@@ -75,6 +82,8 @@ function createRoomRepository(database: D1Database) {
     },
 
     async listReconnectableRooms(userId: string): Promise<readonly ReconnectableRoom[]> {
+      await expireInactiveRooms();
+
       const participantRows = await db
         .select({
           roomId: roomParticipants.roomId,
@@ -120,6 +129,18 @@ function createRoomRepository(database: D1Database) {
           participants,
         };
       });
+    },
+
+    async isRoomActive(roomId: string) {
+      await expireInactiveRooms();
+
+      const row = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.id, roomId), isNull(rooms.endedAt)))
+        .get();
+
+      return row !== undefined;
     },
 
     async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {
@@ -412,6 +433,25 @@ function createRoomRepository(database: D1Database) {
 
     return joinedRoom !== undefined;
   }
+
+  async function expireInactiveRooms(now = Date.now()) {
+    const cutoff = now - roomInactivityTtlMs;
+
+    await db.run(sql`
+      UPDATE ${rooms}
+      SET ended_at = ${now}, updated_at = ${now}
+      WHERE ended_at IS NULL
+        AND status = 'finished'
+        AND id IN (
+          SELECT room_id
+          FROM ${matches}
+          WHERE status = 'finished'
+            AND finished_at IS NOT NULL
+          GROUP BY room_id
+          HAVING MAX(finished_at) <= ${cutoff}
+        )
+    `);
+  }
 }
 
 function createRoomParticipantRowId(roomId: string, playerId: string) {
@@ -471,5 +511,7 @@ function normalizeInviteCode(inviteCode: string) {
 function isEndedRoom(room: RoomState) {
   return room.status === "finished" && room.game === null;
 }
+
+const roomInactivityTtlMs = 24 * 60 * 60 * 1000;
 
 export { createRoomRepository };

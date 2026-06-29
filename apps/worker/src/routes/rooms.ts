@@ -27,6 +27,7 @@ type WorkerBindings = {
 };
 
 type RoomMetadata = {
+  endedAt?: Date | null;
   id: string;
   inviteCode: string;
 };
@@ -180,6 +181,10 @@ function createRoomsRoute<Env extends WorkerBindings>({
         const roomMetadata = await findRoomByInviteCode(env, inviteCode);
 
         if (roomMetadata === null) {
+          return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
+        }
+
+        if (roomMetadata.endedAt !== undefined && roomMetadata.endedAt !== null) {
           return context.json(createErrorEvent("roomNotFound", "Room was not found."), 404);
         }
 

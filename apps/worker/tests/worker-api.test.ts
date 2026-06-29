@@ -45,6 +45,14 @@ const app = createWorkerApp({
     };
   },
   async findRoomByInviteCode(_env, inviteCode) {
+    if (inviteCode === "ENDED1") {
+      return {
+        id: "room-ended",
+        inviteCode,
+        endedAt: new Date(2),
+      };
+    }
+
     if (inviteCode !== "A7K9Q2") {
       return null;
     }
@@ -377,6 +385,30 @@ describe("worker", () => {
         body: JSON.stringify({
           type: "joinRoom",
           roomId: "NONE",
+          playerName: "Guest",
+        }),
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      type: "error",
+      code: "roomNotFound",
+    });
+  });
+
+  test("rejects joins when rooms are ended", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/join", {
+        body: JSON.stringify({
+          type: "joinRoom",
+          roomId: "ENDED1",
           playerName: "Guest",
         }),
         headers: {

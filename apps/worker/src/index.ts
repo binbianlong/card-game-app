@@ -25,6 +25,12 @@ type Env = {
 
 const app = createWorkerApp<Env>({
   async createConnectionTicket(env, roomId, request) {
+    const repository = createRoomRepository(env.DB);
+
+    if (!(await repository.isRoomActive(roomId))) {
+      return null;
+    }
+
     const server = await getServerByName(env.RoomServer, roomId);
     const response = await server.fetch(
       createInternalRoomRequest({
