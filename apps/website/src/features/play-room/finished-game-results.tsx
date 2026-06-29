@@ -125,7 +125,6 @@ function FinishedGameResults({
             <>
               <Button
                 type="button"
-                variant="destructive"
                 size="lg"
                 className="h-12 w-full text-base font-bold"
                 disabled={roomEndStatus === "ending"}

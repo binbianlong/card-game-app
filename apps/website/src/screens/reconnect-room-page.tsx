@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Radio, Trash2 } from "lucide-react";
+import { ChevronRight, LogIn, Radio, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
@@ -36,21 +36,31 @@ function ReconnectRoomPage() {
         title="ルームを選択"
         titleId="reconnect-room-title"
       />
-      <section className="grid gap-3" aria-label="復帰できるルーム">
+      <section className="grid gap-4" aria-label="復帰できるルーム">
         {roomConnections.length > 0 ? (
-          roomConnections.map((connection) => (
-            <RoomConnectionCard
-              key={`${connection.roomId}:${connection.playerId}`}
-              connection={connection}
-              onRemoveConnection={removeConnection}
-            />
-          ))
+          <div className="grid gap-3">
+            {roomConnections.map((connection) => (
+              <RoomConnectionCard
+                key={`${connection.roomId}:${connection.playerId}`}
+                connection={connection}
+                onRemoveConnection={removeConnection}
+              />
+            ))}
+          </div>
         ) : (
-          <Card>
-            <CardContent className="grid gap-3 px-4 py-4 text-center">
-              <p className="text-[13px] leading-5 font-bold text-muted-foreground">
-                保存済みのルーム接続情報はありません。
-              </p>
+          <Card className="border-primary/20 bg-primary/5 shadow-none">
+            <CardContent className="grid justify-items-center gap-4 px-4 py-5 text-center">
+              <span className="grid size-12 place-items-center rounded-lg bg-primary/10 text-primary">
+                <LogIn className="size-6" aria-hidden="true" />
+              </span>
+              <div className="grid gap-1.5">
+                <p className="text-base leading-snug font-extrabold">
+                  保存済みのルームはありません
+                </p>
+                <p className="mx-auto max-w-[22em] text-[13px] leading-5 text-muted-foreground">
+                  招待コードから参加すると、この画面に復帰先が表示されます。
+                </p>
+              </div>
               <Button asChild size="lg" className="h-12 w-full text-base font-bold">
                 <Link to="/rooms/join">ルームに参加する</Link>
               </Button>
@@ -85,28 +95,29 @@ function RoomConnectionCard({
 
   return (
     <Card>
-      <CardContent className="grid gap-2 p-3.5">
+      <CardContent className="grid gap-3 p-3.5">
         <Button
           asChild
           type="button"
           variant="ghost"
-          className="h-auto min-h-14 w-full justify-start gap-3 rounded-lg px-0 py-0 text-left hover:bg-transparent"
+          className="h-auto min-h-16 w-full justify-start gap-3 rounded-lg px-0 py-0 text-left hover:bg-transparent"
         >
           <Link
             to="/rooms/play"
             search={{
               roomId: connection.roomId,
             }}
+            className="rounded-lg"
             onClick={() => activateRoomConnection(connection)}
           >
-            <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
               <Radio className="size-5" aria-hidden="true" />
             </span>
             <span className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-base leading-snug font-bold text-card-foreground">
                 ルームに再接続
               </span>
-              <span className="text-[13px] leading-5 font-normal text-muted-foreground">
+              <span className="truncate text-[13px] leading-5 font-normal text-muted-foreground">
                 ルームID {connection.roomId}
               </span>
             </span>
@@ -117,7 +128,6 @@ function RoomConnectionCard({
           <div className="grid gap-2">
             <Button
               type="button"
-              variant="destructive"
               className="h-10 w-full gap-2 text-sm font-bold"
               disabled={status === "ending"}
               onClick={() => {
