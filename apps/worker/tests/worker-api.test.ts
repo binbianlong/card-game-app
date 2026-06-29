@@ -259,7 +259,10 @@ describe("worker", () => {
           roomId: "A7K9Q2",
           playerName: "Guest",
         }),
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
         method: "POST",
       }),
       createTestEnv(),
@@ -273,6 +276,27 @@ describe("worker", () => {
         inviteCode: "A7K9Q2",
       },
       websocketPath: "/parties/room-server/room-1",
+    });
+  });
+
+  test("rejects room joins from anonymous users", async () => {
+    const response = await app.fetch(
+      new Request("https://worker.test/api/rooms/join", {
+        body: JSON.stringify({
+          type: "joinRoom",
+          roomId: "A7K9Q2",
+          playerName: "Guest",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      createTestEnv(),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "notAllowed",
+      type: "error",
     });
   });
 
@@ -355,7 +379,10 @@ describe("worker", () => {
           roomId: "NONE",
           playerName: "Guest",
         }),
-        headers: { "content-type": "application/json" },
+        headers: {
+          authorization: "Bearer test-session",
+          "content-type": "application/json",
+        },
         method: "POST",
       }),
       createTestEnv(),

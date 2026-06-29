@@ -1,9 +1,7 @@
-import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LoginButton } from "./login-button";
 
-type LoginPrompt = "createRoom" | "history" | "joinRoom";
+type LoginPrompt = "createRoom" | "history" | "joinRoom" | "reconnectRoom";
 
 function LoginPromptDialog({
   isPending,
@@ -25,11 +23,6 @@ function LoginPromptDialog({
           </DialogTitle>
         </DialogHeader>
         <LoginButton className="h-12 w-full text-base font-bold" isPending={isPending} size="lg" />
-        {prompt === "joinRoom" ? (
-          <Button asChild type="button" size="lg" className="h-12 w-full text-base font-bold">
-            <Link to="/rooms/join">ルーム参加へ進む</Link>
-          </Button>
-        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -44,7 +37,11 @@ function getLoginPromptMessage(prompt: LoginPrompt) {
     return "対戦履歴を見るにはログインが必要です。";
   }
 
-  return "未ログインだと、再参加ができません。";
+  if (prompt === "joinRoom") {
+    return "ルームに参加するにはログインが必要です。";
+  }
+
+  return "ルームに復帰するにはログインが必要です。";
 }
 
 export { LoginPromptDialog };

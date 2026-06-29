@@ -5,15 +5,23 @@ import type { ReconnectableRoom, ReconnectableRoomParticipant } from "schema";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { LoginButton } from "@/features/auth/login-button";
+import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { removeRoomConnection, saveRoomConnectionToken } from "@/features/rooms/connection-token";
 import { endRoom, getReconnectableRooms, reconnectRoom } from "@/features/rooms/room-api";
 
 function ReconnectRoomPage() {
+  const { isLoggedIn, isLoggedOut, isPending } = useAuthStatus();
   const [roomConnections, setRoomConnections] = useState<readonly ReconnectableRoom[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
     let isMounted = true;
+    setStatus("loading");
 
     async function loadRooms() {
       try {
@@ -35,7 +43,7 @@ function ReconnectRoomPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isLoggedIn]);
 
   function removeConnection(connection: ReconnectableRoom) {
     removeRoomConnection({ playerId: connection.playerId, roomId: connection.roomId });
@@ -57,19 +65,20 @@ function ReconnectRoomPage() {
         titleId="reconnect-room-title"
       />
       <section className="grid gap-4" aria-label="復帰できるルーム">
-        {status === "loading" ? (
+        {isLoggedOut ? <ReconnectLoginRequired isPending={isPending} /> : null}
+        {!isLoggedOut && (isPending || status === "loading") ? (
           <ReconnectRoomMessage
             description="復帰できるルームを確認しています。"
             title="ルームを読み込み中"
           />
         ) : null}
-        {status === "error" ? (
+        {!isLoggedOut && status === "error" ? (
           <ReconnectRoomMessage
             description="しばらくしてからもう一度開いてください。"
             title="ルームを読み込めませんでした"
           />
         ) : null}
-        {status === "ready" && roomConnections.length > 0 ? (
+        {!isLoggedOut && status === "ready" && roomConnections.length > 0 ? (
           <div className="grid gap-3">
             {roomConnections.map((connection) => (
               <RoomConnectionCard
@@ -80,9 +89,24 @@ function ReconnectRoomPage() {
             ))}
           </div>
         ) : null}
-        {status === "ready" && roomConnections.length === 0 ? <EmptyReconnectRooms /> : null}
+        {!isLoggedOut && status === "ready" && roomConnections.length === 0 ? (
+          <EmptyReconnectRooms />
+        ) : null}
       </section>
     </PageShell>
+  );
+}
+
+function ReconnectLoginRequired({ isPending }: { isPending: boolean }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+      <CardContent className="grid gap-3 px-4 py-4">
+        <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+          ルームに復帰するにはログインが必要です。
+        </p>
+        <LoginButton className="h-12 w-full text-base font-bold" isPending={isPending} size="lg" />
+      </CardContent>
+    </Card>
   );
 }
 

@@ -67,79 +67,81 @@ function JoinRoomPage() {
         titleId="join-room-title"
       />
 
-      <form
-        className="grid flex-1 content-start gap-4"
-        aria-label="ルーム参加フォーム"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void joinRoom();
-        }}
-      >
-        <Card>
-          <CardHeader className="px-4 pt-4">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <LogIn className="size-4 text-primary" aria-hidden="true" />
-              参加情報
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 px-4 pb-4">
-            <TextSetting
-              description="6文字の招待コードを入力します。"
-              Icon={Ticket}
-              label="招待コード"
-              onChange={(value) => {
-                setInviteCode(value);
-                setStatus("idle");
-              }}
-              placeholder="例: A7K9Q2"
-              value={inviteCode}
-            />
-            <TextSetting
-              description="待機室に表示する名前です。"
-              Icon={User}
-              label="プレイヤー名"
-              onChange={(value) => {
-                setPlayerName(value);
-                setStatus("idle");
-              }}
-              placeholder="未設定"
-              value={playerName}
-            />
-          </CardContent>
-        </Card>
+      {isLoggedOut ? <JoinLoginRequired isPending={isPending} /> : null}
 
-        {isLoggedOut ? (
-          <Card className="border-destructive/30 bg-destructive/5 shadow-none">
-            <CardContent className="grid gap-3 px-4 py-4">
-              <p className="text-center text-[13px] leading-5 font-bold text-destructive">
-                未ログインだと、再参加ができません。
-              </p>
-              <LoginButton
-                className="h-12 w-full text-base font-bold"
-                isPending={isPending}
-                size="lg"
+      {!isLoggedOut ? (
+        <form
+          className="grid flex-1 content-start gap-4"
+          aria-label="ルーム参加フォーム"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void joinRoom();
+          }}
+        >
+          <Card>
+            <CardHeader className="px-4 pt-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <LogIn className="size-4 text-primary" aria-hidden="true" />
+                参加情報
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 px-4 pb-4">
+              <TextSetting
+                description="6文字の招待コードを入力します。"
+                Icon={Ticket}
+                label="招待コード"
+                onChange={(value) => {
+                  setInviteCode(value);
+                  setStatus("idle");
+                }}
+                placeholder="例: A7K9Q2"
+                value={inviteCode}
+              />
+              <TextSetting
+                description="待機室に表示する名前です。"
+                Icon={User}
+                label="プレイヤー名"
+                onChange={(value) => {
+                  setPlayerName(value);
+                  setStatus("idle");
+                }}
+                placeholder="未設定"
+                value={playerName}
               />
             </CardContent>
           </Card>
-        ) : null}
 
-        <div className="grid gap-3">
-          <Button
-            type="submit"
-            size="lg"
-            className="h-12 w-full text-base font-bold"
-            disabled={!canSubmit}
-          >
-            {status === "joining" ? "参加中" : "参加する"}
-          </Button>
-          {status === "error" ? (
-            <p className="text-center text-[13px] leading-5 font-bold text-destructive">
-              ルームに参加できませんでした。
-            </p>
-          ) : null}
-        </div>
-      </form>
+          <div className="grid gap-3">
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 w-full text-base font-bold"
+              disabled={!canSubmit}
+            >
+              {status === "joining" ? "参加中" : "参加する"}
+            </Button>
+            {status === "error" ? (
+              <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+                ルームに参加できませんでした。
+              </p>
+            ) : null}
+          </div>
+        </form>
+      ) : null}
     </PageShell>
+  );
+}
+
+function JoinLoginRequired({ isPending }: { isPending: boolean }) {
+  return (
+    <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+      <CardContent className="grid gap-3 px-4 py-4">
+        <p className="text-center text-[13px] leading-5 font-bold text-destructive">
+          ルームに参加するにはログインが必要です。
+        </p>
+        <LoginButton className="h-12 w-full text-base font-bold" isPending={isPending} size="lg" />
+      </CardContent>
+    </Card>
   );
 }
 

@@ -170,6 +170,11 @@ function createRoomsRoute<Env extends WorkerBindings>({
       async (context) => {
         const env = context.env as Env;
         const user = await getSessionUser(env, context.req.raw);
+
+        if (user === null) {
+          return context.json(createLoginRequiredError("join rooms"), 401);
+        }
+
         const event = context.req.valid("json");
         const inviteCode = normalizeInviteCode(event.roomId);
         const roomMetadata = await findRoomByInviteCode(env, inviteCode);
