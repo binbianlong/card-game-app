@@ -50,7 +50,6 @@ function JoinRoomPage() {
         to: "/rooms/waiting",
         search: {
           roomId: data.room.id,
-          playerId: data.playerId,
         },
       });
     } catch {

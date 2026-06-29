@@ -87,7 +87,6 @@ function parseSearchOptionalString(value: unknown) {
 function parseRoomConnectionSearch(search: Record<string, unknown>) {
   return {
     roomId: parseSearchOptionalString(search.roomId),
-    playerId: parseSearchOptionalString(search.playerId),
   };
 }
 

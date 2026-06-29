@@ -5,6 +5,7 @@ import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  activateRoomConnection,
   getRoomConnections,
   removeRoomConnection,
   type RoomConnectionMetadata,
@@ -94,9 +95,9 @@ function RoomConnectionCard({
           <Link
             to="/rooms/play"
             search={{
-              playerId: connection.playerId,
               roomId: connection.roomId,
             }}
+            onClick={() => activateRoomConnection(connection)}
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
               <Radio className="size-5" aria-hidden="true" />

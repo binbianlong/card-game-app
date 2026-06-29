@@ -39,7 +39,6 @@ function WaitingRoomPage() {
       to: "/rooms/play",
       search: {
         roomId: room.id,
-        playerId,
       },
     });
   }, [navigate, playerId, room]);

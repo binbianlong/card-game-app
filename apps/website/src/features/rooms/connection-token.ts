@@ -57,6 +57,23 @@ function getActiveRoomConnection() {
   return getRoomConnections()[0] ?? null;
 }
 
+function activateRoomConnection({ playerId, roomId }: { playerId: string; roomId: string }) {
+  const connection = getRoomConnections().find(
+    (candidate) => candidate.roomId === roomId && candidate.playerId === playerId,
+  );
+
+  if (connection === undefined) {
+    return;
+  }
+
+  setStorageItem(window.localStorage, activeRoomConnectionStorageKey, JSON.stringify(connection));
+  setStorageItem(
+    window.localStorage,
+    roomConnectionsStorageKey,
+    JSON.stringify(upsertRoomConnection(getRoomConnections(), connection)),
+  );
+}
+
 function getRoomConnections() {
   const value = getStorageItem(window.localStorage, roomConnectionsStorageKey);
   const connections = value === null ? [] : parseRoomConnections(value);
@@ -101,19 +118,15 @@ function removeRoomConnection({ playerId, roomId }: { playerId: string; roomId: 
   );
 }
 
-function resolveRoomConnection({
-  playerId: optionalPlayerId,
-  roomId: optionalRoomId,
-}: {
-  playerId: string | undefined;
-  roomId: string | undefined;
-}) {
-  const playerId = optionalPlayerId ?? "";
+function resolveRoomConnection({ roomId: optionalRoomId }: { roomId: string | undefined }) {
   const roomId = optionalRoomId ?? "";
+  const connection =
+    roomId.length === 0
+      ? null
+      : (getRoomConnections().find((candidate) => candidate.roomId === roomId) ?? null);
+  const playerId = connection?.playerId ?? "";
   const connectionToken =
-    playerId.length === 0 || roomId.length === 0
-      ? ""
-      : getRoomConnectionToken({ playerId, roomId });
+    connection === null ? "" : getRoomConnectionToken({ playerId: connection.playerId, roomId });
 
   return {
     connectionToken,
@@ -246,6 +259,7 @@ type RoomConnectionMetadata = {
 };
 
 export {
+  activateRoomConnection,
   getActiveRoomConnection,
   getRoomConnectionToken,
   getRoomConnections,

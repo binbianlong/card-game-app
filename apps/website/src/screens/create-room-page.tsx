@@ -67,7 +67,6 @@ function CreateRoomPage() {
         to: "/rooms/waiting",
         search: {
           roomId: data.room.id,
-          playerId: data.room.hostPlayerId,
         },
       });
     } catch {
