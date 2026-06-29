@@ -17,7 +17,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LoginPromptDialog, type LoginPrompt } from "@/features/auth/login-prompt-dialog";
 import { useAuthStatus } from "@/features/auth/use-auth-status";
 import { UserSettingsButton } from "@/features/auth/user-settings-button";
-import { getRoomConnections } from "@/features/rooms/connection-token";
 
 type HomeAction = {
   description: string;
@@ -65,9 +64,6 @@ const actionButtonClassName =
 
 function App() {
   const { isLoggedOut, isPending } = useAuthStatus();
-  const [roomConnections] = useState(() =>
-    typeof window === "undefined" ? [] : getRoomConnections(),
-  );
   const [loginPrompt, setLoginPrompt] = useState<LoginPrompt | null>(null);
 
   return (
@@ -101,11 +97,7 @@ function App() {
               onLoginPrompt={setLoginPrompt}
             />
             {action.to === "/rooms/join" ? (
-              <RoomReconnectCard
-                isLoggedOut={isLoggedOut}
-                onLoginPrompt={setLoginPrompt}
-                roomConnectionCount={roomConnections.length}
-              />
+              <RoomReconnectCard isLoggedOut={isLoggedOut} onLoginPrompt={setLoginPrompt} />
             ) : null}
           </Fragment>
         ))}
@@ -125,19 +117,13 @@ function App() {
 function RoomReconnectCard({
   isLoggedOut,
   onLoginPrompt,
-  roomConnectionCount,
 }: {
   isLoggedOut: boolean;
   onLoginPrompt: (prompt: LoginPrompt) => void;
-  roomConnectionCount: number;
 }) {
-  const description =
-    roomConnectionCount > 0
-      ? `${roomConnectionCount}件の接続情報を確認する`
-      : "ルーム接続情報を確認する";
   const content = (
     <ActionContent
-      description={description}
+      description="復帰できるルームを確認する"
       icon={<Radio className="size-5" aria-hidden="true" />}
       title="通信中のルームに戻る"
     />
