@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, LogIn, Radio, Trash2, Users } from "lucide-react";
+import { Bot, ChevronRight, Crown, LogIn, Radio, Trash2, UserRound, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { ReconnectableRoom } from "schema";
+import type { ReconnectableRoom, ReconnectableRoomParticipant } from "schema";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,7 +95,6 @@ function RoomConnectionCard({
 }) {
   const navigate = useNavigate();
   const [status, setStatus] = useState<"idle" | "reconnecting" | "ending" | "error">("idle");
-  const participantNames = connection.participants.map((participant) => participant.name);
 
   async function reconnect() {
     setStatus("reconnecting");
@@ -158,15 +157,7 @@ function RoomConnectionCard({
           </span>
           <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
-        <div className="grid gap-2 rounded-lg bg-muted/55 px-3 py-2.5">
-          <span className="flex items-center gap-2 text-[12px] leading-4 font-bold text-muted-foreground">
-            <Users className="size-3.5" aria-hidden="true" />
-            ルームメンバー
-          </span>
-          <p className="text-sm leading-5 font-bold text-card-foreground">
-            {participantNames.length > 0 ? participantNames.join("、") : "メンバー情報なし"}
-          </p>
-        </div>
+        <ReconnectRoomMembers connection={connection} />
         {connection.isHost ? (
           <div className="grid gap-2">
             <Button
@@ -189,6 +180,69 @@ function RoomConnectionCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function ReconnectRoomMembers({ connection }: { connection: ReconnectableRoom }) {
+  const emptySeatCount = Math.max(connection.playerCount - connection.participants.length, 0);
+
+  return (
+    <div className="grid gap-2.5 rounded-lg border bg-muted/35 p-3">
+      <span className="flex items-center gap-2 text-[12px] leading-4 font-bold text-muted-foreground">
+        <Users className="size-3.5" aria-hidden="true" />
+        ルームメンバー
+      </span>
+      {connection.participants.length > 0 ? (
+        <div className="grid gap-2">
+          {connection.participants.map((participant, index) => (
+            <ReconnectRoomMemberItem
+              key={`${participant.kind}:${participant.name}:${index}`}
+              participant={participant}
+            />
+          ))}
+          {Array.from({ length: emptySeatCount }, (_, index) => (
+            <div
+              key={`empty-seat:${index}`}
+              className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)] items-center gap-2 rounded-lg border border-dashed bg-background/60 px-2.5 py-2 text-muted-foreground"
+            >
+              <span className="grid size-8 place-items-center rounded-md bg-muted">
+                <UserRound className="size-4" aria-hidden="true" />
+              </span>
+              <span className="truncate text-sm leading-5 font-bold">空き枠</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg bg-background/70 p-3 text-center text-sm font-bold text-muted-foreground">
+          メンバー情報なし
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReconnectRoomMemberItem({ participant }: { participant: ReconnectableRoomParticipant }) {
+  const isHost = participant.kind === "host";
+  const isCpu = participant.kind === "cpu";
+
+  return (
+    <div className="grid min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background px-2.5 py-2">
+      <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
+        {isCpu ? (
+          <Bot className="size-4" aria-hidden="true" />
+        ) : isHost ? (
+          <Crown className="size-4" aria-hidden="true" />
+        ) : (
+          <UserRound className="size-4" aria-hidden="true" />
+        )}
+      </span>
+      <span className="truncate text-sm leading-5 font-bold text-card-foreground">
+        {participant.name}
+      </span>
+      <span className="rounded-md bg-muted px-2 py-1 text-[11px] leading-none font-bold text-muted-foreground">
+        {isCpu ? "CPU" : isHost ? "ホスト" : "ゲスト"}
+      </span>
+    </div>
   );
 }
 
