@@ -23,10 +23,18 @@ function applyNextCpuTurn(room: RoomState, options: CpuTurnOptions = {}): RoomSt
   }
 
   const game = GameStateSchema.parse(applyGameAction(room.game, action));
+  const participants =
+    game.phase === "finished"
+      ? room.participants.map((participant) => ({
+          ...participant,
+          ready: participant.kind === "cpu",
+        }))
+      : room.participants;
 
   return {
     ...room,
     status: game.phase,
+    participants,
     game,
   };
 }
