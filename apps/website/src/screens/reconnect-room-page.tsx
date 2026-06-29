@@ -1,23 +1,43 @@
-import { Link } from "@tanstack/react-router";
-import { ChevronRight, LogIn, Radio, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ChevronRight, LogIn, Radio, Trash2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { ReconnectableRoom } from "schema";
 import { PageHeader, PageIntro, PageShell } from "@/components/page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  activateRoomConnection,
-  getRoomConnections,
-  removeRoomConnection,
-  type RoomConnectionMetadata,
-} from "@/features/rooms/connection-token";
-import { endRoom } from "@/features/rooms/room-api";
+import { removeRoomConnection, saveRoomConnectionToken } from "@/features/rooms/connection-token";
+import { endRoom, getReconnectableRooms, reconnectRoom } from "@/features/rooms/room-api";
 
 function ReconnectRoomPage() {
-  const [roomConnections, setRoomConnections] = useState(() =>
-    typeof window === "undefined" ? [] : getRoomConnections(),
-  );
+  const [roomConnections, setRoomConnections] = useState<readonly ReconnectableRoom[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  function removeConnection(connection: RoomConnectionMetadata) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRooms() {
+      try {
+        const data = await getReconnectableRooms();
+
+        if (isMounted) {
+          setRoomConnections(data.rooms);
+          setStatus("ready");
+        }
+      } catch {
+        if (isMounted) {
+          setStatus("error");
+        }
+      }
+    }
+
+    void loadRooms();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  function removeConnection(connection: ReconnectableRoom) {
     removeRoomConnection({ playerId: connection.playerId, roomId: connection.roomId });
     setRoomConnections((connections) =>
       connections.filter(
@@ -31,13 +51,25 @@ function ReconnectRoomPage() {
     <PageShell>
       <PageHeader backLabel="ホームに戻る" backTo="/" title="ルーム復帰" />
       <PageIntro
-        description="保存済みの接続情報から、復帰したい対戦を選んでください。"
+        description="保存済みのルームから、復帰したい対戦を選んでください。"
         eyebrow="Reconnect"
         title="ルームを選択"
         titleId="reconnect-room-title"
       />
       <section className="grid gap-4" aria-label="復帰できるルーム">
-        {roomConnections.length > 0 ? (
+        {status === "loading" ? (
+          <ReconnectRoomMessage
+            description="復帰できるルームを確認しています。"
+            title="ルームを読み込み中"
+          />
+        ) : null}
+        {status === "error" ? (
+          <ReconnectRoomMessage
+            description="しばらくしてからもう一度開いてください。"
+            title="ルームを読み込めませんでした"
+          />
+        ) : null}
+        {status === "ready" && roomConnections.length > 0 ? (
           <div className="grid gap-3">
             {roomConnections.map((connection) => (
               <RoomConnectionCard
@@ -47,26 +79,8 @@ function ReconnectRoomPage() {
               />
             ))}
           </div>
-        ) : (
-          <Card className="border-primary/20 bg-primary/5 shadow-none">
-            <CardContent className="grid justify-items-center gap-4 px-4 py-5 text-center">
-              <span className="grid size-12 place-items-center rounded-lg bg-primary/10 text-primary">
-                <LogIn className="size-6" aria-hidden="true" />
-              </span>
-              <div className="grid gap-1.5">
-                <p className="text-base leading-snug font-extrabold">
-                  保存済みのルームはありません
-                </p>
-                <p className="mx-auto max-w-[22em] text-[13px] leading-5 text-muted-foreground">
-                  招待コードから参加すると、この画面に復帰先が表示されます。
-                </p>
-              </div>
-              <Button asChild size="lg" className="h-12 w-full text-base font-bold">
-                <Link to="/rooms/join">ルームに参加する</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+        ) : null}
+        {status === "ready" && roomConnections.length === 0 ? <EmptyReconnectRooms /> : null}
       </section>
     </PageShell>
   );
@@ -76,11 +90,37 @@ function RoomConnectionCard({
   connection,
   onRemoveConnection,
 }: {
-  connection: RoomConnectionMetadata;
-  onRemoveConnection: (connection: RoomConnectionMetadata) => void;
+  connection: ReconnectableRoom;
+  onRemoveConnection: (connection: ReconnectableRoom) => void;
 }) {
-  const [status, setStatus] = useState<"idle" | "ending" | "error">("idle");
-  const canEndRoom = connection.isHost || connection.playerId === "player-1";
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<"idle" | "reconnecting" | "ending" | "error">("idle");
+  const participantNames = connection.participants.map((participant) => participant.name);
+
+  async function reconnect() {
+    setStatus("reconnecting");
+
+    try {
+      const data = await reconnectRoom(connection.roomId);
+      saveRoomConnectionToken({
+        cpuCount: data.room.participants.filter((participant) => participant.kind === "cpu").length,
+        connectionToken: data.connectionToken,
+        isHost: data.playerId === data.room.hostPlayerId,
+        playerId: data.playerId,
+        playerCount: data.room.playerCount,
+        roomId: data.room.id,
+      });
+
+      await navigate({
+        to: "/rooms/play",
+        search: {
+          roomId: data.room.id,
+        },
+      });
+    } catch {
+      setStatus("error");
+    }
+  }
 
   async function endHostRoom() {
     setStatus("ending");
@@ -97,39 +137,42 @@ function RoomConnectionCard({
     <Card>
       <CardContent className="grid gap-3 p-3.5">
         <Button
-          asChild
           type="button"
           variant="ghost"
           className="h-auto min-h-16 w-full justify-start gap-3 rounded-lg px-0 py-0 text-left hover:bg-transparent"
+          disabled={status === "reconnecting" || status === "ending"}
+          onClick={() => {
+            void reconnect();
+          }}
         >
-          <Link
-            to="/rooms/play"
-            search={{
-              roomId: connection.roomId,
-            }}
-            className="rounded-lg"
-            onClick={() => activateRoomConnection(connection)}
-          >
-            <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <Radio className="size-5" aria-hidden="true" />
+          <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Radio className="size-5" aria-hidden="true" />
+          </span>
+          <span className="grid min-w-0 flex-1 gap-0.5">
+            <span className="text-base leading-snug font-bold text-card-foreground">
+              {status === "reconnecting" ? "再接続中" : "ルームに再接続"}
             </span>
-            <span className="grid min-w-0 flex-1 gap-0.5">
-              <span className="text-base leading-snug font-bold text-card-foreground">
-                ルームに再接続
-              </span>
-              <span className="truncate text-[13px] leading-5 font-normal text-muted-foreground">
-                ルームID {connection.roomId}
-              </span>
+            <span className="truncate text-[13px] leading-5 font-normal text-muted-foreground">
+              ルームID {connection.roomId}
             </span>
-            <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          </Link>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
-        {canEndRoom ? (
+        <div className="grid gap-2 rounded-lg bg-muted/55 px-3 py-2.5">
+          <span className="flex items-center gap-2 text-[12px] leading-4 font-bold text-muted-foreground">
+            <Users className="size-3.5" aria-hidden="true" />
+            ルームメンバー
+          </span>
+          <p className="text-sm leading-5 font-bold text-card-foreground">
+            {participantNames.length > 0 ? participantNames.join("、") : "メンバー情報なし"}
+          </p>
+        </div>
+        {connection.isHost ? (
           <div className="grid gap-2">
             <Button
               type="button"
               className="h-10 w-full gap-2 text-sm font-bold"
-              disabled={status === "ending"}
+              disabled={status === "reconnecting" || status === "ending"}
               onClick={() => {
                 void endHostRoom();
               }}
@@ -139,11 +182,50 @@ function RoomConnectionCard({
             </Button>
             {status === "error" ? (
               <p className="text-center text-[12px] leading-4 font-bold text-destructive">
-                ルームを終了できませんでした。
+                操作に失敗しました。
               </p>
             ) : null}
           </div>
         ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReconnectRoomMessage({ description, title }: { description: string; title: string }) {
+  return (
+    <Card className="border-primary/20 bg-primary/5 shadow-none">
+      <CardContent className="grid justify-items-center gap-2 px-4 py-5 text-center">
+        <span className="grid size-12 place-items-center rounded-lg bg-primary/10 text-primary">
+          <LogIn className="size-6" aria-hidden="true" />
+        </span>
+        <div className="grid gap-1.5">
+          <p className="text-base leading-snug font-extrabold">{title}</p>
+          <p className="mx-auto max-w-[22em] text-[13px] leading-5 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyReconnectRooms() {
+  return (
+    <Card className="border-primary/20 bg-primary/5 shadow-none">
+      <CardContent className="grid justify-items-center gap-4 px-4 py-5 text-center">
+        <span className="grid size-12 place-items-center rounded-lg bg-primary/10 text-primary">
+          <LogIn className="size-6" aria-hidden="true" />
+        </span>
+        <div className="grid gap-1.5">
+          <p className="text-base leading-snug font-extrabold">保存済みのルームはありません</p>
+          <p className="mx-auto max-w-[22em] text-[13px] leading-5 text-muted-foreground">
+            招待コードから参加すると、この画面に復帰先が表示されます。
+          </p>
+        </div>
+        <Button asChild size="lg" className="h-12 w-full text-base font-bold">
+          <Link to="/rooms/join">ルームに参加する</Link>
+        </Button>
       </CardContent>
     </Card>
   );

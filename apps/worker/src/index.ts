@@ -3,6 +3,7 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  ReconnectRoomResponseSchema,
   RoomStateSchema,
 } from "schema";
 import { createWorkerApp } from "./app.ts";
@@ -105,8 +106,35 @@ const app = createWorkerApp<Env>({
   async listMatchHistory(env, roomId, userId) {
     return createRoomRepository(env.DB).listMatchHistory(roomId, userId);
   },
+  async listReconnectableRooms(env, userId) {
+    return createRoomRepository(env.DB).listReconnectableRooms(userId);
+  },
   async listRoomHistory(env, userId) {
     return createRoomRepository(env.DB).listRoomHistory(userId);
+  },
+  async reconnectRoom(env, roomId, userId) {
+    const repository = createRoomRepository(env.DB);
+    const participant = await repository.findReconnectableParticipant(roomId, userId);
+
+    if (participant === null) {
+      return null;
+    }
+
+    const server = await getServerByName(env.RoomServer, roomId);
+    const response = await server.fetch(
+      createInternalRoomRequest({
+        body: JSON.stringify({ playerId: participant.playerId }),
+        method: "POST",
+        path: "/reconnect",
+        secret: env.ROOM_SERVER_SECRET,
+      }),
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return ReconnectRoomResponseSchema.parse(await response.json());
   },
   async saveRoom(env, roomId, room, userId) {
     const server = await getServerByName(env.RoomServer, roomId);

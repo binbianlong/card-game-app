@@ -2,6 +2,8 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  ReconnectRoomResponseSchema,
+  ReconnectableRoomsResponseSchema,
   RoomHistoryResponseSchema,
   RoomMatchHistoryResponseSchema,
   createClientEvent,
@@ -71,6 +73,31 @@ async function getRoomMatchHistory(roomId: string) {
   }
 
   return RoomMatchHistoryResponseSchema.parse(await response.json());
+}
+
+async function getReconnectableRooms() {
+  const response = await createRoomsClient().reconnectable.$get(undefined, createRequestOptions());
+
+  if (!response.ok) {
+    throw new Error("Failed to load reconnectable rooms.");
+  }
+
+  return ReconnectableRoomsResponseSchema.parse(await response.json());
+}
+
+async function reconnectRoom(roomId: string) {
+  const response = await createRoomsClient()[":roomId"].reconnect.$post(
+    {
+      param: { roomId },
+    },
+    createRequestOptions(),
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to reconnect room.");
+  }
+
+  return ReconnectRoomResponseSchema.parse(await response.json());
 }
 
 async function endRoom(roomId: string) {
@@ -157,10 +184,12 @@ export {
   createRoomConnectionTicket,
   createRoom,
   endRoom,
+  getReconnectableRooms,
   getRoomHistory,
   getRoomMatchHistory,
   getWorkerHost,
   getWorkerOrigin,
   joinRoom,
+  reconnectRoom,
   RoomConnectionTicketError,
 };

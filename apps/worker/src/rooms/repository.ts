@@ -7,6 +7,7 @@ import {
   type Card,
   type GameRuleSettings,
   type MatchHistoryItem,
+  type ReconnectableRoom,
   type RoomHistoryItem,
   type RoomState,
 } from "schema";
@@ -52,6 +53,73 @@ function createRoomRepository(database: D1Database) {
         .get();
 
       return row !== undefined;
+    },
+
+    async findReconnectableParticipant(roomId: string, userId: string) {
+      const row = await db
+        .select({
+          playerId: roomParticipants.playerId,
+        })
+        .from(roomParticipants)
+        .innerJoin(rooms, eq(roomParticipants.roomId, rooms.id))
+        .where(
+          and(
+            eq(roomParticipants.roomId, roomId),
+            eq(roomParticipants.userId, userId),
+            isNull(rooms.endedAt),
+          ),
+        )
+        .get();
+
+      return row ?? null;
+    },
+
+    async listReconnectableRooms(userId: string): Promise<readonly ReconnectableRoom[]> {
+      const participantRows = await db
+        .select({
+          roomId: roomParticipants.roomId,
+          playerId: roomParticipants.playerId,
+          playerCount: rooms.playerCount,
+          hostPlayerId: rooms.hostPlayerId,
+          createdAt: rooms.createdAt,
+        })
+        .from(roomParticipants)
+        .innerJoin(rooms, eq(roomParticipants.roomId, rooms.id))
+        .where(and(eq(roomParticipants.userId, userId), isNull(rooms.endedAt)))
+        .orderBy(desc(rooms.createdAt));
+
+      if (participantRows.length === 0) {
+        return [];
+      }
+
+      const roomIds = participantRows.map((participant) => participant.roomId);
+      const allParticipantRows = await db
+        .select({
+          roomId: roomParticipants.roomId,
+          name: roomParticipants.displayName,
+          kind: roomParticipants.kind,
+          joinedAt: roomParticipants.joinedAt,
+        })
+        .from(roomParticipants)
+        .where(inArray(roomParticipants.roomId, roomIds))
+        .orderBy(roomParticipants.joinedAt);
+
+      return participantRows.map((participant): ReconnectableRoom => {
+        const participants = allParticipantRows
+          .filter((candidate) => candidate.roomId === participant.roomId)
+          .map((candidate) => ({
+            name: candidate.name,
+            kind: candidate.kind,
+          }));
+
+        return {
+          roomId: participant.roomId,
+          playerId: participant.playerId,
+          playerCount: participant.playerCount,
+          isHost: participant.playerId === participant.hostPlayerId,
+          participants,
+        };
+      });
     },
 
     async saveRoomMetadata(room: RoomState, options: SaveRoomMetadataOptions = {}) {

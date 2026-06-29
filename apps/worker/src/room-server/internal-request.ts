@@ -3,7 +3,7 @@ const internalRoomServerSecretHeader = "x-room-server-secret";
 type InternalRoomRequestOptions = {
   body: string;
   method: "POST" | "PUT";
-  path: "/end" | "/join" | "/state" | "/ticket";
+  path: "/end" | "/join" | "/reconnect" | "/state" | "/ticket";
   secret: string;
 };
 

@@ -19,8 +19,10 @@ function createWorkerApp<Env extends WorkerBindings>({
   getRoomHistory,
   getSessionUser,
   joinRoom,
+  listReconnectableRooms,
   listMatchHistory,
   listRoomHistory,
+  reconnectRoom,
   saveRoom,
 }: CreateWorkerAppOptions<Env>) {
   const app = new Hono<{ Bindings: Env }>();
@@ -54,8 +56,10 @@ function createWorkerApp<Env extends WorkerBindings>({
       getRoomHistory,
       getSessionUser,
       joinRoom,
+      listReconnectableRooms,
       listMatchHistory,
       listRoomHistory,
+      reconnectRoom,
       saveRoom,
     }),
   );

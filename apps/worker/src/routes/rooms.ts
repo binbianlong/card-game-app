@@ -6,12 +6,16 @@ import {
   CreateConnectionTicketResponseSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  ReconnectRoomResponseSchema,
+  ReconnectableRoomsResponseSchema,
   RoomHistoryResponseSchema,
   RoomMatchHistoryResponseSchema,
   createServerEvent,
   getRoomWebSocketPath,
   type ClientEvent,
   type MatchHistoryItem,
+  type ReconnectRoomResponse,
+  type ReconnectableRoom,
   type RoomHistoryItem,
   type RoomState,
   type ServerErrorCode,
@@ -42,6 +46,12 @@ type RoomsRouteOptions<Env extends WorkerBindings> = {
   ) => Promise<string | null>;
   endRoom: (env: Env, roomId: string, userId: string) => Promise<RoomState | null>;
   findRoomByInviteCode: (env: Env, inviteCode: string) => Promise<RoomMetadata | null>;
+  listReconnectableRooms: (env: Env, userId: string) => Promise<readonly ReconnectableRoom[]>;
+  reconnectRoom: (
+    env: Env,
+    roomId: string,
+    userId: string,
+  ) => Promise<ReconnectRoomResponse | null>;
   getSessionUser: (env: Env, request: Request) => Promise<AuthenticatedUser | null>;
   joinRoom: (
     env: Env,
@@ -66,11 +76,26 @@ function createRoomsRoute<Env extends WorkerBindings>({
   getRoomHistory,
   getSessionUser,
   joinRoom,
+  listReconnectableRooms,
   listMatchHistory,
   listRoomHistory,
+  reconnectRoom,
   saveRoom,
 }: RoomsRouteOptions<Env>) {
   const route = new Hono<{ Bindings: Env }>()
+    .get("/reconnectable", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("reconnect rooms"), 401);
+      }
+
+      const rooms = await listReconnectableRooms(env, user.id);
+
+      return context.json(ReconnectableRoomsResponseSchema.parse({ rooms }));
+    })
+
     .get("/history", async (context) => {
       const env = context.env as Env;
       const user = await getSessionUser(env, context.req.raw);
@@ -181,6 +206,23 @@ function createRoomsRoute<Env extends WorkerBindings>({
       }
 
       return context.json(CreateConnectionTicketResponseSchema.parse({ ticket }));
+    })
+
+    .post("/:roomId/reconnect", async (context) => {
+      const env = context.env as Env;
+      const user = await getSessionUser(env, context.req.raw);
+
+      if (user === null) {
+        return context.json(createLoginRequiredError("reconnect rooms"), 401);
+      }
+
+      const data = await reconnectRoom(env, context.req.param("roomId"), user.id);
+
+      if (data === null) {
+        return context.json(createErrorEvent("notAllowed", "Cannot reconnect to this room."), 403);
+      }
+
+      return context.json(ReconnectRoomResponseSchema.parse(data));
     })
 
     .delete("/:roomId", async (context) => {

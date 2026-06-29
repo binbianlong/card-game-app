@@ -59,6 +59,10 @@ async function handleInternalRoomRequest({
     return Response.json(await handler.endRoom());
   }
 
+  if (request.method === "POST" && url.pathname === "/reconnect") {
+    return handleReconnectRoomRequest(request, handler);
+  }
+
   if (request.method === "POST" && url.pathname === "/ticket") {
     return handleCreateTicketRequest(request, handler);
   }
@@ -122,6 +126,45 @@ async function handleJoinRoomRequest(request: Request, handler: InternalRoomHand
     playerId,
     room: nextRoom,
     websocketPath: getRoomWebSocketPath(nextRoom.id),
+  });
+}
+
+async function handleReconnectRoomRequest(request: Request, handler: InternalRoomHandler) {
+  const body = await request.json().catch(() => null);
+  const playerId =
+    typeof body === "object" &&
+    body !== null &&
+    "playerId" in body &&
+    typeof body.playerId === "string"
+      ? body.playerId
+      : "";
+
+  if (playerId.length === 0) {
+    return Response.json(createErrorEvent("invalidEvent", "Reconnect request is required."), {
+      status: 400,
+    });
+  }
+
+  const room = await handler.getRoom();
+  const participant = room.participants.find((candidate) => candidate.id === playerId);
+
+  if (participant === undefined) {
+    return Response.json(createErrorEvent("notAllowed", "Player is not in this room."), {
+      status: 403,
+    });
+  }
+
+  if (room.status === "finished" && room.game === null) {
+    return Response.json(createErrorEvent("roomNotFound", "Room was not found."), {
+      status: 404,
+    });
+  }
+
+  return Response.json({
+    connectionToken: await handler.setConnectionToken(playerId),
+    playerId,
+    room,
+    websocketPath: getRoomWebSocketPath(room.id),
   });
 }
 
